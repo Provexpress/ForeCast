@@ -2015,62 +2015,42 @@ async function loadFolderFromSharePoint() {
 }
 
 let _siteId = null;
+let _driveId = null;
 async function getSiteId() {
   if(_siteId) return _siteId;
   const token = await getToken(['Files.Read.All']);
-  const paths = [
-    'provexpress.sharepoint.com:/sites/ProvexpressIntranet/comercial',
-    'provexpress.sharepoint.com:/sites/ProvexpressIntranet',
-    'provexpress.sharepoint.com',
-  ];
-  let lastError = '';
-  for(const path of paths) {
-    try {
-      const r = await fetch('https://graph.microsoft.com/v1.0/sites/' + path, {
-        headers: { Authorization: 'Bearer ' + token }
-      });
-      const d = await r.json();
-      console.log('[SITE]', path, JSON.stringify(d).slice(0,200));
-      if(d.id) { _siteId = d.id; return _siteId; }
-      lastError = JSON.stringify(d.error||d);
-    } catch(e) { lastError = e.message; }
-  }
-  // Intentar listar todos los sitios
-  try {
-    const r2 = await fetch('https://graph.microsoft.com/v1.0/sites?search=ProvexpressIntranet', {
-      headers: { Authorization: 'Bearer ' + token }
-    });
-    const d2 = await r2.json();
-    console.log('[SITE SEARCH]', JSON.stringify(d2).slice(0,500));
-    if(d2.value && d2.value.length > 0) {
-      _siteId = d2.value[0].id;
-      console.log('[SITE] Found via search:', _siteId);
-      return _siteId;
-    }
-  } catch(e) { console.warn('[SITE SEARCH] failed:', e); }
-  throw new Error('Site ID no encontrado. Revisa consola (F12) para detalles. Último error: ' + lastError);
+  const r = await fetch('https://graph.microsoft.com/v1.0/sites/provexpress.sharepoint.com:/sites/ProvexpressIntranet/comercial', {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  const d = await r.json();
+  if(!d.id) throw new Error('Site no encontrado: ' + JSON.stringify(d.error||d));
+  _siteId = d.id;
+  console.log('[SITE OK]', _siteId);
+  // Get drive ID for "Documentos compartidos"
+  const r2 = await fetch('https://graph.microsoft.com/v1.0/sites/' + _siteId + '/drives', {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  const d2 = await r2.json();
+  console.log('[DRIVES]', JSON.stringify(d2).slice(0,500));
+  const drive = (d2.value||[]).find(dv =>
+    dv.name === 'Documentos compartidos' || dv.name === 'Documents' || dv.name === 'Documentos'
+  );
+  if(drive) { _driveId = drive.id; console.log('[DRIVE OK]', drive.name, _driveId); }
+  else { console.warn('[DRIVE] not found, using default'); }
+  return _siteId;
 }
 
 async function loadDirectorFolder(siteId, folderName) {
   const token = await getToken(['Files.Read.All']);
   updateLoadingStatus('Cargando: ' + folderName + '...');
-  // Try multiple possible drive paths
-  const basePaths = [
-    'COMERCIAL/FORECAST 2026/' + folderName,
-    'Documentos compartidos/COMERCIAL/FORECAST 2026/' + folderName,
-    'Documentos/COMERCIAL/FORECAST 2026/' + folderName,
-    'FORECAST 2026/' + folderName,
-  ];
-  let r, d;
-  for(const basePath of basePaths) {
-    const url = 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodeURIComponent(basePath) + ':/children?$top=50';
-    console.log('[PATH TRY]', url);
-    r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-    d = await r.json();
-    if(d.value) { console.log('[PATH OK]', basePath); break; }
-    console.log('[PATH FAIL]', basePath, d.error&&d.error.code);
-  }
-  if(!r) return;
+  const folderPath = 'COMERCIAL/FORECAST 2026/' + folderName;
+  // Use specific drive if found, otherwise default drive
+  const driveBase = _driveId
+    ? 'https://graph.microsoft.com/v1.0/drives/' + _driveId + '/root:/' + encodeURIComponent(folderPath) + ':/children?$top=50'
+    : 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodeURIComponent(folderPath) + ':/children?$top=50';
+  console.log('[FOLDER]', driveBase);
+  const r = await fetch(driveBase, { headers: { Authorization: 'Bearer ' + token } });
+  const d = await r.json();
   const d = await r.json();
   if(!d.value) { console.warn('Sin archivos en', folderName, d); return; }
   const dirName = folderName.replace(/^(Grupo|Gupo)\s+/i,'').trim();
@@ -2093,7 +2073,7 @@ async function loadEjecutivoFile(siteId) {
     const token = await getToken(['Files.Read.All']);
     try {
       const r = await fetch(
-        'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodeURIComponent(path) + ':/children?$top=50',
+        _driveId ? 'https://graph.microsoft.com/v1.0/drives/' + _driveId + '/root:/' + encodeURIComponent('COMERCIAL/FORECAST 2026/' + folder) + ':/children?$top=50' : 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodeURIComponent(path) + ':/children?$top=50',
         { headers: { Authorization: 'Bearer ' + token } }
       );
       const d = await r.json();
