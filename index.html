@@ -2051,7 +2051,6 @@ async function loadDirectorFolder(siteId, folderName) {
   console.log('[FOLDER]', driveBase);
   const r = await fetch(driveBase, { headers: { Authorization: 'Bearer ' + token } });
   const d = await r.json();
-  const d = await r.json();
   if(!d.value) { console.warn('Sin archivos en', folderName, d); return; }
   const dirName = folderName.replace(/^(Grupo|Gupo)\s+/i,'').trim();
   if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
