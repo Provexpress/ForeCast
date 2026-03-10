@@ -1306,7 +1306,7 @@ function renderEvoChart(containerId, dataByDir){
    GERENCIA GENERAL
 ══════════════════════════════════════ */
 function renderGerencia(){
-  const ALL_DATA = getVisibleData();{
+  const ALL_DATA = getVisibleData();
   if(!ALL_DATA.length) return;
   const trm=getTRM();
   const today=todayStr();
@@ -1405,7 +1405,7 @@ function renderGerencia(){
    DIRECTOR
 ══════════════════════════════════════ */
 function renderDirector(){
-  const ALL_DATA = getVisibleData();{
+  const ALL_DATA = getVisibleData();
   if(!ALL_DATA.length) return;
   const dir=document.getElementById('sel-director').value;
   const mes=document.getElementById('sel-dir-mes').value;
@@ -1538,7 +1538,7 @@ function renderDirector(){
 function initials(name){return name.split(' ').slice(0,2).map(w=>w[0]).join('');}
 
 function renderEjecutivo(){
-  const ALL_DATA = getVisibleData();{
+  const ALL_DATA = getVisibleData();
   if(!ALL_DATA.length) return;
   const ej=document.getElementById('sel-ejecutivo').value;
   const mes=document.getElementById('sel-ej-mes').value;
@@ -1652,7 +1652,7 @@ function selectEjecutivo(name){
    DIVISAS
 ══════════════════════════════════════ */
 function renderDivisas(){
-  const ALL_DATA = getVisibleData();{
+  const ALL_DATA = getVisibleData();
   if(!ALL_DATA.length) return;
   const trm=getTRM();
   
@@ -1758,7 +1758,7 @@ function renderDivisas(){
    MARCAS
 ══════════════════════════════════════ */
 function renderMarcas(){
-  const ALL_DATA = getVisibleData();{
+  const ALL_DATA = getVisibleData();
   if(!ALL_DATA.length) return;
   const trm=getTRM();
   
@@ -1814,7 +1814,7 @@ function renderMarcas(){
    RESUMEN TOTAL
 ══════════════════════════════════════ */
 function renderResumen(){
-  const ALL_DATA = getVisibleData();{
+  const ALL_DATA = getVisibleData();
   if(!ALL_DATA.length) return;
   const trm=getTRM();
   
