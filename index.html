@@ -267,7 +267,7 @@ async function spLogin() {
   const email   = (profile.mail || profile.userPrincipalName || '').toLowerCase();
   const { role, directorGroup } = getUserRole(email);
   CURRENT_USER = { email, name: profile.displayName, role, directorGroup };
-  SP_TOKEN = await getToken(['https://provexpress.sharepoint.com/AllSites.Read', 'Files.Read.All']);
+  SP_TOKEN = await getToken(['Files.Read.All']);
   sessionStorage.setItem('forecast_user', JSON.stringify(CURRENT_USER));
   console.log('[AUTH]', email, role);
   return true;
@@ -2017,7 +2017,7 @@ async function loadFolderFromSharePoint() {
 let _siteId = null;
 async function getSiteId() {
   if(_siteId) return _siteId;
-  const token = await getToken(['https://provexpress.sharepoint.com/AllSites.Read', 'Files.Read.All']);
+  const token = await getToken(['Files.Read.All']);
   const paths = [
     'provexpress.sharepoint.com:/sites/ProvexpressIntranet/comercial',
     'provexpress.sharepoint.com:/sites/ProvexpressIntranet',
@@ -2053,7 +2053,7 @@ async function getSiteId() {
 
 async function loadDirectorFolder(siteId, folderName) {
   const path = AZURE_CONFIG.driveBase + '/' + folderName;
-  const token = await getToken(['https://provexpress.sharepoint.com/AllSites.Read', 'Files.Read.All']);
+  const token = await getToken(['Files.Read.All']);
   updateLoadingStatus('Cargando: ' + folderName + '...');
   const r = await fetch(
     'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodeURIComponent(path) + ':/children?$top=50',
@@ -2078,7 +2078,7 @@ async function loadEjecutivoFile(siteId) {
   const folders = ['Grupo Juan David Novoa','Grupo Maria Angelica Caballero','Grupo Oscar Beltran','Gupo Miller Romero'];
   for(const folder of folders) {
     const path = AZURE_CONFIG.driveBase + '/' + folder;
-    const token = await getToken(['https://provexpress.sharepoint.com/AllSites.Read', 'Files.Read.All']);
+    const token = await getToken(['Files.Read.All']);
     try {
       const r = await fetch(
         'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodeURIComponent(path) + ':/children?$top=50',
