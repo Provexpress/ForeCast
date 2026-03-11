@@ -445,6 +445,11 @@ function finalizeLoad(){
 
   // Status header (según visibilidad del rol)
   const visibleData = getVisibleData();
+  const directorList=[...new Set(visibleData.map(r=>(r['DIRECTOR']||'').trim()).filter(Boolean))].sort();
+  const executiveList=[...new Set(visibleData.map(r=>r['COMERCIAL']||'').filter(Boolean))].sort();
+  const execsWithData = [...new Set(visibleData.map(r=>(r['COMERCIAL']||'').trim()).filter(Boolean))];
+  document.getElementById('file-count-hd').textContent=
+    visibleData.length+' negocios · '+directorList.length+' dir · '+execsWithData.length+' ejecutivos con datos';
   const dirs=[...new Set(visibleData.map(r=>(r['DIRECTOR']||'').trim()).filter(Boolean))].sort();
   const execs=[...new Set(visibleData.map(r=>r['COMERCIAL']||'').filter(Boolean))].sort();
   const execsWithData = [...new Set(visibleData.map(r=>(r['COMERCIAL']||'').trim()).filter(Boolean))];
@@ -485,6 +490,7 @@ function finalizeLoad(){
   
   const execsFromFiles2=Object.values(LOADED_FILES_BY_DIR||{}).flat()
     .map(f=>f.name.replace(/\.(xlsx|xls)$/i,'').trim()).filter(Boolean);
+  const allExecsForSel=[...new Set([...executiveList,...execsFromFiles2])].sort();
   const allExecsForSel=[...new Set([...execs,...execsFromFiles2])].sort();
   const selEj=document.getElementById('sel-ejecutivo');
   selEj.innerHTML=allExecsForSel.map(e=>`<option value="${e}">${e}</option>`).join('');
@@ -1564,3 +1570,10 @@ window.addEventListener('DOMContentLoaded', () => {
     loadFolderFromSharePoint();
   });
 });
+
+// Exponer handlers usados por atributos inline (onclick/onchange) en index.html
+window.loadFolderFromSharePoint = loadFolderFromSharePoint;
+window.showPage = showPage;
+window.renderDirector = renderDirector;
+window.renderEjecutivo = renderEjecutivo;
+window.selectEjecutivo = selectEjecutivo;
