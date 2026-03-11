@@ -133,8 +133,8 @@ select:hover,select:focus{border-color:var(--corp-blue2)}
 .bar-val{font-size:10px;font-weight:600;color:rgba(255,255,255,.85);white-space:nowrap;font-family:var(--font-mono)}
 
 /* ── DONUT ── */
-.donut-wrap{display:flex;align-items:center;gap:16px}
-.donut-leg{flex:1;display:flex;flex-direction:column;gap:7px}
+.donut-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0}
+.donut-leg{display:flex;flex-direction:column;gap:8px;width:100%}
 .leg-item{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text3)}
 .leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .leg-pct{margin-left:auto;font-family:var(--font-mono);font-size:11px;font-weight:600}
@@ -568,14 +568,14 @@ function hideLoadingOverlay(){ const ov=document.getElementById('load-overlay');
       <div class="chart-card">
         <div class="chart-hd">Estado Pipeline</div>
         <div class="donut-wrap">
-          <svg id="donut-estado" viewBox="0 0 100 100" style="width:90px;height:90px;flex-shrink:0"></svg>
+          <svg id="donut-estado" viewBox="0 0 100 100" style="width:160px;height:160px;flex-shrink:0"></svg>
           <div class="donut-leg" id="leg-estado"></div>
         </div>
       </div>
       <div class="chart-card">
         <div class="chart-hd">Top Líneas</div>
         <div class="donut-wrap">
-          <svg id="donut-linea" viewBox="0 0 100 100" style="width:90px;height:90px;flex-shrink:0"></svg>
+          <svg id="donut-linea" viewBox="0 0 100 100" style="width:160px;height:160px;flex-shrink:0"></svg>
           <div class="donut-leg" id="leg-linea"></div>
         </div>
       </div>
@@ -699,14 +699,14 @@ function hideLoadingOverlay(){ const ov=document.getElementById('load-overlay');
     <div class="chart-card">
       <div class="chart-hd">% por Marca</div>
       <div class="donut-wrap">
-        <svg id="donut-marca" viewBox="0 0 100 100" style="width:90px;height:90px;flex-shrink:0"></svg>
+        <svg id="donut-marca" viewBox="0 0 100 100" style="width:160px;height:160px;flex-shrink:0"></svg>
         <div class="donut-leg" id="leg-marca"></div>
       </div>
     </div>
     <div class="chart-card">
       <div class="chart-hd">% por Línea</div>
       <div class="donut-wrap">
-        <svg id="donut-linea2" viewBox="0 0 100 100" style="width:90px;height:90px;flex-shrink:0"></svg>
+        <svg id="donut-linea2" viewBox="0 0 100 100" style="width:160px;height:160px;flex-shrink:0"></svg>
         <div class="donut-leg" id="leg-linea2"></div>
       </div>
     </div>
@@ -1280,7 +1280,7 @@ function renderDonut(svgId, legId, items){
   
   leg.innerHTML=items.slice(0,6).map((it,i)=>{
     const pct=((it.val/total)*100).toFixed(1);
-    return `<div class="leg-item"><div class="leg-dot" style="background:${COLORS[i%COLORS.length]}"></div><span title="${it.name}">${it.name.substring(0,14)}</span><span class="leg-pct">${pct}%</span></div>`;
+    return `<div class="leg-item" style="display:flex;align-items:center;gap:8px;font-size:12px"><div class="leg-dot" style="background:${COLORS[i%COLORS.length]};width:10px;height:10px;border-radius:50%;flex-shrink:0"></div><span title="${it.name}" style="flex:1;color:var(--text2)">${it.name.substring(0,18)}</span><span class="leg-pct" style="color:var(--text);font-family:var(--font-mono);font-weight:600">${pct}%</span></div>`;
   }).join('');
 }
 
@@ -1616,7 +1616,7 @@ function renderDirector(){
       <div class="chart-card">
         <div class="chart-hd">Estado Pipeline</div>
         <div class="donut-wrap">
-          <svg id="donut-dir-est" viewBox="0 0 100 100" style="width:80px;height:80px;flex-shrink:0"></svg>
+          <svg id="donut-dir-est" viewBox="0 0 100 100" style="width:130px;height:130px;flex-shrink:0"></svg>
           <div class="donut-leg" id="leg-dir-est"></div>
         </div>
       </div>
@@ -1733,7 +1733,7 @@ function renderEjecutivo(){
       <div class="chart-card">
         <div class="chart-hd">Estado Negocios</div>
         <div class="donut-wrap">
-          <svg id="donut-ej-est" viewBox="0 0 100 100" style="width:80px;height:80px;flex-shrink:0"></svg>
+          <svg id="donut-ej-est" viewBox="0 0 100 100" style="width:130px;height:130px;flex-shrink:0"></svg>
           <div class="donut-leg" id="leg-ej-est"></div>
         </div>
       </div>
