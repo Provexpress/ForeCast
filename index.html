@@ -669,12 +669,12 @@ function hideLoadingOverlay(){ const ov=document.getElementById('load-overlay');
 
   <div class="g2">
     <div class="chart-card">
-      <div class="chart-hd">Negocios USD — Detalle <span>valor + liquidado en COP</span></div>
-      <div class="tbl-wrap" id="tbl-usd"></div>
-    </div>
-    <div class="chart-card">
       <div class="chart-hd">Negocios COP — Detalle</div>
       <div class="tbl-wrap" id="tbl-cop"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-hd">Negocios USD — Detalle <span>valor + liquidado en COP</span></div>
+      <div class="tbl-wrap" id="tbl-usd"></div>
     </div>
   </div>
 
@@ -1292,7 +1292,7 @@ function renderEvoChart(containerId, dataByDir){
   const nDirs=dirs.length;
   const allVals=dirs.flatMap(d=>months.map(m=>dataByDir[d][m]||0));
   const maxVal=Math.max(...allVals,1);
-  const W=520,H=150,padL=56,padR=12,padT=20,padB=36;
+  const W=520,H=200,padL=56,padR=12,padT=20,padB=36;
   const gW=W-padL-padR, gH=H-padT-padB;
   const grpW=gW/months.length;
   const barW=Math.min(18, (grpW-8)/Math.max(nDirs,1));
@@ -1317,8 +1317,7 @@ function renderEvoChart(containerId, dataByDir){
       const bh=Math.max(v/maxVal*gH, v>0?2:0);
       const x=grpCenter - totalBarW/2 + di*(barW+gap);
       const y=padT+gH-bh;
-      svg+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${bh.toFixed(1)}" rx="2" fill="url(#bg${di})"/>`;
-      if(v>0) svg+=`<text x="${(x+barW/2).toFixed(1)}" y="${(y-3).toFixed(1)}" text-anchor="middle" font-size="6.5" fill="${COLORS[di%COLORS.length]}" font-family="IBM Plex Mono,monospace">${abr(v)}</text>`;
+      svg+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${bh.toFixed(1)}" rx="2" fill="url(#bg${di})"><title>${dirs[di]}: ${abr(v)}</title></rect>`;
     });
     // Month label
     svg+=`<text x="${grpCenter.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="9" fill="#7A8AAA" font-family="IBM Plex Sans,sans-serif" font-weight="600">${MES_LABELS[m]||m}</text>`;
@@ -1537,23 +1536,25 @@ function renderDirector(){
     const months=Object.keys(evoMonths);
     const vals=Object.values(evoMonths);
     const maxV=Math.max(...vals,1);
-    const W=400,H=100,padL=40,padR=10,padT=15,padB=25;
+    const W=400,H=140,padL=44,padR=10,padT=16,padB=28;
     const gW=W-padL-padR,gH=H-padT-padB;
-    let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">`;
-    const pts=months.map((m,i)=>{
-      const x=padL+(i/(months.length-1))*gW;
-      const y=padT+gH*(1-vals[i]/maxV);
-      return {x,y,v:vals[i],m};
+    const bW=Math.min(36,(gW/months.length)-12);
+    let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;overflow:visible">`;
+    s+=`<defs><linearGradient id="bg-dir" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2D7BF7" stop-opacity=".9"/><stop offset="100%" stop-color="#2D7BF7" stop-opacity=".35"/></linearGradient></defs>`;
+    // Grid
+    [0,.5,1].forEach(t=>{
+      const y=padT+gH*(1-t);
+      s+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#1A2240" stroke-width="${t===0?1.5:.6}"/>`;
+      if(t>0) s+=`<text x="${padL-4}" y="${y+3}" text-anchor="end" font-size="7.5" fill="#4A5A7A" font-family="IBM Plex Mono,monospace">${abr(maxV*t)}</text>`;
     });
-    const pathD=pts.map((p,i)=>`${i===0?'M':'L'}${p.x},${p.y}`).join(' ');
-    const fillD=pathD+` L${pts[pts.length-1].x},${padT+gH} L${padL},${padT+gH} Z`;
-    s+=`<path d="${fillD}" fill="url(#grad-dir)" opacity=".3"/>`;
-    s+=`<defs><linearGradient id="grad-dir" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2D7BF7"/><stop offset="100%" stop-color="#2D7BF700"/></linearGradient></defs>`;
-    s+=`<polyline points="${pts.map(p=>p.x+','+p.y).join(' ')}" fill="none" stroke="#2D7BF7" stroke-width="2" stroke-linejoin="round"/>`;
-    pts.forEach(p=>{
-      s+=`<circle cx="${p.x}" cy="${p.y}" r="4" fill="#2D7BF7" stroke="#0B0F1E" stroke-width="2"/>`;
-      s+=`<text x="${p.x}" y="${H-4}" text-anchor="middle" font-size="9" fill="#5A6A8A" font-family="IBM Plex Sans">${MES_LABELS[p.m]}</text>`;
-      s+=`<text x="${p.x}" y="${p.y-8}" text-anchor="middle" font-size="7.5" fill="#8A9ABC" font-family="IBM Plex Mono">${abr(p.v)}</text>`;
+    months.forEach((m,i)=>{
+      const v=vals[i]||0;
+      const bh=Math.max(v/maxV*gH, v>0?2:0);
+      const cx=padL+(i+0.5)*(gW/months.length);
+      const x=cx-bW/2;
+      const y=padT+gH-bh;
+      s+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${bh.toFixed(1)}" rx="3" fill="url(#bg-dir)"><title>${MES_LABELS[m]||m}: ${abr(v)}</title></rect>`;
+      s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#7A8AAA" font-family="IBM Plex Sans,sans-serif" font-weight="600">${MES_LABELS[m]||m}</text>`;
     });
     s+='</svg>';
     return s;
@@ -1632,8 +1633,9 @@ function renderDirector(){
     </div>
   `;
   
-  // Donut estado director
-  const estD=['GANADA','PENDIENTE','PEDIDA','APLAZADO'].map(e=>({name:e,val:data.filter(r=>r['ESTADO']===e).length}));
+  // Donut estado director — usar datos sin filtro de estado para mostrar distribución real
+  const dataForDonut=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir && (!mes||getMonth(r['FECHA DIA/MES/AÑO'])===mes));
+  const estD=['GANADA','PENDIENTE','PEDIDA','APLAZADO'].map(e=>({name:e,val:dataForDonut.filter(r=>r['ESTADO']===e).reduce((s,r)=>s+toCOP(r),0)}));
   renderDonut('donut-dir-est','leg-dir-est',estD);
 }
 
