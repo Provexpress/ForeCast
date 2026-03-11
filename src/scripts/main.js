@@ -411,13 +411,12 @@ function finalizeLoad(){
   const hs = document.getElementById('hoy-strip');
   if(hs) hs.style.display='block';
 
-  // Status header (según visibilidad del rol)
-  const visibleData = getVisibleData();
-  const dirs=[...new Set(visibleData.map(r=>(r['DIRECTOR']||'').trim()).filter(Boolean))].sort();
-  const execs=[...new Set(visibleData.map(r=>r['COMERCIAL']||'').filter(Boolean))].sort();
-  const execsWithData = [...new Set(visibleData.map(r=>(r['COMERCIAL']||'').trim()).filter(Boolean))];
+  // Status header
+  const dirs=[...new Set(ALL_DATA.map(r=>(r['DIRECTOR']||'').trim()).filter(Boolean))].sort();
+  const execs=[...new Set(ALL_DATA.map(r=>r['COMERCIAL']||'').filter(Boolean))].sort();
+  const execsWithData = [...new Set(ALL_DATA.map(r=>(r['COMERCIAL']||'').trim()).filter(Boolean))];
   document.getElementById('file-count-hd').textContent=
-    visibleData.length+' negocios · '+dirs.length+' dir · '+execsWithData.length+' ejecutivos con datos';
+    ALL_DATA.length+' negocios · '+dirs.length+' dir · '+execsWithData.length+' ejecutivos con datos';
   const now = new Date();
   document.getElementById('last-update-hd').textContent=
     'Actualizado: '+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})+' · '+
@@ -439,7 +438,7 @@ function finalizeLoad(){
   // Populate selects
   const selDir=document.getElementById('sel-director');
   const dirsForSel=[...new Set([
-    ...visibleData.map(r=>(r['DIRECTOR']||'').trim()),
+    ...ALL_DATA.map(r=>(r['DIRECTOR']||'').trim()),
     ...Object.keys(LOADED_FILES_BY_DIR||{}).map(d=>d.trim())
   ].filter(Boolean))].sort();
   selDir.innerHTML=dirsForSel.map(d=>`<option value="${d}">${d}</option>`).join('');
@@ -1497,13 +1496,11 @@ function applyRoleTabs() {
   if(role === 'ejecutivo') {
     tabs.gerencia && (tabs.gerencia.style.display = 'none');
     tabs.director && (tabs.director.style.display = 'none');
-    tabs.divisas  && (tabs.divisas.style.display  = 'none');
-    tabs.marcas   && (tabs.marcas.style.display   = 'none');
     tabs.resumen  && (tabs.resumen.style.display  = 'none');
     showPage('ejecutivo', tabs.ejecutivo);
   } else if(role === 'director') {
     tabs.gerencia && (tabs.gerencia.style.display = 'none');
-    tabs.ejecutivo&& (tabs.ejecutivo.style.display= 'none');
+    tabs.resumen  && (tabs.resumen.style.display  = 'none');
     showPage('director', tabs.director);
   } else {
     // gerencia / gerencia_director — ven todo
