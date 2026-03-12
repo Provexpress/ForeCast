@@ -3,6 +3,7 @@
 ══════════════════════════════════════ */
 let ALL_DATA = [];
 let TRM = 4150;
+let SELECTED_EXEC_BY_DIR = {};
 
 async function fetchTRM() {
   const setTRM = t => {
@@ -857,7 +858,8 @@ function renderDirector(){
     const hasD=ejData.length>0;
     const c=COLORS[i%COLORS.length];
     const ini=e.split(' ').slice(0,2).map(w=>w[0]).join('');
-    return `<div class="kpi" style="--ac:${c};min-width:160px;opacity:${hasD?1:.55}">
+    const isSelected=(SELECTED_EXEC_BY_DIR[dir]||'')===e;
+    return `<div class="kpi exec-card ${isSelected?'selected':''}" style="--ac:${c};min-width:160px;opacity:${hasD?1:.55}" onclick="selectDirectorExec('${e}')">
       <div class="kpi-accent"></div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <div style="width:30px;height:30px;border-radius:50%;background:${c}30;border:1px solid ${c}60;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:700;color:${c}">${ini}</div>
@@ -870,6 +872,50 @@ function renderDirector(){
       <div class="kpi-sub">${hasD?ejGan+' ganadas':'Pendiente'}</div>
     </div>`;
   }).join('');
+
+  const selectedExec = SELECTED_EXEC_BY_DIR[dir] || '';
+  const execData = selectedExec ? data.filter(r=>(r['COMERCIAL']||'').trim()===selectedExec) : [];
+  const execTotalCOP = execData.reduce((s,r)=>s+toCOP(r),0);
+  const execTotalUSD = execData.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
+  const execGanadas = execData.filter(r=>r['ESTADO']==='GANADA');
+  const execKPIs = selectedExec ? `
+    <div class="section-hd" style="margin-top:14px">
+      <h2>${selectedExec}</h2>
+      <span class="section-tag">EJECUTIVO</span>
+      <button class="btn-clear" onclick="clearDirectorExec()">Ver todo el equipo</button>
+    </div>
+    <div class="kpi-grid kpi-grid-4" style="margin-bottom:16px">
+      <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Total COP</div>
+        <div class="kpi-val">${abr(execTotalCOP)}</div>
+        <div class="kpi-sub">${fmtCOP(execTotalCOP)}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--usd-color)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Total USD</div>
+        <div class="kpi-val">${fmtUSD(execTotalUSD)}</div>
+        <div class="kpi-sub">Liq: ${abr(execTotalUSD*trm)}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Ganadas</div>
+        <div class="kpi-val">${execGanadas.length}</div>
+        <div class="kpi-sub">${abr(execGanadas.reduce((s,r)=>s+toCOP(r),0))}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-amber)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Negocios</div>
+        <div class="kpi-val">${execData.length}</div>
+        <div class="kpi-sub">Director: ${dir}</div>
+      </div>
+    </div>
+    <div class="chart-card g1">
+      <div class="chart-hd">Detalle de Negocios — ${selectedExec}</div>
+      ${execData.length ? buildTable(execData) : `<div style="font-size:11px;color:var(--text2)">Sin registros para este filtro.</div>`}
+    </div>
+  ` : `
+    <div class="chart-card g1">
+      <div class="chart-hd">Detalle de Negocios</div>
+      ${buildTable(data.slice(0,30))}
+    </div>
+  `;
   
   document.getElementById('director-content').innerHTML=`
     <div class="section-hd"><h2>${dir}</h2><span class="section-tag">DIRECTOR</span></div>
@@ -915,11 +961,7 @@ function renderDirector(){
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:18px">
       ${ejCards}
     </div>
-    
-    <div class="chart-card g1">
-      <div class="chart-hd">Detalle de Negocios</div>
-      ${buildTable(data.slice(0,30))}
-    </div>
+    ${execKPIs}
   `;
   attachChartTooltips(document.getElementById('director-content'));
   
@@ -927,6 +969,19 @@ function renderDirector(){
   const dataForDonut=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir && (!mes||getMonth(r['FECHA DIA/MES/AÑO'])===mes));
   const estD=['GANADA','PENDIENTE','PERDIDA','APLAZADO'].map(e=>({name:e,val:dataForDonut.filter(r=>r['ESTADO']===e).reduce((s,r)=>s+toCOP(r),0)}));
   renderDonut('donut-dir-est','leg-dir-est',estD);
+}
+
+function selectDirectorExec(name){
+  const dir=document.getElementById('sel-director').value;
+  if(!dir) return;
+  SELECTED_EXEC_BY_DIR[dir]=name;
+  renderDirector();
+}
+
+function clearDirectorExec(){
+  const dir=document.getElementById('sel-director').value;
+  if(dir) delete SELECTED_EXEC_BY_DIR[dir];
+  renderDirector();
 }
 
 /* ══════════════════════════════════════

@@ -147,6 +147,13 @@ nav::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
 .section-hd h2{font-family:var(--font-display);font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px}
 .section-hd p{font-size:11px;color:var(--text2)}
 .section-tag{font-size:9px;font-family:var(--font-display);font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;border-radius:20px;background:rgba(107,63,160,.15);color:var(--corp-purple2);border:1px solid rgba(107,63,160,.3)}
+.btn-clear{
+  margin-left:auto;padding:6px 10px;border-radius:8px;
+  background:rgba(45,79,214,.12);border:1px solid rgba(45,79,214,.35);
+  color:var(--corp-blue2);font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:.6px;
+  cursor:pointer;transition:var(--transition);text-transform:uppercase;
+}
+.btn-clear:hover{background:rgba(45,79,214,.2)}
 
 /* ── FILTERS ── */
 .filters{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap;align-items:flex-end}
@@ -174,6 +181,8 @@ select:hover,select:focus{border-color:var(--corp-blue2);color:var(--text);box-s
   transition:var(--transition);cursor:default;
   animation:kpiIn .38s var(--ease-out) both;
 }
+.kpi.exec-card{cursor:pointer}
+.kpi.exec-card.selected{border-color:var(--corp-blue2);box-shadow:0 0 0 1px var(--corp-blue2),0 12px 32px rgba(45,79,214,.25)}
 .kpi:nth-child(1){animation-delay:.05s}
 .kpi:nth-child(2){animation-delay:.1s}
 .kpi:nth-child(3){animation-delay:.15s}
