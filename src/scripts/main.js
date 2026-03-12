@@ -12,6 +12,17 @@ async function fetchTRM() {
     if(inp) inp.value = Math.round(TRM);
     console.log('[TRM]', TRM);
   };
+  // Source 0: Banco de la República (SDMX). Banrep no expone CORS, usamos proxy raw.
+  try {
+    const banrepUrl = 'https://totoro.banrep.gov.co/nsi-jax-ws/rest/data/ESTAT,DF_TRM_DAILY_LATEST,1.0/all/ALL/?dimensionAtObservation=TIME_PERIOD&detail=full';
+    const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(banrepUrl);
+    const r0 = await fetch(proxyUrl, {cache:'no-store'});
+    const xmlTxt = await r0.text();
+    const xml = new DOMParser().parseFromString(xmlTxt, 'text/xml');
+    const obs = xml.getElementsByTagName('generic:ObsValue')[0] || xml.getElementsByTagName('ObsValue')[0];
+    const t0 = obs ? parseFloat(obs.getAttribute('value')) : NaN;
+    if(t0 > 100) { setTRM(t0); return; }
+  } catch(e0) { console.warn('[TRM] banrep failed', e0.message); }
   // Source 1: frankfurter.app (CORS ok, data del BCE)
   try {
     const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=COP');
