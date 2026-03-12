@@ -59,6 +59,9 @@ function abr(v){
   if(v>=1e3)  return '$ '+(v/1e3).toFixed(0)+' K';
   return '$ '+Math.round(v).toLocaleString('es-CO');
 }
+function escAttr(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
 
 function normalizePersonName(v){
   return (v||'')
@@ -146,6 +149,58 @@ function normalizeEstado(v){
   const s = String(v).trim().toUpperCase();
   if(s === 'PEDIDA') return 'PERDIDA';
   return s;
+}
+
+let _chartTooltip = null;
+function getChartTooltip(){
+  if(_chartTooltip) return _chartTooltip;
+  const tip = document.createElement('div');
+  tip.className = 'chart-tooltip';
+  tip.setAttribute('role','tooltip');
+  document.body.appendChild(tip);
+  _chartTooltip = tip;
+  return tip;
+}
+
+function positionChartTooltip(e, tip){
+  const pad = 10;
+  let x = e.clientX + 14;
+  let y = e.clientY - 12;
+  tip.style.left = x + 'px';
+  tip.style.top = y + 'px';
+  const r = tip.getBoundingClientRect();
+  if(r.right > window.innerWidth - pad) {
+    x = window.innerWidth - r.width - pad;
+  }
+  if(r.top < pad) {
+    y = e.clientY + 18;
+  }
+  tip.style.left = x + 'px';
+  tip.style.top = y + 'px';
+}
+
+function attachChartTooltips(container){
+  if(!container) return;
+  const nodes = container.querySelectorAll('[data-tooltip]');
+  if(!nodes.length) return;
+  const tip = getChartTooltip();
+  nodes.forEach(node => {
+    if(node.dataset.ttBound) return;
+    node.dataset.ttBound = '1';
+    node.addEventListener('pointerenter', e => {
+      const text = node.getAttribute('data-tooltip');
+      if(!text) return;
+      tip.textContent = text;
+      tip.classList.add('show');
+      positionChartTooltip(e, tip);
+    });
+    node.addEventListener('pointermove', e => {
+      if(tip.classList.contains('show')) positionChartTooltip(e, tip);
+    });
+    node.addEventListener('pointerleave', () => {
+      tip.classList.remove('show');
+    });
+  });
 }
 
 function toCOP(row){
@@ -550,7 +605,7 @@ function renderEvoChart(containerId, dataByDir){
       const bh=Math.max(v/maxVal*gH, v>0?2:0);
       const x=grpCenter - totalBarW/2 + di*(barW+gap);
       const y=padT+gH-bh;
-      svg+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${bh.toFixed(1)}" rx="2" fill="url(#bg${di})"><title>${dirs[di]}: ${abr(v)}</title></rect>`;
+      svg+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${bh.toFixed(1)}" rx="2" fill="url(#bg${di})" data-tooltip="${escAttr(dirs[di]+': '+abr(v))}"></rect>`;
     });
     // Month label
     svg+=`<text x="${grpCenter.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="9" fill="#7A8AAA" font-family="IBM Plex Sans,sans-serif" font-weight="600">${MES_LABELS[m]||m}</text>`;
@@ -568,6 +623,7 @@ function renderEvoChart(containerId, dataByDir){
 
   svg+='</svg>';
   el.innerHTML=svg;
+  attachChartTooltips(el);
 }
 
 /* ══════════════════════════════════════
@@ -786,7 +842,7 @@ function renderDirector(){
       const cx=padL+(i+0.5)*(gW/months.length);
       const x=cx-bW/2;
       const y=padT+gH-bh;
-      s+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${bh.toFixed(1)}" rx="3" fill="url(#bg-dir)"><title>${MES_LABELS[m]||m}: ${abr(v)}</title></rect>`;
+      s+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${bh.toFixed(1)}" rx="3" fill="url(#bg-dir)" data-tooltip="${escAttr((MES_LABELS[m]||m)+': '+abr(v))}"></rect>`;
       s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#7A8AAA" font-family="IBM Plex Sans,sans-serif" font-weight="600">${MES_LABELS[m]||m}</text>`;
     });
     s+='</svg>';
@@ -865,6 +921,7 @@ function renderDirector(){
       ${buildTable(data.slice(0,30))}
     </div>
   `;
+  attachChartTooltips(document.getElementById('director-content'));
   
   // Donut estado director — usar datos sin filtro de estado para mostrar distribución real
   const dataForDonut=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir && (!mes||getMonth(r['FECHA DIA/MES/AÑO'])===mes));
