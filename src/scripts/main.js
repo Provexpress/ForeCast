@@ -3,11 +3,13 @@
 ══════════════════════════════════════ */
 let ALL_DATA = [];
 let TRM = 4150;
+let TRM_READY = false;
 let SELECTED_EXEC_BY_DIR = {};
 
 async function fetchTRM() {
   const setTRM = t => {
     TRM = t;
+    TRM_READY = true;
     const inp = document.getElementById('trm-input');
     if(inp) inp.value = Number(TRM).toFixed(2);
     if(ALL_DATA.length) renderAll();
@@ -15,7 +17,7 @@ async function fetchTRM() {
   };
   // Source 0: Portal Banrep (HTML) para calzar con el valor publicado
   try {
-    const pageUrl = 'https://totoro.banrep.gov.co/estadisticas-economicas/';
+    const pageUrl = 'https://totoro.banrep.gov.co/estadisticas-economicas/?cb=' + Date.now();
     const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(pageUrl);
     const r0 = await fetch(proxyUrl, {cache:'no-store'});
     const html = await r0.text();
@@ -42,28 +44,7 @@ async function fetchTRM() {
       setTRM(t1); return;
     }
   } catch(e1) { console.warn('[TRM] banrep sdmx failed', e1.message); }
-  // Source 1: frankfurter.app (CORS ok, data del BCE)
-  try {
-    const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=COP');
-    const d = await r.json();
-    const t = d.rates && d.rates.COP;
-    if(t > 100) { setTRM(t); return; }
-  } catch(e) { console.warn('[TRM] frankfurter failed', e.message); }
-  // Source 2: open.er-api.com (gratis, CORS ok)
-  try {
-    const r2 = await fetch('https://open.er-api.com/v6/latest/USD');
-    const d2 = await r2.json();
-    const t2 = d2.rates && d2.rates.COP;
-    if(t2 > 100) { setTRM(t2); return; }
-  } catch(e2) { console.warn('[TRM] open.er-api failed', e2.message); }
-  // Source 3: cdn.jsdelivr proxy to exchangerate
-  try {
-    const r3 = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
-    const d3 = await r3.json();
-    const t3 = d3.usd && d3.usd.cop;
-    if(t3 > 100) { setTRM(t3); return; }
-  } catch(e3) { console.warn('[TRM] jsdelivr failed', e3.message); }
-  console.warn('[TRM] all sources failed, using default', TRM);
+  console.warn('[TRM] banrep sources failed, keeping current TRM', TRM);
 }
 
 const COLORS = [
@@ -84,6 +65,9 @@ function fmtUSD(v){
 function fmtTRM(v){
   if(v===null||v===undefined||isNaN(v)) return 'â€”';
   return Number(v).toLocaleString('es-CO',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function fmtTRMDisplay(v){
+  return TRM_READY ? fmtTRM(v) : 'â€”';
 }
 function fmtNum(v){return Math.round(v).toLocaleString('es-CO')}
 function fmtPct(v){return (v*100).toFixed(1)+'%'}
@@ -456,6 +440,7 @@ async function processFiles(files){
 
 // TRM change
 document.getElementById('trm-input').addEventListener('input',function(){
+  TRM_READY = true;
   TRM=getTRM();
   if(ALL_DATA.length) renderAll();
 });
@@ -684,7 +669,7 @@ function renderGerencia(){
   document.getElementById('hoy-cop').textContent=fmtCOP(hoyCOP);
   document.getElementById('hoy-usd').textContent=fmtCOP(hoyUSD*trm);
   document.getElementById('hoy-count').textContent=hoy.length;
-  document.getElementById('hoy-trm').textContent='$ '+fmtTRM(trm);
+  document.getElementById('hoy-trm').textContent='$ '+fmtTRMDisplay(trm);
   
   // Total COP (all)
   const totalCOP=ALL_DATA.reduce((s,r)=>s+toCOP(r),0);
@@ -718,7 +703,7 @@ function renderGerencia(){
     </div>
     <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
       <div class="kpi-label">TRM Día</div>
-      <div class="kpi-val">$ ${fmtTRM(trm)}</div>
+      <div class="kpi-val">$ ${fmtTRMDisplay(trm)}</div>
       <div class="kpi-sub">COP por USD</div>
     </div>
   `;
@@ -1179,7 +1164,7 @@ function renderDivisas(){
     <div class="divisa-card usd">
       <div class="divisa-label" style="color:var(--usd-color)"><span class="flag">🇺🇸</span> USD — Dólar Americano</div>
       <div class="divisa-main" style="color:var(--usd-color)">${fmtUSD(totalUSD)}</div>
-      <div class="divisa-sub">TRM ${fmtTRM(trm)} → Liquidado ${abr(usdLiqCOP)}</div>
+      <div class="divisa-sub">TRM ${fmtTRMDisplay(trm)} → Liquidado ${abr(usdLiqCOP)}</div>
       <div class="divisa-stats">
         <div><div class="d-stat-label">Negocios</div><div class="d-stat-val" style="color:var(--usd-color)">${usdData.length}</div></div>
         <div><div class="d-stat-label">Ganadas</div><div class="d-stat-val" style="color:var(--corp-green)">${usdData.filter(r=>r['ESTADO']==='GANADA').length}</div></div>
@@ -1335,7 +1320,7 @@ function renderResumen(){
     <div class="kpi" style="--ac:var(--usd-color)"><div class="kpi-accent"></div>
       <div class="kpi-label">Total USD Liquidado COP</div>
       <div class="kpi-val">${abr(usdLiq)}</div>
-      <div class="kpi-sub">${fmtUSD(totalUSD)} × ${fmtTRM(trm)}</div>
+      <div class="kpi-sub">${fmtUSD(totalUSD)} × ${fmtTRMDisplay(trm)}</div>
       <span class="kpi-badge usd">USD→COP</span>
     </div>
     <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
@@ -1397,7 +1382,7 @@ function renderResumen(){
         <td class="td-mono td-usd">${feb>0?fmtUSD(feb):'—'}</td>
         <td class="td-mono td-usd">${mar>0?fmtUSD(mar):'—'}</td>
         <td class="td-mono td-usd" style="font-weight:700">${fmtUSD(tot)}</td>
-        <td class="td-mono" style="color:var(--corp-cyan)">${fmtTRM(trm)}</td>
+        <td class="td-mono" style="color:var(--corp-cyan)">${fmtTRMDisplay(trm)}</td>
         <td class="td-mono td-cop" style="font-weight:700">${fmtCOP(tot*trm)}</td>
       </tr>`;
     }).join('')}
@@ -1406,7 +1391,7 @@ function renderResumen(){
       <td class="td-mono">${usdData.length}</td>
       <td colspan="3"></td>
       <td class="td-mono td-usd" style="font-weight:800">${fmtUSD(totalUSD)}</td>
-      <td class="td-mono" style="color:var(--corp-cyan)">${fmtTRM(trm)}</td>
+      <td class="td-mono" style="color:var(--corp-cyan)">${fmtTRMDisplay(trm)}</td>
       <td class="td-mono td-usd" style="font-weight:800;font-size:13px">${fmtCOP(usdLiq)}</td>
     </tr></tbody>
   </table>`;
