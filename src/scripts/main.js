@@ -80,35 +80,48 @@ async function fetchTRM() {
     cacheTRM(TRM, window._trmDate);
     console.log('[TRM]', TRM);
   };
-  // Source 0: Portal Banrep (HTML) para calzar con el valor publicado
+
+  // Source 1: frankfurter.app (CORS abierto, usa tipo de cambio del BCE como proxy)
   try {
-    const base = 'https://totoro.banrep.gov.co/estadisticas-economicas/?cb=' + Date.now();
-    const urls = [
-      'https://api.allorigins.win/raw?url=' + encodeURIComponent(base),
-      'https://r.jina.ai/http://totoro.banrep.gov.co/estadisticas-economicas/?cb=' + Date.now()
-    ];
-    const html = await fetchFirstText(urls, 9000);
-    const res = html ? extractTRMFromText(html) : null;
-    if(res && res.value > 100){
-      window._trmDate = res.date || window._trmDate;
-      setTRM(res.value); return;
+    const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=COP', { cache:'no-store' });
+    if(r.ok) {
+      const d = await r.json();
+      const t = d.rates && d.rates.COP;
+      if(t > 100) { setTRM(t); return; }
     }
-  } catch(e0) { console.warn('[TRM] banrep portal failed', e0.message); }
-  // Source 1: Banco de la República (SDMX). Banrep no expone CORS, usamos proxy raw.
+  } catch(e1) { console.warn('[TRM] frankfurter failed', e1.message); }
+
+  // Source 2: open.er-api.com (gratis, CORS ok)
   try {
-    const banrepUrl = 'https://totoro.banrep.gov.co/nsi-jax-ws/rest/data/ESTAT,DF_TRM_DAILY_LATEST,1.0/all/ALL/?dimensionAtObservation=TIME_PERIOD&detail=full';
-    const urls = [
-      'https://api.allorigins.win/raw?url=' + encodeURIComponent(banrepUrl + '&cb=' + Date.now()),
-      'https://r.jina.ai/http://totoro.banrep.gov.co/nsi-jax-ws/rest/data/ESTAT,DF_TRM_DAILY_LATEST,1.0/all/ALL/?dimensionAtObservation=TIME_PERIOD&detail=full'
-    ];
-    const xmlTxt = await fetchFirstText(urls, 9000);
-    const res = xmlTxt ? extractTRMFromSDMX(xmlTxt) : null;
-    if(res && res.value > 100){
-      if(res.date) window._trmDate = res.date;
-      setTRM(res.value); return;
+    const r2 = await fetch('https://open.er-api.com/v6/latest/USD', { cache:'no-store' });
+    if(r2.ok) {
+      const d2 = await r2.json();
+      const t2 = d2.rates && d2.rates.COP;
+      if(t2 > 100) { setTRM(t2); return; }
     }
-  } catch(e1) { console.warn('[TRM] banrep sdmx failed', e1.message); }
-  console.warn('[TRM] banrep sources failed, keeping current TRM', TRM);
+  } catch(e2) { console.warn('[TRM] open.er-api failed', e2.message); }
+
+  // Source 3: fawazahmed0 currency API (CDN jsdelivr, CORS ok)
+  try {
+    const r3 = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', { cache:'no-store' });
+    if(r3.ok) {
+      const d3 = await r3.json();
+      const t3 = d3.usd && d3.usd.cop;
+      if(t3 > 100) { setTRM(t3); return; }
+    }
+  } catch(e3) { console.warn('[TRM] fawazahmed0 failed', e3.message); }
+
+  // Source 4: exchangerate-api fallback
+  try {
+    const r4 = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { cache:'no-store' });
+    if(r4.ok) {
+      const d4 = await r4.json();
+      const t4 = d4.rates && d4.rates.COP;
+      if(t4 > 100) { setTRM(t4); return; }
+    }
+  } catch(e4) { console.warn('[TRM] exchangerate-api failed', e4.message); }
+
+  console.warn('[TRM] all sources failed, keeping current TRM', TRM);
 }
 
 const COLORS = [
@@ -127,11 +140,11 @@ function fmtUSD(v){
   return 'USD ' + Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 function fmtTRM(v){
-  if(v===null||v===undefined||isNaN(v)) return 'â€”';
+  if(v===null||v===undefined||isNaN(v)) return '—';
   return Number(v).toLocaleString('es-CO',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 function fmtTRMDisplay(v){
-  return TRM_READY ? fmtTRM(v) : 'â€”';
+  return TRM_READY ? fmtTRM(v) : '—';
 }
 function fmtNum(v){return Math.round(v).toLocaleString('es-CO')}
 function fmtPct(v){return (v*100).toFixed(1)+'%'}
