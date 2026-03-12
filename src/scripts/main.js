@@ -141,6 +141,13 @@ function parsefecha(v){
   return s.substring(0,7);
 }
 
+function normalizeEstado(v){
+  if(v===null||v===undefined) return '';
+  const s = String(v).trim().toUpperCase();
+  if(s === 'PEDIDA') return 'PERDIDA';
+  return s;
+}
+
 function toCOP(row){
   const m = (row['MONEDA 2']||'COP').trim().toUpperCase();
   const val = parseMonto(row['MONTO VENTA CLIENTE']);
@@ -216,6 +223,7 @@ function parseXlsx(file, directorHint){
           // Nombre del ejecutivo = nombre del archivo (sin extensión) — evita typos/abreviaturas
           const fileNameExec = toTitle(file.name.replace(/\.(xlsx|xls)$/i,'').trim());
           rec['COMERCIAL'] = fileNameExec || toTitle(rec['COMERCIAL'] || '');
+          rec['ESTADO'] = normalizeEstado(rec['ESTADO']);
           if(recs.length===0) console.log('[ROW1]', file.name, {fecha:rec['FECHA DIA/MES/AÑO'], monto:rec['MONTO VENTA CLIENTE'], moneda:rec['MONEDA 2'], cliente:rec['CLIENTE']});
           recs.push(rec);
         }
@@ -652,7 +660,7 @@ function renderGerencia(){
   renderBars('bar-ejecutivos',ejData,COLORS);
   
   // Donuts
-  const estados=['GANADA','PENDIENTE','PEDIDA','APLAZADO'];
+  const estados=['GANADA','PENDIENTE','PERDIDA','APLAZADO'];
   const estData=estados.map(e=>({name:e,val:ALL_DATA.filter(r=>r['ESTADO']===e).reduce((s,r)=>s+toCOP(r),0)}));
   renderDonut('donut-estado','leg-estado',estData);
   
@@ -667,8 +675,8 @@ function renderGerencia(){
 function renderGerenciaEstadoTables(data) {
   const el = document.getElementById('gerencia-estado-tables');
   if(!el) return;
-  const estados = ['GANADA','PENDIENTE','PEDIDA','APLAZADO'];
-  const colores = {'GANADA':'#0DBF82','PENDIENTE':'#F0A020','PEDIDA':'#2D4FD6','APLAZADO':'#E84040'};
+  const estados = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'];
+  const colores = {'GANADA':'#0DBF82','PENDIENTE':'#F0A020','PERDIDA':'#2D4FD6','APLAZADO':'#E84040'};
 
   el.innerHTML = estados.map(estado => {
     const rows = data
@@ -860,7 +868,7 @@ function renderDirector(){
   
   // Donut estado director — usar datos sin filtro de estado para mostrar distribución real
   const dataForDonut=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir && (!mes||getMonth(r['FECHA DIA/MES/AÑO'])===mes));
-  const estD=['GANADA','PENDIENTE','PEDIDA','APLAZADO'].map(e=>({name:e,val:dataForDonut.filter(r=>r['ESTADO']===e).reduce((s,r)=>s+toCOP(r),0)}));
+  const estD=['GANADA','PENDIENTE','PERDIDA','APLAZADO'].map(e=>({name:e,val:dataForDonut.filter(r=>r['ESTADO']===e).reduce((s,r)=>s+toCOP(r),0)}));
   renderDonut('donut-dir-est','leg-dir-est',estD);
 }
 
@@ -985,7 +993,7 @@ function renderEjecutivo(){
   `;
   
   renderBars('bar-ej-lineas',linData,COLORS);
-  const estD=['GANADA','PENDIENTE','PEDIDA','APLAZADO'].map(e=>({name:e,val:data.filter(r=>r['ESTADO']===e).length}));
+  const estD=['GANADA','PENDIENTE','PERDIDA','APLAZADO'].map(e=>({name:e,val:data.filter(r=>r['ESTADO']===e).length}));
   renderDonut('donut-ej-est','leg-ej-est',estD);
 }
 
@@ -1523,6 +1531,7 @@ async function loadSpFile(item, dirName) {
       hdrs.forEach((h,j)=>{ if(h) rec[h]=row[j]!==undefined?row[j]:null; });
       rec['DIRECTOR']  = toTitle(dirName);
       rec['COMERCIAL'] = fileExec;
+      rec['ESTADO'] = normalizeEstado(rec['ESTADO']);
       recs.push(rec);
     }
     const consulta = wb.Sheets['Consulta1'];

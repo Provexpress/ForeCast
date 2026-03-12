@@ -269,6 +269,7 @@ tr:hover td{background:rgba(255,255,255,.025);color:var(--text)}
 .badge-GANADA{background:rgba(13,191,130,.12);color:var(--corp-green);border:1px solid rgba(13,191,130,.2)}
 .badge-PENDIENTE{background:rgba(240,160,32,.12);color:var(--corp-amber);border:1px solid rgba(240,160,32,.2)}
 .badge-PEDIDA{background:rgba(45,79,214,.12);color:var(--corp-blue2);border:1px solid rgba(45,79,214,.2)}
+.badge-PERDIDA{background:rgba(45,79,214,.12);color:var(--corp-blue2);border:1px solid rgba(45,79,214,.2)}
 .badge-APLAZADO{background:rgba(232,64,64,.08);color:var(--corp-red);border:1px solid rgba(232,64,64,.15)}
 
 /* ── PERSONA CARDS ── */
