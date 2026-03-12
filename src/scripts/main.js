@@ -10,19 +10,37 @@ async function fetchTRM() {
     TRM = t;
     const inp = document.getElementById('trm-input');
     if(inp) inp.value = Number(TRM).toFixed(2);
+    if(ALL_DATA.length) renderAll();
     console.log('[TRM]', TRM);
   };
-  // Source 0: Banco de la República (SDMX). Banrep no expone CORS, usamos proxy raw.
+  // Source 0: Portal Banrep (HTML) para calzar con el valor publicado
+  try {
+    const pageUrl = 'https://totoro.banrep.gov.co/estadisticas-economicas/';
+    const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(pageUrl);
+    const r0 = await fetch(proxyUrl, {cache:'no-store'});
+    const html = await r0.text();
+    const m = html.match(/<span class=\"valor-indicador-principal\">\\s*([0-9\\.]+,[0-9]{2})\\s*COP\\/USD<\\/span>[\\s\\S]*?<span class=\"fecha-indicador-principal\">\\s*(\\d{2}\\/\\d{2}\\/\\d{4})<\\/span>/);
+    if(m){
+      const t0 = parseFloat(m[1].replace(/\\./g,'').replace(',','.'));
+      if(t0 > 100) { window._trmDate = m[2]; setTRM(t0); return; }
+    }
+  } catch(e0) { console.warn('[TRM] banrep portal failed', e0.message); }
+  // Source 1: Banco de la República (SDMX). Banrep no expone CORS, usamos proxy raw.
   try {
     const banrepUrl = 'https://totoro.banrep.gov.co/nsi-jax-ws/rest/data/ESTAT,DF_TRM_DAILY_LATEST,1.0/all/ALL/?dimensionAtObservation=TIME_PERIOD&detail=full';
     const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(banrepUrl);
-    const r0 = await fetch(proxyUrl, {cache:'no-store'});
-    const xmlTxt = await r0.text();
+    const r1 = await fetch(proxyUrl, {cache:'no-store'});
+    const xmlTxt = await r1.text();
     const xml = new DOMParser().parseFromString(xmlTxt, 'text/xml');
     const obs = xml.getElementsByTagName('generic:ObsValue')[0] || xml.getElementsByTagName('ObsValue')[0];
-    const t0 = obs ? parseFloat(obs.getAttribute('value')) : NaN;
-    if(t0 > 100) { setTRM(t0); return; }
-  } catch(e0) { console.warn('[TRM] banrep failed', e0.message); }
+    const dim = xml.getElementsByTagName('generic:ObsDimension')[0] || xml.getElementsByTagName('ObsDimension')[0];
+    const t1 = obs ? parseFloat(obs.getAttribute('value')) : NaN;
+    const d1 = dim ? dim.getAttribute('value') : '';
+    if(t1 > 100) {
+      if(d1 && d1.length === 8) window._trmDate = d1.substring(6,8)+'/'+d1.substring(4,6)+'/'+d1.substring(0,4);
+      setTRM(t1); return;
+    }
+  } catch(e1) { console.warn('[TRM] banrep sdmx failed', e1.message); }
   // Source 1: frankfurter.app (CORS ok, data del BCE)
   try {
     const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=COP');
