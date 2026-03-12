@@ -81,17 +81,7 @@ async function fetchTRM() {
     console.log('[TRM]', TRM);
   };
 
-  // Source 1: frankfurter.app (CORS abierto, usa tipo de cambio del BCE como proxy)
-  try {
-    const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=COP', { cache:'no-store' });
-    if(r.ok) {
-      const d = await r.json();
-      const t = d.rates && d.rates.COP;
-      if(t > 100) { setTRM(t); return; }
-    }
-  } catch(e1) { console.warn('[TRM] frankfurter failed', e1.message); }
-
-  // Source 2: open.er-api.com (gratis, CORS ok)
+  // Source 1: open.er-api.com (gratis, CORS ok)
   try {
     const r2 = await fetch('https://open.er-api.com/v6/latest/USD', { cache:'no-store' });
     if(r2.ok) {
