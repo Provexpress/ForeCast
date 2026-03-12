@@ -263,16 +263,29 @@ document.addEventListener('click', e => {
   }
 });
 
-function switchView(role, directorGroup) {
+function switchView(role, directorGroup, nameOverride) {
   // Override CURRENT_USER view without changing real identity
   const prev = CURRENT_USER;
-  CURRENT_USER = { ...prev, role, directorGroup: directorGroup||null };
+  const realName = prev._realName || prev.name;
+  const realEmail = prev._realEmail || prev.email;
+  const viewName = (nameOverride && String(nameOverride).trim()) || realName;
+  CURRENT_USER = {
+    ...prev,
+    role,
+    directorGroup: directorGroup||null,
+    name: viewName,
+    _realName: realName,
+    _realEmail: realEmail
+  };
   applyRoleTabs();
   renderAll();
   // Update role badge
   const rb = document.getElementById('user-role-badge');
   const roleLabels = {gerencia:'Gerencia',director:'Director',ejecutivo:'Ejecutivo'};
-  if(rb) rb.textContent = (roleLabels[role]||role) + (directorGroup ? ' · '+directorGroup.split(' ')[0] : '') + ' ⚙';
+  let tail = '';
+  if(role === 'director' && directorGroup) tail = ' · '+directorGroup.split(' ')[0];
+  if(role === 'ejecutivo' && viewName) tail = ' · '+viewName.split(' ')[0];
+  if(rb) rb.textContent = (roleLabels[role]||role) + tail + ' ⚙';
   // Highlight active button
   document.querySelectorAll('.view-opt-btn').forEach(b => b.classList.remove('active'));
   event.target.classList.add('active');
