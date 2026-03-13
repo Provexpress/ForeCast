@@ -83,7 +83,11 @@ async function fetchTRM() {
 
   // Source 1: datos.gov.co — API oficial Superfinanciera (CORS abierto, sin proxy)
   try {
-    const url = 'https://www.datos.gov.co/resource/32sa-8pi3.json?$order=vigenciadesde DESC&$limit=1';
+    // Misma lógica que Excel: vigenciadesde <= hoy AND vigenciahasta >= hoy
+    const hoy = new Date(Date.now() - 5*60*60*1000).toISOString().substring(0,10);
+    const url = 'https://www.datos.gov.co/resource/32sa-8pi3.json'
+      + '?$select=valor,vigenciadesde,vigenciahasta'
+      + `&$where=vigenciadesde <= '${hoy}' and vigenciahasta >= '${hoy}'`;
     const r1 = await fetch(url, { cache: 'no-store' });
     if(r1.ok) {
       const d1 = await r1.json();
