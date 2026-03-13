@@ -81,35 +81,34 @@ async function fetchTRM() {
     console.log('[TRM]', TRM);
   };
 
-  // Source 1: open.er-api.com (CORS ok)
+  // Source 1: Vercel endpoint (scraping dolar-colombia.com sin CORS)
   try {
-    const r1 = await fetch('https://open.er-api.com/v6/latest/USD', { cache:'no-store' });
+    const r1 = await fetch('https://fore-cast-gamma.vercel.app/api/trm', { cache:'no-store' });
     if(r1.ok) {
       const d1 = await r1.json();
-      const t1 = d1.rates && d1.rates.COP;
-      if(t1 > 100) { setTRM(t1); return; }
+      if(d1.ok && d1.trm > 100) { setTRM(d1.trm); return; }
     }
-  } catch(e1) { console.warn('[TRM] open.er-api failed', e1.message); }
+  } catch(e1) { console.warn('[TRM] vercel failed', e1.message); }
 
-  // Source 2: fawazahmed0 via jsdelivr
+  // Source 2: open.er-api.com (fallback)
   try {
-    const r2 = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', { cache:'no-store' });
+    const r2 = await fetch('https://open.er-api.com/v6/latest/USD', { cache:'no-store' });
     if(r2.ok) {
       const d2 = await r2.json();
-      const t2 = d2.usd && d2.usd.cop;
+      const t2 = d2.rates && d2.rates.COP;
       if(t2 > 100) { setTRM(t2); return; }
     }
-  } catch(e2) { console.warn('[TRM] fawazahmed0 failed', e2.message); }
+  } catch(e2) { console.warn('[TRM] open.er-api failed', e2.message); }
 
-  // Source 3: exchangerate-api
+  // Source 3: fawazahmed0 via jsdelivr
   try {
-    const r3 = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { cache:'no-store' });
+    const r3 = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', { cache:'no-store' });
     if(r3.ok) {
       const d3 = await r3.json();
-      const t3 = d3.rates && d3.rates.COP;
+      const t3 = d3.usd && d3.usd.cop;
       if(t3 > 100) { setTRM(t3); return; }
     }
-  } catch(e3) { console.warn('[TRM] exchangerate-api failed', e3.message); }
+  } catch(e3) { console.warn('[TRM] fawazahmed0 failed', e3.message); }
 
   console.warn('[TRM] all sources failed, keeping current TRM', TRM);
 }
