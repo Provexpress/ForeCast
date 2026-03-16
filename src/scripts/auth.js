@@ -80,7 +80,9 @@ async function spLogin() {
 const ROLES = {
   gerencia: [
     'juannovoa@provexpress.com.co',
+    'rafaelnovoa@provexpress.com.co',
     'c.estrategica@provexpress.com.co',
+    'maribel.virguez@provexpress.com.co',
     'especialista.preventa@provexpress.com.co',
     'preventa.software@provexpress.com.co',
   ],
