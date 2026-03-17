@@ -658,25 +658,11 @@ function renderDonut(svgId, legId, items){
     paths+=`<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z" fill="${c}" opacity=".85"/>`;
     angle+=slice;
   });
-  // Total en el centro del donut
-  const pctTop = ((items[0]&&items[0].val||0)/total*100).toFixed(0);
   svg.innerHTML=paths+`<circle cx="50" cy="50" r="22" fill="#0B0F1E"/>`;
-
-  // Leyenda — solo items con valor, con barra de proporción visual
-  leg.innerHTML=items.filter(it=>it.val>0).slice(0,6).map((it,i)=>{
-    const idx = items.indexOf(it);
+  
+  leg.innerHTML=items.slice(0,6).map((it,i)=>{
     const pct=((it.val/total)*100).toFixed(1);
-    const c = COLORS[idx%COLORS.length];
-    return `<div style="display:flex;flex-direction:column;gap:3px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)">
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="width:10px;height:10px;border-radius:50%;background:${c};flex-shrink:0;box-shadow:0 0 6px ${c}80"></div>
-        <span style="flex:1;color:#EDF1FF;font-weight:700;font-size:11px;font-family:var(--font-display);letter-spacing:.3px">${it.name}</span>
-        <span style="color:${c};font-family:var(--font-mono);font-weight:800;font-size:12px">${pct}%</span>
-      </div>
-      <div style="margin-left:18px;height:3px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:${c};border-radius:2px;opacity:.7"></div>
-      </div>
-    </div>`;
+    return `<div class="leg-item" style="display:flex;align-items:center;gap:8px;font-size:12px"><div class="leg-dot" style="background:${COLORS[i%COLORS.length]};width:10px;height:10px;border-radius:50%;flex-shrink:0"></div><span title="${it.name}" style="flex:1;color:var(--text-strong);font-weight:600">${it.name.substring(0,18)}</span><span class="leg-pct" style="color:var(--text);font-family:var(--font-mono);font-weight:600">${pct}%</span></div>`;
   }).join('');
 }
 
@@ -701,7 +687,7 @@ function renderEvoChart(containerId, dataByDir){
   [0,.25,.5,.75,1].forEach(t=>{
     const y=padT+gH*(1-t);
     svg+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#1A2240" stroke-width="${t===0?1.5:.7}"/>`;
-    if(t>0) svg+=`<text x="${padL-5}" y="${y+3.5}" text-anchor="end" font-size="8.5" font-weight="700" fill="#E2EBFF" font-family="IBM Plex Mono,monospace">${abr(maxVal*t)}</text>`;
+    if(t>0) svg+=`<text x="${padL-5}" y="${y+3.5}" text-anchor="end" font-size="8.5" font-weight="400" fill="#B8C8E8" font-family="IBM Plex Mono,monospace">${abr(maxVal*t)}</text>`;
   });
 
   // Bars
@@ -716,7 +702,7 @@ function renderEvoChart(containerId, dataByDir){
       svg+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${bh.toFixed(1)}" rx="2" fill="url(#bg${di})" data-tooltip="${escAttr(dirs[di]+': '+abr(v))}"></rect>`;
     });
     // Month label
-    svg+=`<text x="${grpCenter.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="#F1F5FF" font-family="IBM Plex Sans,sans-serif" font-weight="800">${MES_LABELS[m]||m}</text>`;
+    svg+=`<text x="${grpCenter.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="#B8C8E8" font-family="IBM Plex Sans,sans-serif" font-weight="400">${MES_LABELS[m]||m}</text>`;
   });
 
   // Legend top
@@ -725,7 +711,7 @@ function renderEvoChart(containerId, dataByDir){
     const c=COLORS[di%COLORS.length];
     const short=d.split(' ').slice(0,2).join(' ');
     svg+=`<rect x="${lx}" y="4" width="9" height="9" rx="2" fill="${c}"/>`;
-    svg+=`<text x="${lx+12}" y="12" font-size="9" font-weight="700" fill="#EEF3FF" font-family="IBM Plex Sans,sans-serif">${short}</text>`;
+    svg+=`<text x="${lx+12}" y="12" font-size="9" font-weight="400" fill="#B8C8E8" font-family="IBM Plex Sans,sans-serif">${short}</text>`;
     lx+=short.length*4.8+20;
   });
 
@@ -862,8 +848,8 @@ function renderGerenciaEstadoTables(data) {
       return `
         <tr style="border-top:1px solid var(--border)">
           <td style="padding:5px 8px;font-size:10px;color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${cliente}">${cliente}</td>
-          <td style="padding:5px 8px;font-size:10px;color:var(--text2);white-space:nowrap">${comercial}</td>
-          <td style="padding:5px 8px;font-size:10px;color:var(--text3);white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis" title="${linea}">${linea||'—'}</td>
+          <td style="padding:5px 8px;font-size:10px;color:#B0BCDF;font-weight:600;white-space:nowrap">${comercial}</td>
+          <td style="padding:5px 8px;font-size:10px;color:#B0BCDF;font-weight:500;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis" title="${linea}">${linea||'—'}</td>
           <td style="padding:5px 8px;font-size:10px;color:${colores[estado]};text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap">${abr(valor)}</td>
         </tr>`;
     }).join('');
@@ -875,7 +861,7 @@ function renderGerenciaEstadoTables(data) {
         <div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">
           <div>
             <span style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:${colores[estado]}">${estado}</span>
-            <span style="font-size:9px;color:var(--text3);margin-left:8px;font-family:var(--font-body)">${rows.length} negocio${rows.length!==1?'s':''}</span>
+            <span style="font-size:9px;color:#B0BCDF;margin-left:8px;font-family:var(--font-body)">${rows.length} negocio${rows.length!==1?'s':''}</span>
           </div>
           <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--text)">${abr(total)}</span>
         </div>
@@ -883,16 +869,16 @@ function renderGerenciaEstadoTables(data) {
           <table style="width:100%;border-collapse:collapse">
             <thead style="position:sticky;top:0;z-index:1;background:var(--bg2)">
               <tr>
-                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:var(--text3);text-align:left">EMPRESA</th>
-                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:var(--text3);text-align:left">EJECUTIVO</th>
-                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:var(--text3);text-align:left">LÍNEA</th>
-                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:var(--text3);text-align:right">VALOR</th>
+                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:left">EMPRESA</th>
+                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:left">EJECUTIVO</th>
+                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:left">LÍNEA</th>
+                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:right">VALOR</th>
               </tr>
             </thead>
             <tbody>${rows_html}${more}</tbody>
             <tfoot style="background:var(--bg2);border-top:1px solid var(--border)">
               <tr>
-                <td colspan="3" style="padding:6px 8px;font-size:9px;font-family:var(--font-display);color:var(--text2);font-weight:600">TOTAL ${rows.length} NEGOCIOS</td>
+                <td colspan="3" style="padding:6px 8px;font-size:9px;font-family:var(--font-display);color:#C8D4F0;font-weight:700">TOTAL ${rows.length} NEGOCIOS</td>
                 <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:var(--font-mono);color:${colores[estado]};font-weight:700">${abr(total)}</td>
               </tr>
             </tfoot>
@@ -941,8 +927,8 @@ function renderDirector(){
     // Grid
     [0,.5,1].forEach(t=>{
       const y=padT+gH*(1-t);
-      s+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#252C55" stroke-width="${t===0?2:.8}"/>`;
-      if(t>0) s+=`<text x="${padL-4}" y="${y+3}" text-anchor="end" font-size="9" fill="#E2EBFF" font-weight="700" font-family="IBM Plex Mono,monospace">${abr(maxV*t)}</text>`;
+      s+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#1A2240" stroke-width="${t===0?1.5:.6}"/>`;
+      if(t>0) s+=`<text x="${padL-4}" y="${y+3}" text-anchor="end" font-size="7.5" fill="#B8C8E8" font-weight="400" font-family="IBM Plex Mono,monospace">${abr(maxV*t)}</text>`;
     });
     months.forEach((m,i)=>{
       const v=vals[i]||0;
@@ -951,7 +937,7 @@ function renderDirector(){
       const x=cx-bW/2;
       const y=padT+gH-bh;
       s+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${bh.toFixed(1)}" rx="3" fill="url(#bg-dir)" data-tooltip="${escAttr((MES_LABELS[m]||m)+': '+abr(v))}"></rect>`;
-      s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#C8D4F0" font-family="IBM Plex Sans,sans-serif" font-weight="700">${MES_LABELS[m]||m}</text>`;
+      s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#B0BCDF" font-family="IBM Plex Sans,sans-serif" font-weight="400">${MES_LABELS[m]||m}</text>`;
     });
     s+='</svg>';
     return s;
@@ -972,7 +958,7 @@ function renderDirector(){
         <div style="width:30px;height:30px;border-radius:50%;background:${c}30;border:1px solid ${c}60;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:700;color:${c}">${ini}</div>
         <div>
           <div style="font-size:11px;font-family:var(--font-display);font-weight:700;color:var(--text)">${e.split(' ')[0]}</div>
-          <div style="font-size:9px;color:var(--text2)">${hasD?ejData.length+' negocios':'Sin datos aún'}</div>
+          <div style="font-size:9px;color:var(--text3)">${hasD?ejData.length+' negocios':'Sin datos aún'}</div>
         </div>
       </div>
       <div class="kpi-val">${hasD?abr(ejCOP):'—'}</div>
@@ -1147,7 +1133,7 @@ function renderEjecutivo(){
         <div class="p-stat"><div class="p-stat-label">Ganadas</div><div class="p-stat-val" style="color:var(--corp-green)">${gan}</div></div>
         <div class="p-stat"><div class="p-stat-label">Pend.</div><div class="p-stat-val" style="color:var(--corp-amber)">${pen}</div></div>
       </div>`
-        :`<div style="font-size:9px;color:var(--text2);font-family:var(--font-display);margin-top:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;letter-spacing:.5px">📋 Sin registros aún</div>`}
+        :`<div style="font-size:9px;color:var(--text3);font-family:var(--font-display);margin-top:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;letter-spacing:.5px">📋 Sin registros aún</div>`}
     </div>`;
   }).join('');
   
@@ -1526,14 +1512,14 @@ function buildTable(data){
       const cop=toCOP(r);
       const fecha=r['FECHA DIA/MES/AÑO']?(()=>{const fd=r['FECHA DIA/MES/AÑO'];if(fd instanceof Date)return fd.toISOString().substring(0,10);if(typeof fd==='number')return new Date(Math.round((fd-25569)*86400*1000)).toISOString().substring(0,10);const s=String(fd);const meses={ene:'01',feb:'02',mar:'03',abr:'04',may:'05',jun:'06',jul:'07',ago:'08',sep:'09',oct:'10',nov:'11',dic:'12'};const m1=s.match(/(\d{2})[-/](\w{3})\.?[-/](\d{2,4})/i);if(m1){const mes=meses[m1[2].toLowerCase()]||'01';const anio=m1[3].length===2?'20'+m1[3]:m1[3];return anio+'-'+mes+'-'+m1[1].padStart(2,'0');}return s.substring(0,10);})():'—';
       return `<tr>
-        <td class="td-mono" style="font-size:10px;color:#8A9ACC">${fecha}</td>
-        <td style="color:#EDF1FF;font-weight:500">${r['CLIENTE']||'—'}</td>
-        <td style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#B8C8E8">${r['PRODUCTO']||'—'}</td>
-        <td style="color:var(--corp-cyan);font-size:11px">${r['MARCA']||'—'}</td>
-        <td style="font-size:10px;color:#B8C8E8">${r['LINEA DE PRODUCTO']||'—'}</td>
+        <td class="td-mono" style="font-size:10px">${fecha}</td>
+        <td style="color:var(--text)">${r['CLIENTE']||'—'}</td>
+        <td style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r['PRODUCTO']||'—'}</td>
+        <td style="color:var(--corp-cyan)">${r['MARCA']||'—'}</td>
+        <td style="font-size:10px">${r['LINEA DE PRODUCTO']||'—'}</td>
         <td><span class="badge ${mon==='USD'?'badge-PEDIDA':'badge-PENDIENTE'}">${mon}</span></td>
-        <td class="td-mono ${mon==='USD'?'td-usd':'td-cop'}" style="font-weight:600">${mon==='USD'?fmtUSD(val):fmtCOP(val)}</td>
-        <td class="td-mono td-cop" style="font-weight:600">${fmtCOP(cop)}</td>
+        <td class="td-mono ${mon==='USD'?'td-usd':'td-cop'}">${mon==='USD'?fmtUSD(val):fmtCOP(val)}</td>
+        <td class="td-mono td-cop">${fmtCOP(cop)}</td>
         <td class="td-mono" style="color:var(--corp-amber)">${fmtPct(parseMonto(r['MARGEN'])||0)}</td>
         <td><span class="badge badge-${r['ESTADO']||''}">${r['ESTADO']||'—'}</span></td>
       </tr>`;
