@@ -662,7 +662,7 @@ function renderDonut(svgId, legId, items){
   
   leg.innerHTML=items.slice(0,6).map((it,i)=>{
     const pct=((it.val/total)*100).toFixed(1);
-    return `<div class="leg-item" style="display:flex;align-items:center;gap:8px;font-size:12px"><div class="leg-dot" style="background:${COLORS[i%COLORS.length]};width:10px;height:10px;border-radius:50%;flex-shrink:0"></div><span title="${it.name}" style="flex:1;color:var(--text2)">${it.name.substring(0,18)}</span><span class="leg-pct" style="color:var(--text);font-family:var(--font-mono);font-weight:600">${pct}%</span></div>`;
+    return `<div class="leg-item" style="display:flex;align-items:center;gap:8px;font-size:12px"><div class="leg-dot" style="background:${COLORS[i%COLORS.length]};width:10px;height:10px;border-radius:50%;flex-shrink:0"></div><span title="${it.name}" style="flex:1;color:var(--text-strong);font-weight:600">${it.name.substring(0,18)}</span><span class="leg-pct" style="color:var(--text);font-family:var(--font-mono);font-weight:600">${pct}%</span></div>`;
   }).join('');
 }
 
@@ -687,7 +687,7 @@ function renderEvoChart(containerId, dataByDir){
   [0,.25,.5,.75,1].forEach(t=>{
     const y=padT+gH*(1-t);
     svg+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#1A2240" stroke-width="${t===0?1.5:.7}"/>`;
-    if(t>0) svg+=`<text x="${padL-5}" y="${y+3.5}" text-anchor="end" font-size="7.5" fill="#4A5A7A" font-family="IBM Plex Mono,monospace">${abr(maxVal*t)}</text>`;
+    if(t>0) svg+=`<text x="${padL-5}" y="${y+3.5}" text-anchor="end" font-size="8" font-weight="600" fill="#B8C6EC" font-family="IBM Plex Mono,monospace">${abr(maxVal*t)}</text>`;
   });
 
   // Bars
@@ -702,7 +702,7 @@ function renderEvoChart(containerId, dataByDir){
       svg+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${bh.toFixed(1)}" rx="2" fill="url(#bg${di})" data-tooltip="${escAttr(dirs[di]+': '+abr(v))}"></rect>`;
     });
     // Month label
-    svg+=`<text x="${grpCenter.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="9" fill="#7A8AAA" font-family="IBM Plex Sans,sans-serif" font-weight="600">${MES_LABELS[m]||m}</text>`;
+    svg+=`<text x="${grpCenter.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="#D3DDFA" font-family="IBM Plex Sans,sans-serif" font-weight="700">${MES_LABELS[m]||m}</text>`;
   });
 
   // Legend top
@@ -711,7 +711,7 @@ function renderEvoChart(containerId, dataByDir){
     const c=COLORS[di%COLORS.length];
     const short=d.split(' ').slice(0,2).join(' ');
     svg+=`<rect x="${lx}" y="4" width="9" height="9" rx="2" fill="${c}"/>`;
-    svg+=`<text x="${lx+12}" y="12" font-size="8" fill="#8A9ACC" font-family="IBM Plex Sans,sans-serif">${short}</text>`;
+    svg+=`<text x="${lx+12}" y="12" font-size="8.5" font-weight="600" fill="#D7E2FF" font-family="IBM Plex Sans,sans-serif">${short}</text>`;
     lx+=short.length*4.8+20;
   });
 
