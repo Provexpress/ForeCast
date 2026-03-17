@@ -848,8 +848,8 @@ function renderGerenciaEstadoTables(data) {
       return `
         <tr style="border-top:1px solid var(--border)">
           <td style="padding:5px 8px;font-size:10px;color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${cliente}">${cliente}</td>
-          <td style="padding:5px 8px;font-size:10px;color:var(--text2);white-space:nowrap">${comercial}</td>
-          <td style="padding:5px 8px;font-size:10px;color:var(--text3);white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis" title="${linea}">${linea||'—'}</td>
+          <td style="padding:5px 8px;font-size:10px;color:#B0BCDF;font-weight:600;white-space:nowrap">${comercial}</td>
+          <td style="padding:5px 8px;font-size:10px;color:#B0BCDF;font-weight:500;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis" title="${linea}">${linea||'—'}</td>
           <td style="padding:5px 8px;font-size:10px;color:${colores[estado]};text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap">${abr(valor)}</td>
         </tr>`;
     }).join('');
@@ -861,7 +861,7 @@ function renderGerenciaEstadoTables(data) {
         <div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">
           <div>
             <span style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:${colores[estado]}">${estado}</span>
-            <span style="font-size:9px;color:var(--text3);margin-left:8px;font-family:var(--font-body)">${rows.length} negocio${rows.length!==1?'s':''}</span>
+            <span style="font-size:9px;color:#B0BCDF;margin-left:8px;font-family:var(--font-body)">${rows.length} negocio${rows.length!==1?'s':''}</span>
           </div>
           <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--text)">${abr(total)}</span>
         </div>
@@ -869,16 +869,16 @@ function renderGerenciaEstadoTables(data) {
           <table style="width:100%;border-collapse:collapse">
             <thead style="position:sticky;top:0;z-index:1;background:var(--bg2)">
               <tr>
-                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:var(--text3);text-align:left">EMPRESA</th>
-                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:var(--text3);text-align:left">EJECUTIVO</th>
-                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:var(--text3);text-align:left">LÍNEA</th>
-                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:var(--text3);text-align:right">VALOR</th>
+                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:left">EMPRESA</th>
+                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:left">EJECUTIVO</th>
+                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:left">LÍNEA</th>
+                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:right">VALOR</th>
               </tr>
             </thead>
             <tbody>${rows_html}${more}</tbody>
             <tfoot style="background:var(--bg2);border-top:1px solid var(--border)">
               <tr>
-                <td colspan="3" style="padding:6px 8px;font-size:9px;font-family:var(--font-display);color:var(--text2);font-weight:600">TOTAL ${rows.length} NEGOCIOS</td>
+                <td colspan="3" style="padding:6px 8px;font-size:9px;font-family:var(--font-display);color:#C8D4F0;font-weight:700">TOTAL ${rows.length} NEGOCIOS</td>
                 <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:var(--font-mono);color:${colores[estado]};font-weight:700">${abr(total)}</td>
               </tr>
             </tfoot>
@@ -928,7 +928,7 @@ function renderDirector(){
     [0,.5,1].forEach(t=>{
       const y=padT+gH*(1-t);
       s+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#1A2240" stroke-width="${t===0?1.5:.6}"/>`;
-      if(t>0) s+=`<text x="${padL-4}" y="${y+3}" text-anchor="end" font-size="7.5" fill="#4A5A7A" font-family="IBM Plex Mono,monospace">${abr(maxV*t)}</text>`;
+      if(t>0) s+=`<text x="${padL-4}" y="${y+3}" text-anchor="end" font-size="7.5" fill="#C8D4F0" font-family="IBM Plex Mono,monospace">${abr(maxV*t)}</text>`;
     });
     months.forEach((m,i)=>{
       const v=vals[i]||0;
@@ -937,7 +937,7 @@ function renderDirector(){
       const x=cx-bW/2;
       const y=padT+gH-bh;
       s+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${bh.toFixed(1)}" rx="3" fill="url(#bg-dir)" data-tooltip="${escAttr((MES_LABELS[m]||m)+': '+abr(v))}"></rect>`;
-      s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#7A8AAA" font-family="IBM Plex Sans,sans-serif" font-weight="600">${MES_LABELS[m]||m}</text>`;
+      s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#B0BCDF" font-family="IBM Plex Sans,sans-serif" font-weight="600">${MES_LABELS[m]||m}</text>`;
     });
     s+='</svg>';
     return s;
@@ -958,7 +958,7 @@ function renderDirector(){
         <div style="width:30px;height:30px;border-radius:50%;background:${c}30;border:1px solid ${c}60;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:700;color:${c}">${ini}</div>
         <div>
           <div style="font-size:11px;font-family:var(--font-display);font-weight:700;color:var(--text)">${e.split(' ')[0]}</div>
-          <div style="font-size:9px;color:var(--text2)">${hasD?ejData.length+' negocios':'Sin datos aún'}</div>
+          <div style="font-size:9px;color:var(--text3)">${hasD?ejData.length+' negocios':'Sin datos aún'}</div>
         </div>
       </div>
       <div class="kpi-val">${hasD?abr(ejCOP):'—'}</div>
@@ -1133,7 +1133,7 @@ function renderEjecutivo(){
         <div class="p-stat"><div class="p-stat-label">Ganadas</div><div class="p-stat-val" style="color:var(--corp-green)">${gan}</div></div>
         <div class="p-stat"><div class="p-stat-label">Pend.</div><div class="p-stat-val" style="color:var(--corp-amber)">${pen}</div></div>
       </div>`
-        :`<div style="font-size:9px;color:var(--text2);font-family:var(--font-display);margin-top:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;letter-spacing:.5px">📋 Sin registros aún</div>`}
+        :`<div style="font-size:9px;color:var(--text3);font-family:var(--font-display);margin-top:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;letter-spacing:.5px">📋 Sin registros aún</div>`}
     </div>`;
   }).join('');
   
