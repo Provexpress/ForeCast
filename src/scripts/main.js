@@ -5,6 +5,16 @@ let ALL_DATA = [];
 let TRM = 4150;
 let TRM_READY = false;
 let SELECTED_EXEC_BY_DIR = {};
+let RECORD_SEQ = 0;
+let NEGOCIO_DETAIL_STATE = null;
+
+const GERENCIA_ESTADO_STEP = 20;
+const GERENCIA_ESTADO_LIMITS = {
+  GANADA: 30,
+  PENDIENTE: 30,
+  PERDIDA: 30,
+  APLAZADO: 30
+};
 
 const TRM_CACHE_KEY = 'trm_last';
 const TRM_DATE_KEY = 'trm_date';
@@ -153,6 +163,154 @@ function abr(v){
 }
 function escAttr(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+function escHtml(s){
+  return String(s||'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function cleanDisplayText(value, fallback='Sin dato'){
+  const raw = value === null || value === undefined ? '' : String(value).trim();
+  if(!raw) return fallback;
+  return raw;
+}
+
+function normalizeHeaderKey(v){
+  return String(v || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toUpperCase()
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+const HEADER_KEY_MAP = {
+  'VENTA CLIENTE':'MONTO VENTA CLIENTE',
+  'MONTO VENTA':'MONTO VENTA CLIENTE',
+  'VALOR VENTA':'MONTO VENTA CLIENTE',
+  'VALOR CLIENTE':'MONTO VENTA CLIENTE',
+  'MONEDA':'MONEDA 2',
+  'DIVISA':'MONEDA 2',
+  'MONEDA2':'MONEDA 2',
+  'FECHA':'FECHA DIA/MES/AÑO',
+  'FECHA NEGOCIO':'FECHA DIA/MES/AÑO',
+  'FECHA VENTA':'FECHA DIA/MES/AÑO',
+  'TRM':'TRM REFERENCIA',
+  'TRM REF':'TRM REFERENCIA',
+  'LINEA':'LINEA DE PRODUCTO',
+  'LÍNEA':'LINEA DE PRODUCTO',
+  'LÍNEA DE PRODUCTO':'LINEA DE PRODUCTO',
+  'COSTO TOTAL':'COSTO',
+  'VENDEDOR':'COMERCIAL',
+  'EJECUTIVO':'COMERCIAL',
+  'MODIFICACION':'MODIFICACION O UPGRADE',
+  'MODIFICACIÓN':'MODIFICACION O UPGRADE',
+  'OBSERVACION':'OBSERVACIONES',
+  'OBSERVACIONES':'OBSERVACIONES',
+  'OBSERVACION COMERCIAL':'OBSERVACIONES',
+  'OBSERVACIONES COMERCIALES':'OBSERVACIONES',
+  'COMENTARIO':'OBSERVACIONES',
+  'COMENTARIOS':'OBSERVACIONES',
+  'NOTAS':'OBSERVACIONES'
+};
+
+const DETAIL_FIELD_LABELS = {
+  CLIENTE: 'Cliente',
+  'NOMBRE CLIENTE': 'Nombre cliente',
+  EMPRESA: 'Empresa',
+  PRODUCTO: 'Proyecto o producto',
+  PROYECTO: 'Proyecto o producto',
+  SOLUCION: 'Solucion',
+  SERVICIO: 'Servicio',
+  MARCA: 'Marca',
+  FABRICANTE: 'Marca',
+  'LINEA DE PRODUCTO': 'Linea',
+  ESTADO: 'Estado',
+  DIRECTOR: 'Director',
+  COMERCIAL: 'Ejecutivo',
+  'MONEDA 2': 'Moneda',
+  'FECHA DIA/MES/AÑO': 'Fecha',
+  'MONTO VENTA CLIENTE': 'Valor negocio',
+  'TRM REFERENCIA': 'TRM referencia',
+  MARGEN: 'Margen',
+  'MODIFICACION O UPGRADE': 'Modificacion o upgrade',
+  OBSERVACIONES: 'Observaciones'
+};
+
+function mapHeaderName(h){
+  const raw = String(h || '').trim();
+  const normalized = normalizeHeaderKey(raw);
+  return HEADER_KEY_MAP[normalized] || raw;
+}
+
+function registerRecord(rec, sourceFile, sourceSheet){
+  rec.__RID = 'neg-' + (++RECORD_SEQ);
+  rec.__SOURCE_FILE = sourceFile || '';
+  rec.__SOURCE_SHEET = sourceSheet || '';
+  return rec;
+}
+
+function firstFilled(row, keys){
+  for(const key of keys){
+    const val = row && row[key];
+    if(val !== null && val !== undefined && String(val).trim() !== '') return val;
+  }
+  return '';
+}
+
+function getRowClientName(row){
+  return firstFilled(row, ['CLIENTE','NOMBRE CLIENTE','EMPRESA','RAZON SOCIAL']) || '';
+}
+
+function getRowProductName(row){
+  return firstFilled(row, ['PRODUCTO','PROYECTO','SOLUCION','SERVICIO']) || '';
+}
+
+function getRowBrandName(row){
+  return firstFilled(row, ['MARCA','FABRICANTE']) || '';
+}
+
+function getRowLineName(row){
+  return firstFilled(row, ['LINEA DE PRODUCTO','LINEA']) || '';
+}
+
+function getRowObservation(row){
+  return firstFilled(row, ['OBSERVACIONES','OBSERVACION','COMENTARIOS','COMENTARIO']);
+}
+
+function getRowDateValue(row){
+  return firstFilled(row, ['FECHA DIA/MES/AÑO','FECHA']);
+}
+
+function formatDateValue(v){
+  if(!v) return '';
+  if(v instanceof Date) return v.toISOString().substring(0,10);
+  if(typeof v === 'number') {
+    return new Date(Math.round((v - 25569) * 86400 * 1000)).toISOString().substring(0,10);
+  }
+  const s = String(v).trim();
+  const meses = {ene:'01',feb:'02',mar:'03',abr:'04',may:'05',jun:'06',jul:'07',ago:'08',sep:'09',oct:'10',nov:'11',dic:'12'};
+  const m1 = s.match(/(\d{2})[-/](\w{3})\.?[-/](\d{2,4})/i);
+  if(m1){
+    const mes = meses[m1[2].toLowerCase()] || '01';
+    const anio = m1[3].length === 2 ? '20' + m1[3] : m1[3];
+    return anio + '-' + mes + '-' + m1[1].padStart(2,'0');
+  }
+  return s.substring(0,10);
+}
+
+function getRecordById(id){
+  return ALL_DATA.find(r => r.__RID === id) || null;
+}
+
+function formatFieldLabel(key){
+  const mapped = mapHeaderName(key);
+  const normalized = normalizeHeaderKey(mapped);
+  return DETAIL_FIELD_LABELS[normalized] || cleanDisplayText(mapped, cleanDisplayText(key, 'Campo'));
 }
 
 function normalizePersonName(v){
@@ -343,18 +501,7 @@ function parseXlsx(file, directorHint){
         if(hdrIdx<0){resolve([]);return;}
         
         const rawHdrs = raw[hdrIdx].map(h=>h?String(h).trim():'');
-        // Normalizar nombres de columnas — distintos ejecutivos usan nombres distintos
-        const KEY_MAP = {
-          'VENTA CLIENTE':'MONTO VENTA CLIENTE','MONTO VENTA':'MONTO VENTA CLIENTE',
-          'VALOR VENTA':'MONTO VENTA CLIENTE','VALOR CLIENTE':'MONTO VENTA CLIENTE',
-          'MONEDA':'MONEDA 2','DIVISA':'MONEDA 2','MONEDA2':'MONEDA 2',
-          'FECHA':'FECHA DIA/MES/AÑO','FECHA NEGOCIO':'FECHA DIA/MES/AÑO','FECHA VENTA':'FECHA DIA/MES/AÑO',
-          'TRM':'TRM REFERENCIA','TRM REF':'TRM REFERENCIA',
-          'LINEA':'LINEA DE PRODUCTO','LÍNEA':'LINEA DE PRODUCTO','LÍNEA DE PRODUCTO':'LINEA DE PRODUCTO',
-          'COSTO TOTAL':'COSTO','VENDEDOR':'COMERCIAL','EJECUTIVO':'COMERCIAL',
-          'MODIFICACION':'MODIFICACION O UPGRADE','MODIFICACIÓN':'MODIFICACION O UPGRADE',
-        };
-        const hdrs = rawHdrs.map(h => KEY_MAP[h.toUpperCase()] || KEY_MAP[h] || h);
+        const hdrs = rawHdrs.map(mapHeaderName);
         const recs = [];
         // Debug: log headers for first file
         if(!window._hdrDebugDone){ window._hdrDebugDone=true; console.log('[HDRS]', file.name, hdrs.filter(h=>h)); }
@@ -375,6 +522,7 @@ function parseXlsx(file, directorHint){
           const fileNameExec = toTitle(file.name.replace(/\.(xlsx|xls)$/i,'').trim());
           rec['COMERCIAL'] = fileNameExec || toTitle(rec['COMERCIAL'] || '');
           rec['ESTADO'] = normalizeEstado(rec['ESTADO']);
+          registerRecord(rec, file.name, wsName);
           if(recs.length===0) console.log('[ROW1]', file.name, {fecha:rec['FECHA DIA/MES/AÑO'], monto:rec['MONTO VENTA CLIENTE'], moneda:rec['MONEDA 2'], cliente:rec['CLIENTE']});
           recs.push(rec);
         }
@@ -428,6 +576,7 @@ async function processFiles(files){
   if(!xlsFiles.length){alert('No se encontraron archivos .xlsx de ejecutivos en la carpeta seleccionada');return;}
   
   ALL_DATA = [];
+  RECORD_SEQ = 0;
   
   // Mostrar overlay de progreso (funciona tanto si upload-zone está visible como oculto)
   let overlay = document.getElementById('load-overlay');
@@ -606,6 +755,10 @@ function renderAll(){
   renderDivisas();
   renderMarcas();
   renderResumen();
+  if(NEGOCIO_DETAIL_STATE && document.getElementById('page-negocio')) {
+    const row = getRecordById(NEGOCIO_DETAIL_STATE.rowId);
+    if(row) renderNegocioDetail(row);
+  }
 }
 
 /* ══════════════════════════════════════
@@ -616,6 +769,180 @@ function showPage(id,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   if(btn) btn.classList.add('active');
+}
+
+function getActivePageId(){
+  const active = document.querySelector('.page.active');
+  return active ? active.id.replace('page-','') : 'gerencia';
+}
+
+function getNavButtonForPage(page){
+  return document.getElementById('tab-' + page);
+}
+
+function showMoreEstadoRows(estado){
+  GERENCIA_ESTADO_LIMITS[estado] = (GERENCIA_ESTADO_LIMITS[estado] || 30) + GERENCIA_ESTADO_STEP;
+  renderGerenciaEstadoTables(getVisibleData());
+}
+
+function openNegocioDetailById(id, sourcePage){
+  const row = getRecordById(id);
+  if(!row) return;
+  NEGOCIO_DETAIL_STATE = {
+    rowId: id,
+    backPage: sourcePage || getActivePageId(),
+    backScroll: window.scrollY || 0
+  };
+  renderNegocioDetail(row);
+  showPage('negocio');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function closeNegocioDetail(){
+  const backPage = (NEGOCIO_DETAIL_STATE && NEGOCIO_DETAIL_STATE.backPage) || 'gerencia';
+  const backScroll = (NEGOCIO_DETAIL_STATE && NEGOCIO_DETAIL_STATE.backScroll) || 0;
+  NEGOCIO_DETAIL_STATE = null;
+  showPage(backPage, getNavButtonForPage(backPage));
+  setTimeout(() => window.scrollTo(0, backScroll), 0);
+}
+
+function formatFieldValue(key, value, row){
+  const mapped = normalizeHeaderKey(mapHeaderName(key));
+  if(value === null || value === undefined || String(value).trim() === '') return 'Sin dato';
+  if(mapped.startsWith('FECHA')) return escHtml(cleanDisplayText(formatDateValue(value), 'Sin fecha'));
+  if(mapped === 'TRM REFERENCIA') return fmtTRM(parseMonto(value));
+  if(mapped === 'MONTO VENTA CLIENTE'){
+    const mon = cleanDisplayText(row['MONEDA 2'], 'COP').toUpperCase();
+    const monto = parseMonto(value);
+    return mon === 'USD' ? fmtUSD(monto) : fmtCOP(monto);
+  }
+  if(mapped === 'MARGEN'){
+    const margen = parseMonto(value);
+    return isNaN(margen) ? escHtml(cleanDisplayText(value, 'Sin dato')) : fmtPct(margen);
+  }
+  if(value instanceof Date) return escHtml(cleanDisplayText(formatDateValue(value), 'Sin fecha'));
+  if(typeof value === 'number') return escHtml(value.toLocaleString('es-CO'));
+  return escHtml(cleanDisplayText(value, 'Sin dato'));
+}
+
+function renderNegocioDetail(row){
+  const host = document.getElementById('negocio-detail');
+  if(!host || !row) return;
+
+  const estado = cleanDisplayText(row['ESTADO'], 'Sin estado').toUpperCase();
+  const estadoClass = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'].includes(estado) ? estado : 'PENDIENTE';
+  const cliente = cleanDisplayText(getRowClientName(row), 'Sin cliente');
+  const producto = cleanDisplayText(getRowProductName(row), 'Sin proyecto');
+  const marca = cleanDisplayText(getRowBrandName(row), 'Sin marca');
+  const linea = cleanDisplayText(getRowLineName(row), 'Sin linea');
+  const director = cleanDisplayText(firstFilled(row, ['DIRECTOR']), 'Sin director');
+  const ejecutivo = cleanDisplayText(firstFilled(row, ['COMERCIAL']), 'Sin ejecutivo');
+  const moneda = cleanDisplayText(firstFilled(row, ['MONEDA 2']), 'COP').toUpperCase();
+  const valor = parseMonto(row['MONTO VENTA CLIENTE']) || 0;
+  const copTotal = toCOP(row);
+  const margenRaw = firstFilled(row, ['MARGEN']);
+  const margen = margenRaw === '' ? 'Sin dato' : fmtPct(parseMonto(margenRaw) || 0);
+  const fecha = cleanDisplayText(formatDateValue(getRowDateValue(row)), 'Sin fecha');
+  const trmRef = parseMonto(firstFilled(row, ['TRM REFERENCIA'])) || getTRM();
+  const observacion = cleanDisplayText(getRowObservation(row), 'Sin observacion registrada en el Excel.');
+  const modificacion = cleanDisplayText(firstFilled(row, ['MODIFICACION O UPGRADE']), 'Sin dato');
+  const sourceFile = cleanDisplayText(firstFilled(row, ['__SOURCE_FILE']), 'Sin archivo');
+  const sourceSheet = cleanDisplayText(firstFilled(row, ['__SOURCE_SHEET']), 'Sin hoja');
+
+  const orderedKeys = [
+    'CLIENTE','NOMBRE CLIENTE','EMPRESA','PRODUCTO','PROYECTO','MARCA','LINEA DE PRODUCTO','ESTADO',
+    'DIRECTOR','COMERCIAL','MONEDA 2','MONTO VENTA CLIENTE','TRM REFERENCIA','FECHA DIA/MES/AÑO',
+    'MARGEN','MODIFICACION O UPGRADE','OBSERVACIONES'
+  ].map(normalizeHeaderKey);
+
+  const allEntries = Object.entries(row)
+    .filter(([key, value]) => !String(key).startsWith('__') && value !== null && value !== undefined && String(value).trim() !== '')
+    .sort((a,b) => {
+      const keyA = normalizeHeaderKey(mapHeaderName(a[0]));
+      const keyB = normalizeHeaderKey(mapHeaderName(b[0]));
+      const idxA = orderedKeys.indexOf(keyA);
+      const idxB = orderedKeys.indexOf(keyB);
+      if(idxA === -1 && idxB === -1) return formatFieldLabel(a[0]).localeCompare(formatFieldLabel(b[0]));
+      if(idxA === -1) return 1;
+      if(idxB === -1) return -1;
+      return idxA - idxB;
+    });
+
+  host.innerHTML = `
+    <div class="detail-shell">
+      <div class="detail-topbar">
+        <button type="button" class="btn-clear detail-back-btn" onclick="closeNegocioDetail()">Volver</button>
+        <span class="section-tag">Vista individual del negocio</span>
+      </div>
+
+      <div class="detail-hero">
+        <div>
+          <div class="detail-overline">Proyecto o negocio</div>
+          <h2>${escHtml(producto)}</h2>
+          <p>${escHtml(cliente)} / ${escHtml(marca)} / ${escHtml(linea)}</p>
+          <div class="detail-chip-row">
+            <span class="badge badge-${estadoClass}">${escHtml(estado)}</span>
+            <span class="detail-chip">Director: ${escHtml(director)}</span>
+            <span class="detail-chip">Ejecutivo: ${escHtml(ejecutivo)}</span>
+            <span class="detail-chip">Fecha: ${escHtml(fecha)}</span>
+          </div>
+        </div>
+        <div class="detail-hero-amounts">
+          <div>
+            <div class="detail-amount-label">Valor negocio</div>
+            <div class="detail-amount-main">${moneda === 'USD' ? fmtUSD(valor) : fmtCOP(valor)}</div>
+          </div>
+          <div>
+            <div class="detail-amount-label">Total COP</div>
+            <div class="detail-amount-alt">${fmtCOP(copTotal)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-kpi-grid">
+        <div class="detail-stat">
+          <span>Moneda</span>
+          <strong>${escHtml(moneda)}</strong>
+          <small>TRM ref: ${fmtTRM(trmRef)}</small>
+        </div>
+        <div class="detail-stat">
+          <span>Margen</span>
+          <strong>${escHtml(margen)}</strong>
+          <small>Upgrade: ${escHtml(modificacion)}</small>
+        </div>
+        <div class="detail-stat">
+          <span>Cliente</span>
+          <strong>${escHtml(cliente)}</strong>
+          <small>Linea: ${escHtml(linea)}</small>
+        </div>
+        <div class="detail-stat">
+          <span>Archivo fuente</span>
+          <strong>${escHtml(sourceFile)}</strong>
+          <small>Hoja: ${escHtml(sourceSheet)}</small>
+        </div>
+      </div>
+
+      <div class="chart-card g1">
+        <div class="chart-hd">Observacion comercial</div>
+        <div class="detail-observation">${escHtml(observacion)}</div>
+      </div>
+
+      <div class="chart-card g1">
+        <div class="chart-hd">Ficha completa del negocio</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
+            <tbody>${allEntries.map(([key, value]) => `
+              <tr>
+                <td class="detail-field-name">${escHtml(formatFieldLabel(key))}</td>
+                <td>${formatFieldValue(key, value, row)}</td>
+              </tr>
+            `).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 /* ══════════════════════════════════════
@@ -826,13 +1153,14 @@ function renderGerenciaEstadoTables(data) {
   const el = document.getElementById('gerencia-estado-tables');
   if(!el) return;
   const estados = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'];
-  const colores = {'GANADA':'#0DBF82','PENDIENTE':'#F0A020','PERDIDA':'#2D4FD6','APLAZADO':'#E84040'};
+  const colores = {GANADA:'#0DBF82',PENDIENTE:'#F0A020',PERDIDA:'#2D4FD6',APLAZADO:'#E84040'};
 
   el.innerHTML = estados.map(estado => {
     const rows = data
-      .filter(r => (r['ESTADO']||'').toUpperCase() === estado)
-      .sort((a,b) => toCOP(b) - toCOP(a)); // ordenar por valor desc
-    const total = rows.reduce((s,r) => s+toCOP(r), 0);
+      .filter(r => cleanDisplayText(r['ESTADO'], '').toUpperCase() === estado)
+      .sort((a,b) => toCOP(b) - toCOP(a));
+    const total = rows.reduce((s,r) => s + toCOP(r), 0);
+    const visible = GERENCIA_ESTADO_LIMITS[estado] || 30;
 
     if(!rows.length) return `
       <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${colores[estado]};border-radius:12px;padding:16px">
@@ -840,21 +1168,26 @@ function renderGerenciaEstadoTables(data) {
         <div style="font-size:11px;color:var(--text3)">Sin registros</div>
       </div>`;
 
-    const rows_html = rows.slice(0, 30).map(r => {
-      const cliente  = (r['CLIENTE'] || r['NOMBRE CLIENTE'] || r['EMPRESA'] || '—').toString().trim();
-      const comercial = (r['COMERCIAL']||'—').split(' ')[0];
-      const valor    = toCOP(r);
-      const linea    = (r['LINEA DE PRODUCTO']||'').trim();
+    const rows_html = rows.slice(0, visible).map(r => {
+      const cliente = cleanDisplayText(getRowClientName(r), 'Sin cliente');
+      const comercialFull = cleanDisplayText(r['COMERCIAL'], 'Sin ejecutivo');
+      const comercial = comercialFull.split(' ')[0] || comercialFull;
+      const valor = toCOP(r);
+      const linea = cleanDisplayText(getRowLineName(r), 'Sin linea');
       return `
-        <tr style="border-top:1px solid var(--border)">
-          <td style="padding:5px 8px;font-size:10px;color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${cliente}">${cliente}</td>
-          <td style="padding:5px 8px;font-size:10px;color:#B0BCDF;font-weight:600;white-space:nowrap">${comercial}</td>
-          <td style="padding:5px 8px;font-size:10px;color:#B0BCDF;font-weight:500;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis" title="${linea}">${linea||'—'}</td>
+        <tr class="table-row-action" style="border-top:1px solid var(--border)" onclick="openNegocioDetailById('${r.__RID}','gerencia')" title="Abrir detalle del negocio">
+          <td style="padding:5px 8px;font-size:10px;color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(cliente)}">${escHtml(cliente)}</td>
+          <td style="padding:5px 8px;font-size:10px;color:#B0BCDF;font-weight:600;white-space:nowrap">${escHtml(comercial)}</td>
+          <td style="padding:5px 8px;font-size:10px;color:#B0BCDF;font-weight:500;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis" title="${escAttr(linea)}">${escHtml(linea)}</td>
           <td style="padding:5px 8px;font-size:10px;color:${colores[estado]};text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap">${abr(valor)}</td>
         </tr>`;
     }).join('');
 
-    const more = rows.length > 30 ? `<tr><td colspan="4" style="padding:5px 8px;font-size:9px;color:var(--text3);text-align:center">+${rows.length-30} más...</td></tr>` : '';
+    const remaining = Math.max(rows.length - visible, 0);
+    const more = remaining > 0 ? `
+      <div class="table-more-wrap">
+        <button type="button" class="table-more-btn" onclick="showMoreEstadoRows('${estado}')">Ver mas (${remaining})</button>
+      </div>` : '';
 
     return `
       <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${colores[estado]};border-radius:12px;overflow:hidden">
@@ -875,7 +1208,7 @@ function renderGerenciaEstadoTables(data) {
                 <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:right">VALOR</th>
               </tr>
             </thead>
-            <tbody>${rows_html}${more}</tbody>
+            <tbody>${rows_html}</tbody>
             <tfoot style="background:var(--bg2);border-top:1px solid var(--border)">
               <tr>
                 <td colspan="3" style="padding:6px 8px;font-size:9px;font-family:var(--font-display);color:#C8D4F0;font-weight:700">TOTAL ${rows.length} NEGOCIOS</td>
@@ -883,7 +1216,7 @@ function renderGerenciaEstadoTables(data) {
               </tr>
             </tfoot>
           </table>
-        </div>
+        </div>${more}
       </div>`;
   }).join('');
 }
@@ -1001,12 +1334,12 @@ function renderDirector(){
     </div>
     <div class="chart-card g1">
       <div class="chart-hd">Detalle de Negocios — ${selectedExec}</div>
-      ${execData.length ? buildTable(execData) : `<div style="font-size:11px;color:var(--text2)">Sin registros para este filtro.</div>`}
+      ${execData.length ? buildTable(execData, { clickable:true, sourcePage:'director' }) : `<div style="font-size:11px;color:var(--text2)">Sin registros para este filtro.</div>`}
     </div>
   ` : `
     <div class="chart-card g1">
       <div class="chart-hd">Detalle de Negocios</div>
-      ${buildTable(data.slice(0,30))}
+      ${buildTable(data.slice(0,30), { clickable:true, sourcePage:'director' })}
     </div>
   `;
   
@@ -1193,7 +1526,7 @@ function renderEjecutivo(){
     
     <div class="chart-card g1">
       <div class="chart-hd">Detalle de Negocios — ${ej}</div>
-      ${buildTable(data)}
+      ${buildTable(data, { clickable:true, sourcePage:'ejecutivo' })}
     </div>
   `;
   
@@ -1502,28 +1835,40 @@ function renderResumen(){
 /* ══════════════════════════════════════
    GENERIC TABLE
 ══════════════════════════════════════ */
-function buildTable(data){
-  const trm=getTRM();
+function buildTable(data, opts){
+  const options = opts || {};
+  const sourcePage = options.sourcePage || getActivePageId();
   return `<table>
     <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Marca</th><th>Línea</th><th>Moneda</th><th>Valor</th><th>COP Total</th><th>Margen</th><th>Estado</th></tr></thead>
-    <tbody>${data.map(r=>{
-      const mon=(r['MONEDA 2']||'COP').trim();
-      const val=parseMonto(r['MONTO VENTA CLIENTE'])||0;
-      const cop=toCOP(r);
-      const fecha=r['FECHA DIA/MES/AÑO']?(()=>{const fd=r['FECHA DIA/MES/AÑO'];if(fd instanceof Date)return fd.toISOString().substring(0,10);if(typeof fd==='number')return new Date(Math.round((fd-25569)*86400*1000)).toISOString().substring(0,10);const s=String(fd);const meses={ene:'01',feb:'02',mar:'03',abr:'04',may:'05',jun:'06',jul:'07',ago:'08',sep:'09',oct:'10',nov:'11',dic:'12'};const m1=s.match(/(\d{2})[-/](\w{3})\.?[-/](\d{2,4})/i);if(m1){const mes=meses[m1[2].toLowerCase()]||'01';const anio=m1[3].length===2?'20'+m1[3]:m1[3];return anio+'-'+mes+'-'+m1[1].padStart(2,'0');}return s.substring(0,10);})():'—';
-      return `<tr>
-        <td class="td-mono" style="font-size:10px">${fecha}</td>
-        <td style="color:var(--text)">${r['CLIENTE']||'—'}</td>
-        <td style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r['PRODUCTO']||'—'}</td>
-        <td style="color:var(--corp-cyan)">${r['MARCA']||'—'}</td>
-        <td style="font-size:10px">${r['LINEA DE PRODUCTO']||'—'}</td>
+    <tbody>${data.length ? data.map(r=>{
+      const mon = cleanDisplayText(r['MONEDA 2'], 'COP').trim().toUpperCase();
+      const val = parseMonto(r['MONTO VENTA CLIENTE']) || 0;
+      const cop = toCOP(r);
+      const fecha = cleanDisplayText(formatDateValue(getRowDateValue(r)), 'Sin fecha');
+      const cliente = cleanDisplayText(getRowClientName(r), 'Sin cliente');
+      const producto = cleanDisplayText(getRowProductName(r), 'Sin proyecto');
+      const marca = cleanDisplayText(getRowBrandName(r), 'Sin marca');
+      const linea = cleanDisplayText(getRowLineName(r), 'Sin linea');
+      const marginRaw = r['MARGEN'];
+      const marginText = marginRaw === null || marginRaw === undefined || String(marginRaw).trim() === '' ? '-' : fmtPct(parseMonto(marginRaw) || 0);
+      const estado = cleanDisplayText(r['ESTADO'], 'Sin estado').toUpperCase();
+      const estadoClass = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'].includes(estado) ? estado : 'PENDIENTE';
+      const rowAttrs = options.clickable && r.__RID
+        ? ` class="table-row-action" onclick="openNegocioDetailById('${r.__RID}','${escAttr(sourcePage)}')" title="Abrir detalle del negocio"`
+        : '';
+      return `<tr${rowAttrs}>
+        <td class="td-mono" style="font-size:10px">${escHtml(fecha)}</td>
+        <td style="color:var(--text)">${escHtml(cliente)}</td>
+        <td style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(producto)}">${escHtml(producto)}</td>
+        <td style="color:var(--corp-cyan)">${escHtml(marca)}</td>
+        <td style="font-size:10px">${escHtml(linea)}</td>
         <td><span class="badge ${mon==='USD'?'badge-PEDIDA':'badge-PENDIENTE'}">${mon}</span></td>
         <td class="td-mono ${mon==='USD'?'td-usd':'td-cop'}">${mon==='USD'?fmtUSD(val):fmtCOP(val)}</td>
         <td class="td-mono td-cop">${fmtCOP(cop)}</td>
-        <td class="td-mono" style="color:var(--corp-amber)">${fmtPct(parseMonto(r['MARGEN'])||0)}</td>
-        <td><span class="badge badge-${r['ESTADO']||''}">${r['ESTADO']||'—'}</span></td>
+        <td class="td-mono" style="color:var(--corp-amber)">${escHtml(marginText)}</td>
+        <td><span class="badge badge-${estadoClass}">${escHtml(estado)}</span></td>
       </tr>`;
-    }).join('')}</tbody>
+    }).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--text2)">Sin registros para este filtro.</td></tr>`}</tbody>
   </table>`;
 }
 
@@ -1552,6 +1897,7 @@ async function loadFolderFromSharePoint() {
     const siteId = await getSiteId();
     const { role, directorGroup } = CURRENT_USER;
     ALL_DATA = [];
+    RECORD_SEQ = 0;
     LOADED_FILES_BY_DIR = {};
 
     if(role === 'ejecutivo') {
@@ -1725,8 +2071,7 @@ async function loadSpFile(item, dirName) {
     let hdrIdx = -1;
     for(let i=0;i<raw.length;i++) { if(raw[i]&&raw[i].some(c=>c&&String(c).includes('CLIENTE'))){ hdrIdx=i; break; } }
     if(hdrIdx<0) return [];
-    const KEY_MAP = {'VENTA CLIENTE':'MONTO VENTA CLIENTE','MONEDA':'MONEDA 2','FECHA':'FECHA DIA/MES/AÑO','TRM':'TRM REFERENCIA','LINEA':'LINEA DE PRODUCTO'};
-    const hdrs = raw[hdrIdx].map(h=>h?KEY_MAP[String(h).trim()]||String(h).trim():'');
+    const hdrs = raw[hdrIdx].map(h=>h ? mapHeaderName(String(h).trim()) : '');
     const toTitle = s => s?String(s).replace(/^[' ]+/,'').trim().replace(/\w\S*/g,w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()):'';
     const fileExec = toTitle(item.name.replace(/\.xlsx?$/i,'').trim());
     const recs = [];
@@ -1737,6 +2082,7 @@ async function loadSpFile(item, dirName) {
       rec['DIRECTOR']  = toTitle(dirName);
       rec['COMERCIAL'] = fileExec;
       rec['ESTADO'] = normalizeEstado(rec['ESTADO']);
+      registerRecord(rec, item.name, wsName);
       recs.push(rec);
     }
     const consulta = wb.Sheets['Consulta1'];
@@ -1799,3 +2145,6 @@ window.showPage = showPage;
 window.renderDirector = renderDirector;
 window.renderEjecutivo = renderEjecutivo;
 window.selectEjecutivo = selectEjecutivo;
+window.showMoreEstadoRows = showMoreEstadoRows;
+window.openNegocioDetailById = openNegocioDetailById;
+window.closeNegocioDetail = closeNegocioDetail;

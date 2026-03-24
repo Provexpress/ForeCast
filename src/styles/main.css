@@ -476,3 +476,85 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
 }
 .view-opt-btn:hover{background:rgba(45,79,214,.1);border-color:var(--corp-blue2);color:var(--text)}
 .view-opt-btn.active{background:rgba(45,79,214,.15);border-color:var(--corp-blue2);color:#fff}
+
+.table-row-action{cursor:pointer}
+.table-row-action td{transition:var(--transition)}
+.table-row-action:hover td{background:rgba(45,79,214,.08);color:#F3F6FF}
+.table-more-wrap{padding:12px 14px;border-top:1px solid var(--border);background:rgba(255,255,255,.02)}
+.table-more-btn{
+  width:100%;padding:9px 12px;border-radius:10px;border:1px solid rgba(45,79,214,.28);
+  background:rgba(45,79,214,.12);color:#EAF1FF;cursor:pointer;
+  font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;
+  transition:var(--transition);
+}
+.table-more-btn:hover{background:rgba(45,79,214,.2);border-color:rgba(45,79,214,.45);transform:translateY(-1px)}
+
+.detail-shell{display:flex;flex-direction:column;gap:16px}
+.detail-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.detail-back-btn{margin-left:0}
+.detail-hero{
+  display:grid;grid-template-columns:minmax(0,1.8fr) minmax(260px,.9fr);gap:16px;
+  background:linear-gradient(145deg,rgba(15,18,48,.96),rgba(20,24,62,.96));
+  border:1px solid var(--border2);border-radius:var(--radius);padding:24px;
+  box-shadow:var(--shadow);
+}
+.detail-overline{
+  font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:1.4px;
+  text-transform:uppercase;color:var(--text-soft);margin-bottom:10px;
+}
+.detail-hero h2{font-family:var(--font-display);font-size:28px;line-height:1.04;color:#F6F8FF;margin-bottom:8px}
+.detail-hero p{font-size:13px;color:var(--text-soft);line-height:1.55}
+.detail-chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.detail-chip{
+  display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;
+  border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);
+  color:#E7EEFF;font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:.6px;
+}
+.detail-hero-amounts{
+  display:grid;align-content:start;gap:14px;padding:18px;border-radius:14px;
+  background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.08);
+}
+.detail-amount-label{
+  font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;color:var(--text-soft);margin-bottom:6px;
+}
+.detail-amount-main,.detail-amount-alt{
+  font-family:var(--font-mono);font-weight:700;line-height:1.1;color:#F8FAFF;
+}
+.detail-amount-main{font-size:28px}
+.detail-amount-alt{font-size:24px;color:var(--corp-cyan)}
+.detail-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+.detail-stat{
+  background:linear-gradient(160deg,var(--card),var(--card2));
+  border:1px solid var(--border);border-radius:14px;padding:18px;
+}
+.detail-stat span{
+  display:block;font-size:10px;font-family:var(--font-display);font-weight:700;
+  letter-spacing:1px;text-transform:uppercase;color:var(--text-soft);margin-bottom:8px;
+}
+.detail-stat strong{
+  display:block;font-family:var(--font-display);font-size:16px;font-weight:700;color:#F4F7FF;
+}
+.detail-stat small{display:block;margin-top:8px;font-size:11px;color:#DCE6FF}
+.detail-observation{
+  padding:18px 20px;border-radius:14px;border:1px solid rgba(42,191,223,.18);
+  background:linear-gradient(135deg,rgba(42,191,223,.08),rgba(255,255,255,.02));
+  color:#F2F6FF;font-size:13px;line-height:1.72;white-space:pre-wrap;
+}
+.detail-field-name{
+  width:240px;color:#F0F4FF;font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:.8px;
+}
+
+@media(max-width:900px){
+  .detail-hero{grid-template-columns:1fr}
+  .detail-kpi-grid{grid-template-columns:1fr}
+}
+
+@media(max-width:600px){
+  .detail-topbar{flex-direction:column;align-items:flex-start}
+  .detail-hero{padding:18px}
+  .detail-hero h2{font-size:22px}
+  .detail-amount-main{font-size:24px}
+  .detail-amount-alt{font-size:21px}
+}
