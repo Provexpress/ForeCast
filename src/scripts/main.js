@@ -765,6 +765,8 @@ function renderAll(){
    NAV
 ══════════════════════════════════════ */
 function showPage(id,btn){
+  const currentPage = getActivePageId();
+  if(currentPage === 'negocio' && id !== 'negocio') NEGOCIO_DETAIL_STATE = null;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
@@ -776,22 +778,64 @@ function getActivePageId(){
   return active ? active.id.replace('page-','') : 'gerencia';
 }
 
+function getScrollTrackersForPage(page){
+  const pageEl = document.getElementById('page-' + page);
+  if(!pageEl) return [];
+  return [...pageEl.querySelectorAll('[data-scroll-key]')].map(el => ({
+    key: el.getAttribute('data-scroll-key'),
+    el
+  }));
+}
+
+function captureScrollSnapshot(page){
+  return {
+    windowY: window.scrollY || window.pageYOffset || 0,
+    nodes: getScrollTrackersForPage(page).reduce((acc, item) => {
+      acc[item.key] = {
+        top: item.el.scrollTop || 0,
+        left: item.el.scrollLeft || 0
+      };
+      return acc;
+    }, {})
+  };
+}
+
+function restoreScrollSnapshot(page, snapshot){
+  if(!snapshot) return;
+  const apply = () => {
+    window.scrollTo({ top: snapshot.windowY || 0, left: 0, behavior: 'auto' });
+    getScrollTrackersForPage(page).forEach(({ key, el }) => {
+      const pos = snapshot.nodes && snapshot.nodes[key];
+      if(!pos) return;
+      el.scrollTop = pos.top || 0;
+      el.scrollLeft = pos.left || 0;
+    });
+  };
+  requestAnimationFrame(() => {
+    apply();
+    requestAnimationFrame(apply);
+  });
+}
+
 function getNavButtonForPage(page){
   return document.getElementById('tab-' + page);
 }
 
 function showMoreEstadoRows(estado){
+  const scrollState = captureScrollSnapshot('gerencia');
   GERENCIA_ESTADO_LIMITS[estado] = (GERENCIA_ESTADO_LIMITS[estado] || 30) + GERENCIA_ESTADO_STEP;
   renderGerenciaEstadoTables(getVisibleData());
+  restoreScrollSnapshot('gerencia', scrollState);
 }
 
 function openNegocioDetailById(id, sourcePage){
   const row = getRecordById(id);
   if(!row) return;
+  const backPage = sourcePage || getActivePageId();
   NEGOCIO_DETAIL_STATE = {
     rowId: id,
-    backPage: sourcePage || getActivePageId(),
-    backScroll: window.scrollY || 0
+    backPage,
+    backScroll: captureScrollSnapshot(backPage)
   };
   renderNegocioDetail(row);
   showPage('negocio');
@@ -800,10 +844,10 @@ function openNegocioDetailById(id, sourcePage){
 
 function closeNegocioDetail(){
   const backPage = (NEGOCIO_DETAIL_STATE && NEGOCIO_DETAIL_STATE.backPage) || 'gerencia';
-  const backScroll = (NEGOCIO_DETAIL_STATE && NEGOCIO_DETAIL_STATE.backScroll) || 0;
+  const backScroll = NEGOCIO_DETAIL_STATE && NEGOCIO_DETAIL_STATE.backScroll;
   NEGOCIO_DETAIL_STATE = null;
   showPage(backPage, getNavButtonForPage(backPage));
-  setTimeout(() => window.scrollTo(0, backScroll), 0);
+  restoreScrollSnapshot(backPage, backScroll);
 }
 
 function formatFieldValue(key, value, row){
@@ -930,12 +974,12 @@ function renderNegocioDetail(row){
       <div class="chart-card g1">
         <div class="chart-hd">Ficha completa del negocio</div>
         <div class="tbl-wrap">
-          <table>
+          <table class="responsive-table responsive-table-detail">
             <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
             <tbody>${allEntries.map(([key, value]) => `
               <tr>
-                <td class="detail-field-name">${escHtml(formatFieldLabel(key))}</td>
-                <td>${formatFieldValue(key, value, row)}</td>
+                <td class="detail-field-name" data-label="Campo">${escHtml(formatFieldLabel(key))}</td>
+                <td data-label="Valor">${formatFieldValue(key, value, row)}</td>
               </tr>
             `).join('')}</tbody>
           </table>
@@ -1163,7 +1207,7 @@ function renderGerenciaEstadoTables(data) {
     const visible = GERENCIA_ESTADO_LIMITS[estado] || 30;
 
     if(!rows.length) return `
-      <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${colores[estado]};border-radius:12px;padding:16px">
+      <div class="estado-card estado-card-empty" style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${colores[estado]};border-radius:12px;padding:16px">
         <div style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:${colores[estado]};margin-bottom:6px">${estado}</div>
         <div style="font-size:11px;color:var(--text3)">Sin registros</div>
       </div>`;
@@ -1190,16 +1234,16 @@ function renderGerenciaEstadoTables(data) {
       </div>` : '';
 
     return `
-      <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${colores[estado]};border-radius:12px;overflow:hidden">
-        <div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">
+      <div class="estado-card" style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${colores[estado]};border-radius:12px;overflow:hidden">
+        <div class="estado-card-head" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">
           <div>
             <span style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:${colores[estado]}">${estado}</span>
             <span style="font-size:9px;color:#B0BCDF;margin-left:8px;font-family:var(--font-body)">${rows.length} negocio${rows.length!==1?'s':''}</span>
           </div>
           <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--text)">${abr(total)}</span>
         </div>
-        <div style="overflow-y:auto;max-height:280px">
-          <table style="width:100%;border-collapse:collapse">
+        <div class="estado-card-body" style="overflow-y:auto;max-height:280px" data-scroll-key="estado:${estado}">
+          <table class="estado-mini-table" style="width:100%;border-collapse:collapse">
             <thead style="position:sticky;top:0;z-index:1;background:var(--bg2)">
               <tr>
                 <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:left">EMPRESA</th>
@@ -1838,7 +1882,7 @@ function renderResumen(){
 function buildTable(data, opts){
   const options = opts || {};
   const sourcePage = options.sourcePage || getActivePageId();
-  return `<table>
+  return `<table class="responsive-table">
     <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Marca</th><th>Línea</th><th>Moneda</th><th>Valor</th><th>COP Total</th><th>Margen</th><th>Estado</th></tr></thead>
     <tbody>${data.length ? data.map(r=>{
       const mon = cleanDisplayText(r['MONEDA 2'], 'COP').trim().toUpperCase();
@@ -1857,16 +1901,16 @@ function buildTable(data, opts){
         ? ` class="table-row-action" onclick="openNegocioDetailById('${r.__RID}','${escAttr(sourcePage)}')" title="Abrir detalle del negocio"`
         : '';
       return `<tr${rowAttrs}>
-        <td class="td-mono" style="font-size:10px">${escHtml(fecha)}</td>
-        <td style="color:var(--text)">${escHtml(cliente)}</td>
-        <td style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(producto)}">${escHtml(producto)}</td>
-        <td style="color:var(--corp-cyan)">${escHtml(marca)}</td>
-        <td style="font-size:10px">${escHtml(linea)}</td>
-        <td><span class="badge ${mon==='USD'?'badge-PEDIDA':'badge-PENDIENTE'}">${mon}</span></td>
-        <td class="td-mono ${mon==='USD'?'td-usd':'td-cop'}">${mon==='USD'?fmtUSD(val):fmtCOP(val)}</td>
-        <td class="td-mono td-cop">${fmtCOP(cop)}</td>
-        <td class="td-mono" style="color:var(--corp-amber)">${escHtml(marginText)}</td>
-        <td><span class="badge badge-${estadoClass}">${escHtml(estado)}</span></td>
+        <td class="td-mono" style="font-size:10px" data-label="Fecha">${escHtml(fecha)}</td>
+        <td style="color:var(--text)" data-label="Cliente">${escHtml(cliente)}</td>
+        <td style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(producto)}" data-label="Producto">${escHtml(producto)}</td>
+        <td style="color:var(--corp-cyan)" data-label="Marca">${escHtml(marca)}</td>
+        <td style="font-size:10px" data-label="Línea">${escHtml(linea)}</td>
+        <td data-label="Moneda"><span class="badge ${mon==='USD'?'badge-PEDIDA':'badge-PENDIENTE'}">${mon}</span></td>
+        <td class="td-mono ${mon==='USD'?'td-usd':'td-cop'}" data-label="Valor">${mon==='USD'?fmtUSD(val):fmtCOP(val)}</td>
+        <td class="td-mono td-cop" data-label="COP Total">${fmtCOP(cop)}</td>
+        <td class="td-mono" style="color:var(--corp-amber)" data-label="Margen">${escHtml(marginText)}</td>
+        <td data-label="Estado"><span class="badge badge-${estadoClass}">${escHtml(estado)}</span></td>
       </tr>`;
     }).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--text2)">Sin registros para este filtro.</td></tr>`}</tbody>
   </table>`;
