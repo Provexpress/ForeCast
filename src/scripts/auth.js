@@ -64,16 +64,15 @@ async function spLogin() {
     account = msalApp.getAllAccounts()[0];
   }
   const token = await getToken(['User.Read']);
-  const res   = await fetch('https://graph.microsoft.com/v1.0/me', {
+  const res   = await fetch('https://graph.microsoft.com/v1.0/me?$select=displayName,mail,userPrincipalName,otherMails', {
     headers: { Authorization: 'Bearer ' + token }
   });
   const profile = await res.json();
-  const email   = (profile.mail || profile.userPrincipalName || '').toLowerCase();
-  const { role, directorGroup } = getUserRole(email);
+  const { email, role, directorGroup, candidates } = resolveUserIdentity(profile, account);
   CURRENT_USER = { email, name: profile.displayName, role, directorGroup };
   SP_TOKEN = await getToken(['Files.Read.All']);
   sessionStorage.setItem('forecast_user', JSON.stringify(CURRENT_USER));
-  console.log('[AUTH]', email, role);
+  console.log('[AUTH]', email, role, candidates);
   return true;
 }
 
@@ -135,6 +134,43 @@ const EXECUTIVO_BY_EMAIL = {
 };
 
 window.EXECUTIVO_BY_EMAIL = EXECUTIVO_BY_EMAIL;
+
+function normalizeEmail(value) {
+  return String(value || '').toLowerCase().trim();
+}
+
+function getIdentityCandidates(profile, account) {
+  const candidates = [
+    profile && profile.mail,
+    profile && profile.userPrincipalName,
+    account && account.username,
+    ...((profile && profile.otherMails) || [])
+  ].map(normalizeEmail).filter(Boolean);
+  return [...new Set(candidates)];
+}
+
+function resolveUserIdentity(profile, account) {
+  const candidates = getIdentityCandidates(profile, account);
+  const execMap = window.EXECUTIVO_BY_EMAIL || EXECUTIVO_BY_EMAIL || {};
+
+  for(const candidate of candidates) {
+    const roleInfo = getUserRole(candidate);
+    if(roleInfo.role !== 'ejecutivo') {
+      return { email: candidate, role: roleInfo.role, directorGroup: roleInfo.directorGroup, candidates };
+    }
+  }
+
+  for(const candidate of candidates) {
+    if(execMap[candidate]) {
+      const roleInfo = getUserRole(candidate);
+      return { email: candidate, role: roleInfo.role, directorGroup: roleInfo.directorGroup, candidates };
+    }
+  }
+
+  const email = candidates[0] || '';
+  const roleInfo = getUserRole(email);
+  return { email, role: roleInfo.role, directorGroup: roleInfo.directorGroup, candidates };
+}
 
 function getUserRole(email) {
   const e = (email||'').toLowerCase().trim();
