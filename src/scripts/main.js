@@ -193,6 +193,10 @@ const HEADER_KEY_MAP = {
   'MONTO VENTA':'MONTO VENTA CLIENTE',
   'VALOR VENTA':'MONTO VENTA CLIENTE',
   'VALOR CLIENTE':'MONTO VENTA CLIENTE',
+  'NUMERO PARTE':'NUMERO DE PARTE',
+  'NRO PARTE':'NUMERO DE PARTE',
+  'NO PARTE':'NUMERO DE PARTE',
+  'PART NUMBER':'NUMERO DE PARTE',
   'MONEDA':'MONEDA 2',
   'DIVISA':'MONEDA 2',
   'MONEDA2':'MONEDA 2',
@@ -226,6 +230,7 @@ const DETAIL_FIELD_LABELS = {
   PROYECTO: 'Proyecto o producto',
   SOLUCION: 'Solucion',
   SERVICIO: 'Servicio',
+  'NUMERO DE PARTE': 'Numero de parte',
   MARCA: 'Marca',
   FABRICANTE: 'Marca',
   'LINEA DE PRODUCTO': 'Linea',
@@ -272,6 +277,10 @@ function getRowProductName(row){
 
 function getRowBrandName(row){
   return firstFilled(row, ['MARCA','FABRICANTE']) || '';
+}
+
+function getRowPartNumber(row){
+  return firstFilled(row, ['NUMERO DE PARTE','NUMERO PARTE','NRO PARTE','NO PARTE','PART NUMBER']) || '';
 }
 
 function getRowLineName(row){
@@ -878,6 +887,7 @@ function renderNegocioDetail(row){
   const cliente = cleanDisplayText(getRowClientName(row), 'Sin cliente');
   const producto = cleanDisplayText(getRowProductName(row), 'Sin proyecto');
   const marca = cleanDisplayText(getRowBrandName(row), 'Sin marca');
+  const numeroParte = cleanDisplayText(getRowPartNumber(row), 'Sin numero de parte');
   const linea = cleanDisplayText(getRowLineName(row), 'Sin linea');
   const director = cleanDisplayText(firstFilled(row, ['DIRECTOR']), 'Sin director');
   const ejecutivo = cleanDisplayText(firstFilled(row, ['COMERCIAL']), 'Sin ejecutivo');
@@ -894,7 +904,7 @@ function renderNegocioDetail(row){
   const sourceSheet = cleanDisplayText(firstFilled(row, ['__SOURCE_SHEET']), 'Sin hoja');
 
   const orderedKeys = [
-    'CLIENTE','NOMBRE CLIENTE','EMPRESA','PRODUCTO','PROYECTO','MARCA','LINEA DE PRODUCTO','ESTADO',
+    'CLIENTE','NOMBRE CLIENTE','EMPRESA','PRODUCTO','PROYECTO','NUMERO DE PARTE','MARCA','LINEA DE PRODUCTO','ESTADO',
     'DIRECTOR','COMERCIAL','MONEDA 2','MONTO VENTA CLIENTE','TRM REFERENCIA','FECHA DIA/MES/AÑO',
     'MARGEN','MODIFICACION O UPGRADE','OBSERVACIONES'
   ].map(normalizeHeaderKey);
@@ -929,6 +939,7 @@ function renderNegocioDetail(row){
             <span class="detail-chip">Director: ${escHtml(director)}</span>
             <span class="detail-chip">Ejecutivo: ${escHtml(ejecutivo)}</span>
             <span class="detail-chip">Fecha: ${escHtml(fecha)}</span>
+            <span class="detail-chip">Parte: ${escHtml(numeroParte)}</span>
           </div>
         </div>
         <div class="detail-hero-amounts">
@@ -944,6 +955,11 @@ function renderNegocioDetail(row){
       </div>
 
       <div class="detail-kpi-grid">
+        <div class="detail-stat">
+          <span>Numero de parte</span>
+          <strong>${escHtml(numeroParte)}</strong>
+          <small>Referencia del item o solucion</small>
+        </div>
         <div class="detail-stat">
           <span>Moneda</span>
           <strong>${escHtml(moneda)}</strong>
