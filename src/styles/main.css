@@ -308,6 +308,12 @@ select:hover,select:focus{border-color:var(--corp-blue2);color:var(--text);box-s
 .leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 .leg-pct{margin-left:auto;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--text)}
 
+#page-marcas .donut-wrap{flex-wrap:wrap;align-items:center;justify-content:center;gap:16px}
+#page-marcas .donut-wrap svg{width:clamp(116px, 26vw, 160px) !important;height:auto !important}
+#page-marcas .donut-leg{min-width:0;max-width:100%}
+#page-marcas .leg-item{font-size:10.5px}
+#marca-director-filter{padding:0}
+
 /* ── TABLE ── */
 .tbl-wrap{
   overflow-x:auto;border-radius:var(--radius-sm);border:1px solid var(--border);
@@ -458,6 +464,9 @@ tr:hover td{background:rgba(255,255,255,.025);color:var(--text)}
   .bar-row{display:grid;grid-template-columns:1fr;gap:8px}
   .bar-name,.bar-name.w80,.bar-name.w100{width:auto}
   .bar-track{min-height:28px}
+  #page-marcas .donut-wrap{align-items:stretch}
+  #page-marcas .donut-wrap svg{margin:0 auto}
+  #page-marcas .leg-item{font-size:10px}
   .donut-wrap{flex-direction:column;align-items:center;gap:16px}
   .donut-leg{width:100%}
   .hoy-strip{padding:18px}

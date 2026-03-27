@@ -15,6 +15,9 @@ const GERENCIA_ESTADO_LIMITS = {
   PERDIDA: 30,
   APLAZADO: 30
 };
+const DIVISAS_DETAIL_STEP = 10;
+const DIVISAS_DETAIL_LIMITS = { COP: 10, USD: 10 };
+const TOP_BAR_LIMIT = 15;
 
 const TRM_CACHE_KEY = 'trm_last';
 const TRM_DATE_KEY = 'trm_date';
@@ -857,6 +860,23 @@ function showMoreEstadoRows(estado){
   restoreScrollSnapshot('gerencia', scrollState);
 }
 
+function setDivisaEstadoFilter(value){
+  const sel = document.getElementById('sel-divisa-estado');
+  if(sel) sel.value = value;
+  DIVISAS_DETAIL_LIMITS.COP = 10;
+  DIVISAS_DETAIL_LIMITS.USD = 10;
+  renderDivisas();
+}
+
+function showMoreDivisaRows(moneda){
+  const key = (moneda || '').toUpperCase();
+  if(!DIVISAS_DETAIL_LIMITS[key]) return;
+  const scrollState = captureScrollSnapshot('divisas');
+  DIVISAS_DETAIL_LIMITS[key] = (DIVISAS_DETAIL_LIMITS[key] || 10) + DIVISAS_DETAIL_STEP;
+  renderDivisas();
+  restoreScrollSnapshot('divisas', scrollState);
+}
+
 function openNegocioDetailById(id, sourcePage){
   const row = getRecordById(id);
   if(!row) return;
@@ -1066,7 +1086,7 @@ function renderDonut(svgId, legId, items){
   
   leg.innerHTML=items.slice(0,6).map((it,i)=>{
     const pct=((it.val/total)*100).toFixed(1);
-    return `<div class="leg-item" style="display:flex;align-items:center;gap:8px;font-size:12px"><div class="leg-dot" style="background:${COLORS[i%COLORS.length]};width:10px;height:10px;border-radius:50%;flex-shrink:0"></div><span title="${it.name}" style="flex:1;color:var(--text-strong);font-weight:600">${it.name.substring(0,18)}</span><span class="leg-pct" style="color:var(--text);font-family:var(--font-mono);font-weight:600">${pct}%</span></div>`;
+    return `<div class="leg-item" style="display:flex;align-items:center;gap:8px;font-size:12px"><div class="leg-dot" style="background:${COLORS[i%COLORS.length]};width:10px;height:10px;border-radius:50%;flex-shrink:0"></div><span title="${it.name}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-strong);font-weight:600">${it.name}</span><span class="leg-pct" style="color:var(--text);font-family:var(--font-mono);font-weight:600">${pct}%</span></div>`;
   }).join('');
 }
 
@@ -1211,7 +1231,7 @@ function renderGerencia(){
   // Bar ejecutivos
   const execs=[...new Set(ALL_DATA.map(r=>r['COMERCIAL']||'').filter(Boolean))];
   const ejData=execs.map(e=>({name:e.split(' ')[0],val:ALL_DATA.filter(r=>r['COMERCIAL']===e).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
-  renderBars('bar-ejecutivos',ejData,COLORS);
+  renderBars('bar-ejecutivos',ejData.slice(0, TOP_BAR_LIMIT),COLORS);
   
   // Donuts
   const estados=['GANADA','PENDIENTE','PERDIDA','APLAZADO'];
@@ -1681,8 +1701,12 @@ function renderDivisas(){
   
   const usdData=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='USD');
   const copData=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='COP');
-  const usdDetailData=estadoDetalle ? usdData.filter(r=>r['ESTADO']===estadoDetalle) : usdData;
-  const copDetailData=estadoDetalle ? copData.filter(r=>r['ESTADO']===estadoDetalle) : copData;
+  const usdDetailData=(estadoDetalle ? usdData.filter(r=>r['ESTADO']===estadoDetalle) : usdData).sort((a,b)=>toCOP(b)-toCOP(a));
+  const copDetailData=(estadoDetalle ? copData.filter(r=>r['ESTADO']===estadoDetalle) : copData).sort((a,b)=>toCOP(b)-toCOP(a));
+  const usdVisible = DIVISAS_DETAIL_LIMITS.USD || 10;
+  const copVisible = DIVISAS_DETAIL_LIMITS.COP || 10;
+  const usdRemaining = Math.max(usdDetailData.length - usdVisible, 0);
+  const copRemaining = Math.max(copDetailData.length - copVisible, 0);
   
   const totalUSD=usdData.reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   const totalCOP=copData.reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
@@ -1715,7 +1739,7 @@ function renderDivisas(){
   // Table USD detail
   document.getElementById('tbl-usd').innerHTML=`<table>
     <thead><tr><th>Ejecutivo</th><th>Cliente</th><th>Producto</th><th>USD</th><th>COP Liquidado</th><th>Estado</th></tr></thead>
-    <tbody>${usdDetailData.length ? usdDetailData.map(r=>{
+    <tbody>${usdDetailData.length ? usdDetailData.slice(0, usdVisible).map(r=>{
       const usd=parseMonto(r['MONTO VENTA CLIENTE'])||0;
       const liq=usd*trm;
       return `<tr>
@@ -1727,12 +1751,12 @@ function renderDivisas(){
         <td><span class="badge badge-${r['ESTADO']}">${r['ESTADO']||'—'}</span></td>
       </tr>`;
     }).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px 14px">Sin negocios ${estadoDetalle ? estadoDetalle.toLowerCase() : ''} en USD.</td></tr>`}</tbody>
-  </table>`;
+  </table>${usdRemaining > 0 ? `<div class="table-more-wrap"><button type="button" class="table-more-btn" onclick="showMoreDivisaRows('USD')">Ver mas (${usdRemaining})</button></div>` : ''}`;
   
   // Table COP detail
   document.getElementById('tbl-cop').innerHTML=`<table>
     <thead><tr><th>Ejecutivo</th><th>Cliente</th><th>Producto</th><th>COP</th><th>Estado</th></tr></thead>
-    <tbody>${copDetailData.length ? copDetailData.map(r=>{
+    <tbody>${copDetailData.length ? copDetailData.slice(0, copVisible).map(r=>{
       const cop=parseMonto(r['MONTO VENTA CLIENTE'])||0;
       return `<tr>
         <td>${(r['COMERCIAL']||'').split(' ')[0]}</td>
@@ -1742,7 +1766,7 @@ function renderDivisas(){
         <td><span class="badge badge-${r['ESTADO']}">${r['ESTADO']||'—'}</span></td>
       </tr>`;
     }).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:20px 14px">Sin negocios ${estadoDetalle ? estadoDetalle.toLowerCase() : ''} en COP.</td></tr>`}</tbody>
-  </table>`;
+  </table>${copRemaining > 0 ? `<div class="table-more-wrap"><button type="button" class="table-more-btn" onclick="showMoreDivisaRows('COP')">Ver mas (${copRemaining})</button></div>` : ''}`;
   
   // Tabla resumen consolidado
   const dirs=[...new Set(ALL_DATA.map(r=>(r['DIRECTOR']||'').trim()).filter(Boolean))];
@@ -1783,11 +1807,10 @@ function renderDivisas(){
 function renderMarcas(){
   const ALL_DATA = getVisibleData();
   if(!ALL_DATA.length) return;
-  const trm=getTRM();
   
   const marcas=[...new Set(ALL_DATA.map(r=>r['MARCA']||'').filter(Boolean))];
   const marcaData=marcas.map(m=>({name:m,val:ALL_DATA.filter(r=>r['MARCA']===m).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
-  renderBars('bar-marcas',marcaData,COLORS);
+  renderBars('bar-marcas',marcaData.slice(0, TOP_BAR_LIMIT),COLORS);
   renderDonut('donut-marca','leg-marca',marcaData);
   
   const lineas=[...new Set(ALL_DATA.map(r=>r['LINEA DE PRODUCTO']||'').filter(Boolean))];
@@ -1796,11 +1819,34 @@ function renderMarcas(){
   renderDonut('donut-linea2','leg-linea2',linData);
   
   // Marca por ejecutivo
-  const execs=[...new Set(ALL_DATA.map(r=>r['COMERCIAL']||'').filter(Boolean))];
+  const directorSelect = document.getElementById('sel-marca-director');
+  const directorFilterWrap = document.getElementById('marca-director-filter');
+  const directorOptions = [...new Set([
+    ...ALL_DATA.map(r=>(r['DIRECTOR']||'').trim()),
+    ...Object.keys(LOADED_FILES_BY_DIR||{}).map(d=>d.trim())
+  ].filter(Boolean))].sort();
+  let selectedDirector = '';
+  if(directorSelect){
+    const prev = directorSelect.value;
+    const opts = directorOptions.length > 1
+      ? [`<option value="">Todos los directores</option>`, ...directorOptions.map(d=>`<option value="${escAttr(d)}">${escHtml(d)}</option>`)]
+      : directorOptions.map(d=>`<option value="${escAttr(d)}">${escHtml(d)}</option>`);
+    directorSelect.innerHTML = opts.join('');
+    if(prev && directorOptions.includes(prev)) directorSelect.value = prev;
+    else if(directorOptions.length === 1) directorSelect.value = directorOptions[0];
+    else if(directorOptions.length > 1) directorSelect.value = directorOptions[0];
+    selectedDirector = directorSelect.value || '';
+  }
+  if(directorFilterWrap) directorFilterWrap.style.display = directorOptions.length > 1 ? '' : 'none';
+
+  const marcaExecData = selectedDirector
+    ? ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===selectedDirector)
+    : ALL_DATA;
+  const execs=[...new Set(marcaExecData.map(r=>r['COMERCIAL']||'').filter(Boolean))];
   document.getElementById('tbl-marca-ej').innerHTML=`<table>
     <thead><tr><th>Ejecutivo</th>${marcas.map(m=>`<th>${m}</th>`).join('')}<th>Top Marca</th></tr></thead>
-    <tbody>${execs.map(e=>{
-      const ed=ALL_DATA.filter(r=>r['COMERCIAL']===e);
+    <tbody>${execs.length ? execs.map(e=>{
+      const ed=marcaExecData.filter(r=>r['COMERCIAL']===e);
       const marcaCounts=marcas.map(m=>ed.filter(r=>r['MARCA']===m).length);
       const topIdx=marcaCounts.indexOf(Math.max(...marcaCounts));
       return `<tr>
@@ -1808,7 +1854,7 @@ function renderMarcas(){
         ${marcaCounts.map((c,i)=>`<td class="td-mono" style="color:${c>0?COLORS[i%COLORS.length]:'var(--text2)'}">${c||'—'}</td>`).join('')}
         <td style="font-family:var(--font-display);font-weight:700;color:${COLORS[topIdx%COLORS.length]}">${marcas[topIdx]||'—'}</td>
       </tr>`;
-    }).join('')}</tbody>
+    }).join('') : `<tr><td colspan="${marcas.length+2}" style="text-align:center;color:var(--text2);padding:20px 14px">Sin ejecutivos con datos para este grupo.</td></tr>`}</tbody>
   </table>`;
   
   // Productos únicos
@@ -2269,8 +2315,11 @@ window.addEventListener('DOMContentLoaded', () => {
 window.loadFolderFromSharePoint = loadFolderFromSharePoint;
 window.showPage = showPage;
 window.renderDivisas = renderDivisas;
+window.setDivisaEstadoFilter = setDivisaEstadoFilter;
+window.showMoreDivisaRows = showMoreDivisaRows;
 window.renderDirector = renderDirector;
 window.renderEjecutivo = renderEjecutivo;
+window.renderMarcas = renderMarcas;
 window.selectEjecutivo = selectEjecutivo;
 window.setDirectorEstadoFilter = setDirectorEstadoFilter;
 window.showMoreEstadoRows = showMoreEstadoRows;
