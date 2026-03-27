@@ -6,10 +6,19 @@ var CURRENT_USER = null;
 var SP_TOKEN     = null;
 var msalApp      = null;
 
+function getAuthRedirectUri() {
+  const origin = window.location.origin || '';
+  let path = window.location.pathname || '/';
+  path = path.split('?')[0].split('#')[0];
+  if(path.endsWith('/index.html')) path = path.slice(0, -'/index.html'.length) || '/';
+  if(!path.endsWith('/')) path += '/';
+  return origin + path;
+}
+
 var AZURE_CONFIG = {
   clientId:  '4a2b9726-2736-4f72-9e7e-c64cfdc80253',
   tenantId:  'e6805558-f5bb-444c-8af2-5f3a4d6dd3fc',
-  redirectUri: 'https://piperivera.github.io/ForeCast/',
+  redirectUri: getAuthRedirectUri(),
   siteUrl:   'https://provexpress.sharepoint.com/sites/ProvexpressIntranet',
   driveBase: 'Documentos compartidos/COMERCIAL/FORECAST 2026',
 };
