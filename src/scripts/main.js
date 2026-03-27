@@ -1676,9 +1676,13 @@ function renderDivisas(){
   const ALL_DATA = getVisibleData();
   if(!ALL_DATA.length) return;
   const trm=getTRM();
+  const estadoDetalleEl = document.getElementById('sel-divisa-estado');
+  const estadoDetalle = estadoDetalleEl ? estadoDetalleEl.value : 'GANADA';
   
   const usdData=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='USD');
   const copData=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='COP');
+  const usdDetailData=estadoDetalle ? usdData.filter(r=>r['ESTADO']===estadoDetalle) : usdData;
+  const copDetailData=estadoDetalle ? copData.filter(r=>r['ESTADO']===estadoDetalle) : copData;
   
   const totalUSD=usdData.reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   const totalCOP=copData.reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
@@ -1710,27 +1714,25 @@ function renderDivisas(){
   
   // Table USD detail
   document.getElementById('tbl-usd').innerHTML=`<table>
-    <thead><tr><th>Ejecutivo</th><th>Cliente</th><th>Producto</th><th>USD</th><th>TRM</th><th>COP Liquidado</th><th>Estado</th></tr></thead>
-    <tbody>${usdData.map(r=>{
+    <thead><tr><th>Ejecutivo</th><th>Cliente</th><th>Producto</th><th>USD</th><th>COP Liquidado</th><th>Estado</th></tr></thead>
+    <tbody>${usdDetailData.length ? usdDetailData.map(r=>{
       const usd=parseMonto(r['MONTO VENTA CLIENTE'])||0;
-      const trmR=trm;
-      const liq=usd*trmR;
+      const liq=usd*trm;
       return `<tr>
         <td>${(r['COMERCIAL']||'').split(' ')[0]}</td>
         <td>${r['CLIENTE']||'—'}</td>
         <td style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r['PRODUCTO']||'—'}</td>
         <td class="td-mono td-usd">${fmtUSD(usd)}</td>
-        <td class="td-mono" style="color:var(--corp-cyan)">${fmtTRM(trmR)}</td>
         <td class="td-mono td-cop">${fmtCOP(liq)}</td>
         <td><span class="badge badge-${r['ESTADO']}">${r['ESTADO']||'—'}</span></td>
       </tr>`;
-    }).join('')}</tbody>
+    }).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px 14px">Sin negocios ${estadoDetalle ? estadoDetalle.toLowerCase() : ''} en USD.</td></tr>`}</tbody>
   </table>`;
   
   // Table COP detail
   document.getElementById('tbl-cop').innerHTML=`<table>
     <thead><tr><th>Ejecutivo</th><th>Cliente</th><th>Producto</th><th>COP</th><th>Estado</th></tr></thead>
-    <tbody>${copData.map(r=>{
+    <tbody>${copDetailData.length ? copDetailData.map(r=>{
       const cop=parseMonto(r['MONTO VENTA CLIENTE'])||0;
       return `<tr>
         <td>${(r['COMERCIAL']||'').split(' ')[0]}</td>
@@ -1739,7 +1741,7 @@ function renderDivisas(){
         <td class="td-mono td-cop">${fmtCOP(cop)}</td>
         <td><span class="badge badge-${r['ESTADO']}">${r['ESTADO']||'—'}</span></td>
       </tr>`;
-    }).join('')}</tbody>
+    }).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:20px 14px">Sin negocios ${estadoDetalle ? estadoDetalle.toLowerCase() : ''} en COP.</td></tr>`}</tbody>
   </table>`;
   
   // Tabla resumen consolidado
@@ -2266,6 +2268,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // Exponer handlers usados por atributos inline (onclick/onchange) en index.html
 window.loadFolderFromSharePoint = loadFolderFromSharePoint;
 window.showPage = showPage;
+window.renderDivisas = renderDivisas;
 window.renderDirector = renderDirector;
 window.renderEjecutivo = renderEjecutivo;
 window.selectEjecutivo = selectEjecutivo;
