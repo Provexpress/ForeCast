@@ -241,7 +241,7 @@ const DETAIL_FIELD_LABELS = {
   'FECHA DIA/MES/AÑO': 'Fecha',
   'MONTO VENTA CLIENTE': 'Valor negocio',
   COSTO: 'Costo',
-  'TRM REFERENCIA': 'TRM referencia',
+  'TRM REFERENCIA': 'TRM del dia',
   MARGEN: 'Margen',
   'MODIFICACION O UPGRADE': 'Modificacion o upgrade',
   OBSERVACIONES: 'Observaciones'
@@ -470,29 +470,38 @@ function attachChartTooltips(container){
 function toCOP(row){
   const m = (row['MONEDA 2']||'COP').trim().toUpperCase();
   const val = parseMonto(row['MONTO VENTA CLIENTE']);
-  const trm = parseMonto(row['TRM REFERENCIA'])||getTRM();
+  const trm = getTRM();
   if(m==='USD') return val * trm;
   return val;
 }
 
-function getCosto(row){
-  const moneda = cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase();
-  const costoRaw = firstFilled(row, ['COSTO', 'COSTO TOTAL']);
-  const costoDirecto = parseMonto(costoRaw);
-  const tieneCostoDirecto = costoRaw !== '' && !isNaN(costoDirecto);
-  if(tieneCostoDirecto) return { valor: costoDirecto, moneda };
+function getMarginRatio(raw){
+  if(raw === null || raw === undefined || String(raw).trim() === '') return null;
+  const parsed = parseMonto(raw);
+  if(isNaN(parsed)) return null;
+  if(parsed >= 0 && parsed <= 1) return parsed;
+  if(parsed > 1 && parsed <= 100) return parsed / 100;
+  return null;
+}
 
+function formatMarginDisplay(raw, fallback='Sin dato'){
+  const ratio = getMarginRatio(raw);
+  return ratio === null ? fallback : fmtPct(ratio);
+}
+
+function getUtilidad(row){
+  const moneda = cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase();
   const valor = parseMonto(row['MONTO VENTA CLIENTE']);
-  const margenRaw = row['MARGEN'];
-  const margen = parseMonto(margenRaw);
-  const tieneMargen = margenRaw !== null && margenRaw !== undefined && String(margenRaw).trim() !== '' && !isNaN(margen);
-  if(valor > 0 && tieneMargen && margen >= 0 && margen < 1) {
-    return { valor: valor * (1 - margen), moneda };
-  }
-  if(valor > 0 && tieneMargen && margen >= 1 && margen <= 100) {
-    return { valor: valor * (1 - margen/100), moneda };
-  }
-  return { valor: null, moneda };
+  const margen = getMarginRatio(row['MARGEN']);
+  if(!(valor > 0) || margen === null) return { valor: 0, moneda };
+  return { valor: valor * margen, moneda };
+}
+
+function sumUtilidad(data, moneda){
+  return data.reduce((acc, row) => {
+    const utilidad = getUtilidad(row);
+    return acc + (utilidad.moneda === moneda ? utilidad.valor : 0);
+  }, 0);
 }
 
 /* Get month from date string */
@@ -555,16 +564,6 @@ function parseXlsx(file, directorHint){
           registerRecord(rec, file.name, wsName);
           if(recs.length===0) console.log('[ROW1]', file.name, {fecha:rec['FECHA DIA/MES/AÑO'], monto:rec['MONTO VENTA CLIENTE'], moneda:rec['MONEDA 2'], cliente:rec['CLIENTE']});
           recs.push(rec);
-        }
-        // Extraer TRM de hoja Consulta1 si existe
-        const consulta = wb.Sheets['Consulta1'];
-        if(consulta){
-          const cData = XLSX.utils.sheet_to_json(consulta,{header:1,defval:null});
-          // Fila 1 = headers (Valor, Unidad...), fila 2 = valor
-          if(cData[1] && cData[1][0]){
-            const trmVal = parseFloat(cData[1][0]);
-            if(trmVal > 100) window._lastTRM = trmVal;
-          }
         }
         resolve(recs);
       }catch(err){console.warn('Error parseando',file.name,err);resolve([]);}
@@ -884,21 +883,13 @@ function formatFieldValue(key, value, row){
   const mapped = normalizeHeaderKey(mapHeaderName(key));
   if(value === null || value === undefined || String(value).trim() === '') return 'Sin dato';
   if(mapped.startsWith('FECHA')) return escHtml(cleanDisplayText(formatDateValue(value), 'Sin fecha'));
-  if(mapped === 'TRM REFERENCIA') return fmtTRM(parseMonto(value));
   if(mapped === 'MONTO VENTA CLIENTE'){
     const mon = cleanDisplayText(row['MONEDA 2'], 'COP').toUpperCase();
     const monto = parseMonto(value);
     return mon === 'USD' ? fmtUSD(monto) : fmtCOP(monto);
   }
-  if(mapped === 'COSTO'){
-    const mon = cleanDisplayText(row['MONEDA 2'], 'COP').toUpperCase();
-    const costo = parseMonto(value);
-    return mon === 'USD' ? fmtUSD(costo) : fmtCOP(costo);
-  }
-  if(mapped === 'MARGEN'){
-    const margen = parseMonto(value);
-    return isNaN(margen) ? escHtml(cleanDisplayText(value, 'Sin dato')) : fmtPct(margen);
-  }
+  if(mapped === 'TRM REFERENCIA') return fmtTRM(getTRM());
+  if(mapped === 'MARGEN') return escHtml(formatMarginDisplay(value));
   if(value instanceof Date) return escHtml(cleanDisplayText(formatDateValue(value), 'Sin fecha'));
   if(typeof value === 'number') return escHtml(value.toLocaleString('es-CO'));
   return escHtml(cleanDisplayText(value, 'Sin dato'));
@@ -921,9 +912,9 @@ function renderNegocioDetail(row){
   const valor = parseMonto(row['MONTO VENTA CLIENTE']) || 0;
   const copTotal = toCOP(row);
   const margenRaw = firstFilled(row, ['MARGEN']);
-  const margen = margenRaw === '' ? 'Sin dato' : fmtPct(parseMonto(margenRaw) || 0);
+  const margen = formatMarginDisplay(margenRaw);
   const fecha = cleanDisplayText(formatDateValue(getRowDateValue(row)), 'Sin fecha');
-  const trmRef = parseMonto(firstFilled(row, ['TRM REFERENCIA'])) || getTRM();
+  const trmRef = getTRM();
   const observacion = cleanDisplayText(getRowObservation(row), 'Sin observacion registrada en el Excel.');
   const modificacion = cleanDisplayText(firstFilled(row, ['MODIFICACION O UPGRADE']), 'Sin dato');
   const sourceFile = cleanDisplayText(firstFilled(row, ['__SOURCE_FILE']), 'Sin archivo');
@@ -989,7 +980,7 @@ function renderNegocioDetail(row){
         <div class="detail-stat">
           <span>Moneda</span>
           <strong>${escHtml(moneda)}</strong>
-          <small>TRM ref: ${fmtTRM(trmRef)}</small>
+          <small>TRM dia: ${fmtTRM(trmRef)}</small>
         </div>
         <div class="detail-stat">
           <span>Margen</span>
@@ -1316,7 +1307,6 @@ function renderDirector(){
   const dir=document.getElementById('sel-director').value;
   const mes=document.getElementById('sel-dir-mes').value;
   const est=document.getElementById('sel-dir-estado').value;
-  const moneda=document.getElementById('sel-dir-moneda')?.value || '';
   const trm=getTRM();
   const estadoOptions = [
     { value:'', label:'Todos' },
@@ -1329,7 +1319,7 @@ function renderDirector(){
     <div class="director-table-toolbar">
       <div>
         <div class="director-table-toolbar-label">Filtro rapido de tabla</div>
-        <div class="director-table-toolbar-meta">Moneda activa: ${escHtml(moneda || 'Todas')} · Costo desde Excel o calculado por margen</div>
+        <div class="director-table-toolbar-meta">Estado sincronizado con el filtro superior del director</div>
       </div>
       <div class="filter-group director-table-filter">
         <div class="filter-label">Estado tabla</div>
@@ -1342,10 +1332,11 @@ function renderDirector(){
   let data=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir);
   if(mes) data=data.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===mes);
   if(est) data=data.filter(r=>r['ESTADO']===est);
-  if(moneda) data=data.filter(r=>(r['MONEDA 2']||'COP').trim().toUpperCase()===moneda);
   
   const totalCOP=data.reduce((s,r)=>s+toCOP(r),0);
   const totalUSD=data.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
+  const utilidadCOP = sumUtilidad(data, 'COP');
+  const utilidadUSD = sumUtilidad(data, 'USD');
   const ganadas=data.filter(r=>r['ESTADO']==='GANADA');
   // Todos los ejecutivos de este director (con o sin datos)
   const execsWithDataDir=[...new Set(data.map(r=>(r['COMERCIAL']||'').trim()).filter(Boolean))];
@@ -1411,6 +1402,8 @@ function renderDirector(){
   const execData = selectedExec ? data.filter(r=>(r['COMERCIAL']||'').trim()===selectedExec) : [];
   const execTotalCOP = execData.reduce((s,r)=>s+toCOP(r),0);
   const execTotalUSD = execData.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
+  const execUtilidadCOP = sumUtilidad(execData, 'COP');
+  const execUtilidadUSD = sumUtilidad(execData, 'USD');
   const execGanadas = execData.filter(r=>r['ESTADO']==='GANADA');
   const execKPIs = selectedExec ? `
     <div class="section-hd" style="margin-top:14px">
@@ -1418,7 +1411,7 @@ function renderDirector(){
       <span class="section-tag">EJECUTIVO</span>
       <button class="btn-clear" onclick="clearDirectorExec()">Ver todo el equipo</button>
     </div>
-    <div class="kpi-grid kpi-grid-4" style="margin-bottom:16px">
+    <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
       <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
         <div class="kpi-label">Total COP</div>
         <div class="kpi-val">${abr(execTotalCOP)}</div>
@@ -1428,6 +1421,16 @@ function renderDirector(){
         <div class="kpi-label">Total USD</div>
         <div class="kpi-val">${fmtUSD(execTotalUSD)}</div>
         <div class="kpi-sub">Liq: ${abr(execTotalUSD*trm)}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Utilidad COP</div>
+        <div class="kpi-val">${abr(execUtilidadCOP)}</div>
+        <div class="kpi-sub">${fmtCOP(execUtilidadCOP)}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Utilidad USD</div>
+        <div class="kpi-val">${fmtUSD(execUtilidadUSD)}</div>
+        <div class="kpi-sub">Liq: ${abr(execUtilidadUSD*trm)}</div>
       </div>
       <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
         <div class="kpi-label">Ganadas</div>
@@ -1443,20 +1446,20 @@ function renderDirector(){
     <div class="chart-card g1">
       <div class="chart-hd">Detalle de Negocios — ${selectedExec}</div>
       ${detailToolbar}
-      ${execData.length ? buildTable(execData, { clickable:true, sourcePage:'director', showCost:true }) : `<div style="font-size:11px;color:var(--text2)">Sin registros para este filtro.</div>`}
+      ${execData.length ? buildTable(execData, { clickable:true, sourcePage:'director' }) : `<div style="font-size:11px;color:var(--text2)">Sin registros para este filtro.</div>`}
     </div>
   ` : `
     <div class="chart-card g1">
       <div class="chart-hd">Detalle de Negocios</div>
       ${detailToolbar}
-      ${buildTable(data.slice(0,30), { clickable:true, sourcePage:'director', showCost:true })}
+      ${buildTable(data.slice(0,30), { clickable:true, sourcePage:'director' })}
     </div>
   `;
   
   document.getElementById('director-content').innerHTML=`
     <div class="section-hd"><h2>${dir}</h2><span class="section-tag">DIRECTOR</span></div>
     
-    <div class="kpi-grid kpi-grid-4" style="margin-bottom:16px">
+    <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
       <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
         <div class="kpi-label">Total COP</div>
         <div class="kpi-val">${abr(totalCOP)}</div>
@@ -1466,6 +1469,16 @@ function renderDirector(){
         <div class="kpi-label">Total USD</div>
         <div class="kpi-val">${fmtUSD(totalUSD)}</div>
         <div class="kpi-sub">Liq: ${abr(totalUSD*trm)}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Utilidad COP</div>
+        <div class="kpi-val">${abr(utilidadCOP)}</div>
+        <div class="kpi-sub">${fmtCOP(utilidadCOP)}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Utilidad USD</div>
+        <div class="kpi-val">${fmtUSD(utilidadUSD)}</div>
+        <div class="kpi-sub">Liq: ${abr(utilidadUSD*trm)}</div>
       </div>
       <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
         <div class="kpi-label">Ganadas</div>
@@ -1700,7 +1713,7 @@ function renderDivisas(){
     <thead><tr><th>Ejecutivo</th><th>Cliente</th><th>Producto</th><th>USD</th><th>TRM</th><th>COP Liquidado</th><th>Estado</th></tr></thead>
     <tbody>${usdData.map(r=>{
       const usd=parseMonto(r['MONTO VENTA CLIENTE'])||0;
-      const trmR=parseFloat(r['TRM REFERENCIA'])||trm;
+      const trmR=trm;
       const liq=usd*trmR;
       return `<tr>
         <td>${(r['COMERCIAL']||'').split(' ')[0]}</td>
@@ -1954,17 +1967,11 @@ function renderResumen(){
 function buildTable(data, opts){
   const options = opts || {};
   const sourcePage = options.sourcePage || getActivePageId();
-  const showCost = !!options.showCost;
-  const colspan = showCost ? 11 : 10;
   return `<table class="responsive-table">
-    <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Marca</th><th>Línea</th><th>Moneda</th><th>Valor</th>${showCost?'<th>Costo</th>':''}<th>COP Total</th><th>Margen</th><th>Estado</th></tr></thead>
+    <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Marca</th><th>Línea</th><th>Moneda</th><th>Valor</th><th>COP Total</th><th>Margen</th><th>Estado</th></tr></thead>
     <tbody>${data.length ? data.map(r=>{
       const mon = cleanDisplayText(r['MONEDA 2'], 'COP').trim().toUpperCase();
       const val = parseMonto(r['MONTO VENTA CLIENTE']) || 0;
-      const costoInfo = showCost ? getCosto(r) : null;
-      const costoText = !showCost || costoInfo.valor === null
-        ? '—'
-        : (costoInfo.moneda === 'USD' ? fmtUSD(costoInfo.valor) : fmtCOP(costoInfo.valor));
       const cop = toCOP(r);
       const fecha = cleanDisplayText(formatDateValue(getRowDateValue(r)), 'Sin fecha');
       const cliente = cleanDisplayText(getRowClientName(r), 'Sin cliente');
@@ -1972,10 +1979,7 @@ function buildTable(data, opts){
       const marca = cleanDisplayText(getRowBrandName(r), 'Sin marca');
       const linea = cleanDisplayText(getRowLineName(r), 'Sin linea');
       const marginRaw = r['MARGEN'];
-      const marginParsed = parseMonto(marginRaw);
-      const marginText = marginRaw === null || marginRaw === undefined || String(marginRaw).trim() === ''
-        ? '-'
-        : (isNaN(marginParsed) ? escHtml(cleanDisplayText(marginRaw, '-')) : fmtPct(marginParsed > 1 ? marginParsed/100 : marginParsed));
+      const marginText = formatMarginDisplay(marginRaw, '-');
       const estado = cleanDisplayText(r['ESTADO'], 'Sin estado').toUpperCase();
       const estadoClass = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'].includes(estado) ? estado : 'PENDIENTE';
       const rowAttrs = options.clickable && r.__RID
@@ -1989,12 +1993,11 @@ function buildTable(data, opts){
         <td style="font-size:10px" data-label="Línea">${escHtml(linea)}</td>
         <td data-label="Moneda"><span class="badge ${mon==='USD'?'badge-PEDIDA':'badge-PENDIENTE'}">${mon}</span></td>
         <td class="td-mono ${mon==='USD'?'td-usd':'td-cop'}" data-label="Valor">${mon==='USD'?fmtUSD(val):fmtCOP(val)}</td>
-        ${showCost ? `<td class="td-mono ${costoInfo.valor !== null ? (costoInfo.moneda==='USD' ? 'td-usd' : 'td-cop') : ''}" data-label="Costo">${escHtml(costoText)}</td>` : ''}
         <td class="td-mono td-cop" data-label="COP Total">${fmtCOP(cop)}</td>
         <td class="td-mono" style="color:var(--corp-amber)" data-label="Margen">${escHtml(marginText)}</td>
         <td data-label="Estado"><span class="badge badge-${estadoClass}">${escHtml(estado)}</span></td>
       </tr>`;
-    }).join('') : `<tr><td colspan="${colspan}" style="text-align:center;color:var(--text2)">Sin registros para este filtro.</td></tr>`}</tbody>
+    }).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--text2)">Sin registros para este filtro.</td></tr>`}</tbody>
   </table>`;
 }
 
@@ -2210,11 +2213,6 @@ async function loadSpFile(item, dirName) {
       rec['ESTADO'] = normalizeEstado(rec['ESTADO']);
       registerRecord(rec, item.name, wsName);
       recs.push(rec);
-    }
-    const consulta = wb.Sheets['Consulta1'];
-    if(consulta) {
-      const cData = XLSX.utils.sheet_to_json(consulta,{header:1,defval:null});
-      if(cData[1]&&cData[1][0]){ const t=parseFloat(cData[1][0]); if(t>100) window._lastTRM=t; }
     }
     return recs;
   } catch(e) { console.warn('Error leyendo', item.name, e); return []; }
