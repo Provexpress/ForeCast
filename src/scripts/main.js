@@ -111,9 +111,9 @@ async function fetchTRM() {
     }
   } catch(e1) { console.warn('[TRM] datos.gov.co failed', e1.message); }
 
-  // Source 2: Vercel endpoint (fallback)
+  // Source 2: local Vercel function (fallback on deployed environment)
   try {
-    const r2 = await fetch('https://fore-cast-gamma.vercel.app/api/trm', { cache: 'no-store' });
+    const r2 = await fetch('/api/trm', { cache: 'no-store' });
     if(r2.ok) {
       const d2 = await r2.json();
       if(d2.ok && d2.trm > 100) { setTRM(d2.trm); return; }
