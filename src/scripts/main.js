@@ -240,6 +240,7 @@ const DETAIL_FIELD_LABELS = {
   'MONEDA 2': 'Moneda',
   'FECHA DIA/MES/AÑO': 'Fecha',
   'MONTO VENTA CLIENTE': 'Valor negocio',
+  COSTO: 'Costo',
   'TRM REFERENCIA': 'TRM referencia',
   MARGEN: 'Margen',
   'MODIFICACION O UPGRADE': 'Modificacion o upgrade',
@@ -472,6 +473,26 @@ function toCOP(row){
   const trm = parseMonto(row['TRM REFERENCIA'])||getTRM();
   if(m==='USD') return val * trm;
   return val;
+}
+
+function getCosto(row){
+  const moneda = cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase();
+  const costoRaw = firstFilled(row, ['COSTO', 'COSTO TOTAL']);
+  const costoDirecto = parseMonto(costoRaw);
+  const tieneCostoDirecto = costoRaw !== '' && !isNaN(costoDirecto);
+  if(tieneCostoDirecto) return { valor: costoDirecto, moneda };
+
+  const valor = parseMonto(row['MONTO VENTA CLIENTE']);
+  const margenRaw = row['MARGEN'];
+  const margen = parseMonto(margenRaw);
+  const tieneMargen = margenRaw !== null && margenRaw !== undefined && String(margenRaw).trim() !== '' && !isNaN(margen);
+  if(valor > 0 && tieneMargen && margen >= 0 && margen < 1) {
+    return { valor: valor * (1 - margen), moneda };
+  }
+  if(valor > 0 && tieneMargen && margen >= 1 && margen <= 100) {
+    return { valor: valor * (1 - margen/100), moneda };
+  }
+  return { valor: null, moneda };
 }
 
 /* Get month from date string */
@@ -868,6 +889,11 @@ function formatFieldValue(key, value, row){
     const mon = cleanDisplayText(row['MONEDA 2'], 'COP').toUpperCase();
     const monto = parseMonto(value);
     return mon === 'USD' ? fmtUSD(monto) : fmtCOP(monto);
+  }
+  if(mapped === 'COSTO'){
+    const mon = cleanDisplayText(row['MONEDA 2'], 'COP').toUpperCase();
+    const costo = parseMonto(value);
+    return mon === 'USD' ? fmtUSD(costo) : fmtCOP(costo);
   }
   if(mapped === 'MARGEN'){
     const margen = parseMonto(value);
@@ -1290,11 +1316,33 @@ function renderDirector(){
   const dir=document.getElementById('sel-director').value;
   const mes=document.getElementById('sel-dir-mes').value;
   const est=document.getElementById('sel-dir-estado').value;
+  const moneda=document.getElementById('sel-dir-moneda')?.value || '';
   const trm=getTRM();
-  
+  const estadoOptions = [
+    { value:'', label:'Todos' },
+    { value:'GANADA', label:'GANADA' },
+    { value:'PENDIENTE', label:'PENDIENTE' },
+    { value:'PERDIDA', label:'PERDIDA' },
+    { value:'APLAZADO', label:'APLAZADO' }
+  ].map(opt => `<option value="${opt.value}" ${opt.value===est?'selected':''}>${opt.label}</option>`).join('');
+  const detailToolbar = `
+    <div class="director-table-toolbar">
+      <div>
+        <div class="director-table-toolbar-label">Filtro rapido de tabla</div>
+        <div class="director-table-toolbar-meta">Moneda activa: ${escHtml(moneda || 'Todas')} · Costo desde Excel o calculado por margen</div>
+      </div>
+      <div class="filter-group director-table-filter">
+        <div class="filter-label">Estado tabla</div>
+        <select id="sel-dir-estado-detail" onchange="setDirectorEstadoFilter(this.value)">
+          ${estadoOptions}
+        </select>
+      </div>
+    </div>`;
+
   let data=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir);
   if(mes) data=data.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===mes);
   if(est) data=data.filter(r=>r['ESTADO']===est);
+  if(moneda) data=data.filter(r=>(r['MONEDA 2']||'COP').trim().toUpperCase()===moneda);
   
   const totalCOP=data.reduce((s,r)=>s+toCOP(r),0);
   const totalUSD=data.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
@@ -1394,12 +1442,14 @@ function renderDirector(){
     </div>
     <div class="chart-card g1">
       <div class="chart-hd">Detalle de Negocios — ${selectedExec}</div>
-      ${execData.length ? buildTable(execData, { clickable:true, sourcePage:'director' }) : `<div style="font-size:11px;color:var(--text2)">Sin registros para este filtro.</div>`}
+      ${detailToolbar}
+      ${execData.length ? buildTable(execData, { clickable:true, sourcePage:'director', showCost:true }) : `<div style="font-size:11px;color:var(--text2)">Sin registros para este filtro.</div>`}
     </div>
   ` : `
     <div class="chart-card g1">
       <div class="chart-hd">Detalle de Negocios</div>
-      ${buildTable(data.slice(0,30), { clickable:true, sourcePage:'director' })}
+      ${detailToolbar}
+      ${buildTable(data.slice(0,30), { clickable:true, sourcePage:'director', showCost:true })}
     </div>
   `;
   
@@ -1467,6 +1517,12 @@ function selectDirectorExec(name){
 function clearDirectorExec(){
   const dir=document.getElementById('sel-director').value;
   if(dir) delete SELECTED_EXEC_BY_DIR[dir];
+  renderDirector();
+}
+
+function setDirectorEstadoFilter(value){
+  const topFilter = document.getElementById('sel-dir-estado');
+  if(topFilter) topFilter.value = value;
   renderDirector();
 }
 
@@ -1898,11 +1954,17 @@ function renderResumen(){
 function buildTable(data, opts){
   const options = opts || {};
   const sourcePage = options.sourcePage || getActivePageId();
+  const showCost = !!options.showCost;
+  const colspan = showCost ? 11 : 10;
   return `<table class="responsive-table">
-    <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Marca</th><th>Línea</th><th>Moneda</th><th>Valor</th><th>COP Total</th><th>Margen</th><th>Estado</th></tr></thead>
+    <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Marca</th><th>Línea</th><th>Moneda</th><th>Valor</th>${showCost?'<th>Costo</th>':''}<th>COP Total</th><th>Margen</th><th>Estado</th></tr></thead>
     <tbody>${data.length ? data.map(r=>{
       const mon = cleanDisplayText(r['MONEDA 2'], 'COP').trim().toUpperCase();
       const val = parseMonto(r['MONTO VENTA CLIENTE']) || 0;
+      const costoInfo = showCost ? getCosto(r) : null;
+      const costoText = !showCost || costoInfo.valor === null
+        ? '—'
+        : (costoInfo.moneda === 'USD' ? fmtUSD(costoInfo.valor) : fmtCOP(costoInfo.valor));
       const cop = toCOP(r);
       const fecha = cleanDisplayText(formatDateValue(getRowDateValue(r)), 'Sin fecha');
       const cliente = cleanDisplayText(getRowClientName(r), 'Sin cliente');
@@ -1910,7 +1972,10 @@ function buildTable(data, opts){
       const marca = cleanDisplayText(getRowBrandName(r), 'Sin marca');
       const linea = cleanDisplayText(getRowLineName(r), 'Sin linea');
       const marginRaw = r['MARGEN'];
-      const marginText = marginRaw === null || marginRaw === undefined || String(marginRaw).trim() === '' ? '-' : fmtPct(parseMonto(marginRaw) || 0);
+      const marginParsed = parseMonto(marginRaw);
+      const marginText = marginRaw === null || marginRaw === undefined || String(marginRaw).trim() === ''
+        ? '-'
+        : (isNaN(marginParsed) ? escHtml(cleanDisplayText(marginRaw, '-')) : fmtPct(marginParsed > 1 ? marginParsed/100 : marginParsed));
       const estado = cleanDisplayText(r['ESTADO'], 'Sin estado').toUpperCase();
       const estadoClass = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'].includes(estado) ? estado : 'PENDIENTE';
       const rowAttrs = options.clickable && r.__RID
@@ -1924,11 +1989,12 @@ function buildTable(data, opts){
         <td style="font-size:10px" data-label="Línea">${escHtml(linea)}</td>
         <td data-label="Moneda"><span class="badge ${mon==='USD'?'badge-PEDIDA':'badge-PENDIENTE'}">${mon}</span></td>
         <td class="td-mono ${mon==='USD'?'td-usd':'td-cop'}" data-label="Valor">${mon==='USD'?fmtUSD(val):fmtCOP(val)}</td>
+        ${showCost ? `<td class="td-mono ${costoInfo.valor !== null ? (costoInfo.moneda==='USD' ? 'td-usd' : 'td-cop') : ''}" data-label="Costo">${escHtml(costoText)}</td>` : ''}
         <td class="td-mono td-cop" data-label="COP Total">${fmtCOP(cop)}</td>
         <td class="td-mono" style="color:var(--corp-amber)" data-label="Margen">${escHtml(marginText)}</td>
         <td data-label="Estado"><span class="badge badge-${estadoClass}">${escHtml(estado)}</span></td>
       </tr>`;
-    }).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--text2)">Sin registros para este filtro.</td></tr>`}</tbody>
+    }).join('') : `<tr><td colspan="${colspan}" style="text-align:center;color:var(--text2)">Sin registros para este filtro.</td></tr>`}</tbody>
   </table>`;
 }
 
@@ -2205,6 +2271,7 @@ window.showPage = showPage;
 window.renderDirector = renderDirector;
 window.renderEjecutivo = renderEjecutivo;
 window.selectEjecutivo = selectEjecutivo;
+window.setDirectorEstadoFilter = setDirectorEstadoFilter;
 window.showMoreEstadoRows = showMoreEstadoRows;
 window.openNegocioDetailById = openNegocioDetailById;
 window.closeNegocioDetail = closeNegocioDetail;
