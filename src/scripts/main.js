@@ -140,7 +140,8 @@ const COLORS = [
   '#2D4FD6','#8B5FC8','#2ABFDF','#0DBF82','#F0A020',
   '#E84040','#E040A0','#40C8F0','#F06040','#1B2B8C'
 ];
-const MES_LABELS = {'2026-01':'Ene','2026-02':'Feb','2026-03':'Mar'};
+const MONTH_LABELS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MONTH_LABELS_LONG = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 /* Format helpers */
 function fmtCOP(v){
@@ -607,6 +608,41 @@ function getMonth(d){
   return parsefecha(d);
 }
 
+function getForecastMonths(data){
+  return [...new Set((data || []).map(r => getMonth(getRowDateValue(r))).filter(m => /^\d{4}-\d{2}$/.test(m)))].sort();
+}
+
+function getMonthIndex(monthKey){
+  const parts = String(monthKey || '').split('-');
+  const idx = Number(parts[1]) - 1;
+  return idx >= 0 && idx < 12 ? idx : -1;
+}
+
+function getMonthShortLabel(monthKey){
+  const idx = getMonthIndex(monthKey);
+  return idx >= 0 ? MONTH_LABELS_SHORT[idx] : monthKey;
+}
+
+function getMonthLongLabel(monthKey){
+  const idx = getMonthIndex(monthKey);
+  return idx >= 0 ? MONTH_LABELS_LONG[idx] : monthKey;
+}
+
+function syncMonthSelectOptions(selectId, months){
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  const current = sel.value;
+  sel.innerHTML = `<option value="">Todos</option>${months.map(month => `<option value="${month}">${getMonthLongLabel(month)}</option>`).join('')}`;
+  if(current && months.includes(current)) sel.value = current;
+  else sel.value = '';
+}
+
+function refreshForecastMonthFilters(){
+  const months = getForecastMonths(getVisibleData());
+  syncMonthSelectOptions('sel-dir-mes', months);
+  syncMonthSelectOptions('sel-ej-mes', months);
+}
+
 /* Today string */
 function todayStr(){
   const n = new Date();
@@ -911,6 +947,7 @@ function getVisibleSalesData() {
 }
 
 function renderAll(){
+  refreshForecastMonthFilters();
   renderGerencia();
   renderDirector();
   renderEjecutivo();
@@ -1420,17 +1457,23 @@ function renderDonut(svgId, legId, items){
   }).join('');
 }
 
-function renderEvoChart(containerId, dataByDir){
+function renderEvoChart(containerId, dataByDir, months){
   const el=document.getElementById(containerId);
   if(!el) return;
-  const months=['2026-01','2026-02','2026-03'];
+  const monthKeys = (months && months.length)
+    ? months
+    : [...new Set(Object.values(dataByDir || {}).flatMap(row => Object.keys(row || {})).filter(Boolean))].sort();
+  if(!monthKeys.length){
+    el.innerHTML = `<div style="font-size:11px;color:var(--text2)">Sin datos mensuales para mostrar.</div>`;
+    return;
+  }
   const dirs=[...new Set(Object.keys(dataByDir))];
   const nDirs=dirs.length;
-  const allVals=dirs.flatMap(d=>months.map(m=>dataByDir[d][m]||0));
+  const allVals=dirs.flatMap(d=>monthKeys.map(m=>dataByDir[d][m]||0));
   const maxVal=Math.max(...allVals,1);
   const W=520,H=200,padL=56,padR=12,padT=20,padB=36;
   const gW=W-padL-padR, gH=H-padT-padB;
-  const grpW=gW/months.length;
+  const grpW=gW/monthKeys.length;
   const barW=Math.min(18, (grpW-8)/Math.max(nDirs,1));
   const gap=2;
 
@@ -1445,7 +1488,7 @@ function renderEvoChart(containerId, dataByDir){
   });
 
   // Bars
-  months.forEach((m,mi)=>{
+  monthKeys.forEach((m,mi)=>{
     const grpCenter=padL+(mi+0.5)*grpW;
     const totalBarW=(barW+gap)*nDirs-gap;
     dirs.forEach((d,di)=>{
@@ -1456,7 +1499,7 @@ function renderEvoChart(containerId, dataByDir){
       svg+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${bh.toFixed(1)}" rx="2" fill="url(#bg${di})" data-tooltip="${escAttr(dirs[di]+': '+abr(v))}"></rect>`;
     });
     // Month label
-    svg+=`<text x="${grpCenter.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="#B8C8E8" font-family="IBM Plex Sans,sans-serif" font-weight="400">${MES_LABELS[m]||m}</text>`;
+    svg+=`<text x="${grpCenter.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="#B8C8E8" font-family="IBM Plex Sans,sans-serif" font-weight="400">${getMonthShortLabel(m)}</text>`;
   });
 
   // Legend top
@@ -1545,6 +1588,7 @@ function renderGerencia(){
   renderBars('bar-directores',dirData,COLORS);
   
   // Evo por director mensual
+  const monthsForEvo = getForecastMonths(ALL_DATA);
   const dirsForEvo=[...new Set([
     ...ALL_DATA.map(r=>(r['DIRECTOR']||'').trim()),
     ...Object.keys(LOADED_FILES_BY_DIR||{}).map(d=>d.trim())
@@ -1552,11 +1596,11 @@ function renderGerencia(){
   const evoByDir={};
   dirsForEvo.forEach(d=>{
     evoByDir[d]={};
-    ['2026-01','2026-02','2026-03'].forEach(m=>{
+    monthsForEvo.forEach(m=>{
       evoByDir[d][m]=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===d&&getMonth(r['FECHA DIA/MES/AÑO'])===m).reduce((s,r)=>s+toCOP(r),0);
     });
   });
-  renderEvoChart('evo-dir-chart',evoByDir);
+  renderEvoChart('evo-dir-chart',evoByDir, monthsForEvo);
   
   // Bar ejecutivos
   const execs=[...new Set(ALL_DATA.map(r=>r['COMERCIAL']||'').filter(Boolean))];
@@ -1694,11 +1738,14 @@ function renderDirector(){
   const execs=[...new Set([...execsWithDataDir,...execsFromFilesDir])].sort();
   
   // Evolution del director
-  const evoMonths={'2026-01':0,'2026-02':0,'2026-03':0};
+  const evoMonthKeys = getForecastMonths(data.length ? data : ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir));
+  const evoMonths = {};
+  evoMonthKeys.forEach(m => { evoMonths[m] = 0; });
   data.forEach(r=>{const m=getMonth(r['FECHA DIA/MES/AÑO']);if(evoMonths[m]!==undefined)evoMonths[m]+=toCOP(r);});
   
   const evoSVG=()=>{
     const months=Object.keys(evoMonths);
+    if(!months.length) return `<div style="font-size:11px;color:var(--text2)">Sin datos mensuales para mostrar.</div>`;
     const vals=Object.values(evoMonths);
     const maxV=Math.max(...vals,1);
     const W=400,H=140,padL=44,padR=10,padT=16,padB=28;
@@ -1718,8 +1765,8 @@ function renderDirector(){
       const cx=padL+(i+0.5)*(gW/months.length);
       const x=cx-bW/2;
       const y=padT+gH-bh;
-      s+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${bh.toFixed(1)}" rx="3" fill="url(#bg-dir)" data-tooltip="${escAttr((MES_LABELS[m]||m)+': '+abr(v))}"></rect>`;
-      s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#B0BCDF" font-family="IBM Plex Sans,sans-serif" font-weight="400">${MES_LABELS[m]||m}</text>`;
+      s+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${bh.toFixed(1)}" rx="3" fill="url(#bg-dir)" data-tooltip="${escAttr(getMonthShortLabel(m)+': '+abr(v))}"></rect>`;
+      s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#B0BCDF" font-family="IBM Plex Sans,sans-serif" font-weight="400">${getMonthShortLabel(m)}</text>`;
     });
     s+='</svg>';
     return s;
@@ -2021,11 +2068,7 @@ function selectEjecutivo(name){
 
 function getMonthLabel(monthKey){
   if(!monthKey) return 'Sin mes';
-  if(MES_LABELS[monthKey]) return ({Ene:'Enero',Feb:'Febrero',Mar:'Marzo'})[MES_LABELS[monthKey]] || MES_LABELS[monthKey];
-  const [year, month] = String(monthKey).split('-');
-  const labels = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const idx = Number(month) - 1;
-  return idx >= 0 && idx < labels.length ? labels[idx] : monthKey;
+  return getMonthLongLabel(monthKey);
 }
 
 function buildSalesTable(data, opts){
@@ -2426,6 +2469,8 @@ function renderResumen(){
   const ALL_DATA = getVisibleData();
   if(!ALL_DATA.length) return;
   const trm=getTRM();
+  const months = getForecastMonths(ALL_DATA);
+  const monthHeaderCells = months.map(month => `<th>${getMonthShortLabel(month)}</th>`).join('');
   
   const usdData=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='USD');
   const copData=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='COP');
@@ -2458,52 +2503,42 @@ function renderResumen(){
   const execs=[...new Set(ALL_DATA.map(r=>r['COMERCIAL']||'').filter(Boolean))];
   
   document.getElementById('tbl-total-cop').innerHTML=`<table>
-    <thead><tr><th>Ejecutivo</th><th>Director</th><th>Negocios COP</th><th>Ene</th><th>Feb</th><th>Mar</th><th>Total COP</th></tr></thead>
+    <thead><tr><th>Ejecutivo</th><th>Director</th><th>Negocios COP</th>${monthHeaderCells}<th>Total COP</th></tr></thead>
     <tbody>${execs.map(e=>{
       const ed=copData.filter(r=>r['COMERCIAL']===e);
       const dir=ALL_DATA.find(r=>r['COMERCIAL']===e);
-      const jan=ed.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])==='2026-01').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
-      const feb=ed.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])==='2026-02').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
-      const mar=ed.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])==='2026-03').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
-      const tot=jan+feb+mar;
+      const monthlyValues = months.map(month => ed.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0));
+      const tot=monthlyValues.reduce((sum, val)=>sum+val,0);
       return `<tr>
         <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${e}</td>
         <td style="color:var(--text2)">${dir?dir['DIRECTOR']||'—':'—'}</td>
         <td class="td-mono">${ed.length}</td>
-        <td class="td-mono td-cop">${jan>0?abr(jan):'—'}</td>
-        <td class="td-mono td-cop">${feb>0?abr(feb):'—'}</td>
-        <td class="td-mono td-cop">${mar>0?abr(mar):'—'}</td>
+        ${monthlyValues.map(val=>`<td class="td-mono td-cop">${val>0?abr(val):'—'}</td>`).join('')}
         <td class="td-mono td-cop" style="font-weight:700">${fmtCOP(tot)}</td>
       </tr>`;
     }).join('')}
     <tr style="border-top:1px solid var(--border2)">
       <td colspan="2" style="font-family:var(--font-display);font-weight:800;color:var(--cop-color)">SUBTOTAL COP</td>
       <td class="td-mono">${copData.length}</td>
-      <td class="td-mono td-cop">${abr(copData.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])==='2026-01').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0))}</td>
-      <td class="td-mono td-cop">${abr(copData.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])==='2026-02').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0))}</td>
-      <td class="td-mono td-cop">${abr(copData.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])==='2026-03').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0))}</td>
+      ${months.map(month => `<td class="td-mono td-cop">${abr(copData.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0))}</td>`).join('')}
       <td class="td-mono td-cop" style="font-weight:800;font-size:13px">${fmtCOP(totalCOP)}</td>
     </tr></tbody>
   </table>`;
   
   // Tabla USD detail + liquidado
   document.getElementById('tbl-total-usd').innerHTML=`<table>
-    <thead><tr><th>Ejecutivo</th><th>Director</th><th>Negocios USD</th><th>Ene USD</th><th>Feb USD</th><th>Mar USD</th><th>Total USD</th><th>TRM</th><th>Total Liquidado COP</th></tr></thead>
+    <thead><tr><th>Ejecutivo</th><th>Director</th><th>Negocios USD</th>${monthHeaderCells}<th>Total USD</th><th>TRM</th><th>Total Liquidado COP</th></tr></thead>
     <tbody>${execs.map(e=>{
       const ed=usdData.filter(r=>r['COMERCIAL']===e);
       if(!ed.length) return '';
       const dir=ALL_DATA.find(r=>r['COMERCIAL']===e);
-      const jan=ed.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])==='2026-01').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
-      const feb=ed.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])==='2026-02').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
-      const mar=ed.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])==='2026-03').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
-      const tot=jan+feb+mar;
+      const monthlyValues = months.map(month => ed.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0));
+      const tot=monthlyValues.reduce((sum, val)=>sum+val,0);
       return `<tr>
         <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${e}</td>
         <td style="color:var(--text2)">${dir?dir['DIRECTOR']||'—':'—'}</td>
         <td class="td-mono">${ed.length}</td>
-        <td class="td-mono td-usd">${jan>0?fmtUSD(jan):'—'}</td>
-        <td class="td-mono td-usd">${feb>0?fmtUSD(feb):'—'}</td>
-        <td class="td-mono td-usd">${mar>0?fmtUSD(mar):'—'}</td>
+        ${monthlyValues.map(val=>`<td class="td-mono td-usd">${val>0?fmtUSD(val):'—'}</td>`).join('')}
         <td class="td-mono td-usd" style="font-weight:700">${fmtUSD(tot)}</td>
         <td class="td-mono" style="color:var(--corp-cyan)">${fmtTRMDisplay(trm)}</td>
         <td class="td-mono td-cop" style="font-weight:700">${fmtCOP(tot*trm)}</td>
@@ -2512,7 +2547,7 @@ function renderResumen(){
     <tr style="border-top:1px solid var(--border2)">
       <td colspan="2" style="font-family:var(--font-display);font-weight:800;color:var(--usd-color)">SUBTOTAL USD</td>
       <td class="td-mono">${usdData.length}</td>
-      <td colspan="3"></td>
+      ${months.map(()=>'<td></td>').join('')}
       <td class="td-mono td-usd" style="font-weight:800">${fmtUSD(totalUSD)}</td>
       <td class="td-mono" style="color:var(--corp-cyan)">${fmtTRMDisplay(trm)}</td>
       <td class="td-mono td-usd" style="font-weight:800;font-size:13px">${fmtCOP(usdLiq)}</td>
