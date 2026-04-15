@@ -323,8 +323,25 @@ function getSalesSupportName(row){
   return firstFilled(row, ['SALES SUPPORT','COMERCIAL']) || '';
 }
 
+function splitSalesTargets(value){
+  return cleanDisplayText(value, '')
+    .split(/\s+-\s+/)
+    .map(cleanNameSegment)
+    .filter(Boolean);
+}
+
+function formatSalesTargets(value){
+  const names = Array.isArray(value) ? value : splitSalesTargets(value);
+  return names.join(', ');
+}
+
+function getSalesSoportaNames(row){
+  const raw = firstFilled(row, ['SOPORTA','SOPORTADO','COMERCIAL APOYADO','DIRECTOR APOYADO']) || '';
+  return splitSalesTargets(raw);
+}
+
 function getSalesSoportaName(row){
-  return firstFilled(row, ['SOPORTA','SOPORTADO','COMERCIAL APOYADO','DIRECTOR APOYADO']) || '';
+  return formatSalesTargets(getSalesSoportaNames(row));
 }
 
 function getSalesQuoteNumber(row){
@@ -573,10 +590,12 @@ function parseSalesSupportFileName(name){
   const base = String(name || '').replace(/\.(xlsx|xls)$/i,'').trim();
   if(!/^sales support\b/i.test(base)) return null;
   const rest = base.replace(/^sales support\b/i,'').trim();
-  const parts = rest.split(/\s+-\s+/);
+  const parts = rest.split(/\s+-\s+/).map(cleanNameSegment).filter(Boolean);
+  const soportaNames = parts.slice(1);
   return {
     supportName: cleanNameSegment(parts[0] || ''),
-    soportaName: cleanNameSegment(parts.slice(1).join(' - '))
+    soportaNames,
+    soportaName: formatSalesTargets(soportaNames)
   };
 }
 
@@ -586,7 +605,7 @@ function decorateRecordFromFile(rec, fileName, directorHint){
   rec['ESTADO'] = normalizeEstado(rec['ESTADO']);
   if(salesMeta){
     const supportName = cleanNameSegment(salesMeta.supportName);
-    const soportaName = cleanNameSegment(firstFilled(rec, ['SOPORTA']) || salesMeta.soportaName);
+    const soportaName = formatSalesTargets(firstFilled(rec, ['SOPORTA']) || salesMeta.soportaNames);
     rec['SALES SUPPORT'] = supportName;
     rec['COMERCIAL'] = supportName || cleanNameSegment(rec['COMERCIAL']);
     rec['SOPORTA'] = soportaName;
