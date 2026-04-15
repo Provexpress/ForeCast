@@ -7,6 +7,7 @@ let TRM_READY = false;
 let SELECTED_EXEC_BY_DIR = {};
 let RECORD_SEQ = 0;
 let NEGOCIO_DETAIL_STATE = null;
+let MARCA_LINEA_DETAIL_STATE = null;
 
 const GERENCIA_ESTADO_STEP = 20;
 const GERENCIA_ESTADO_LIMITS = {
@@ -166,6 +167,10 @@ function abr(v){
 }
 function escAttr(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+function jsStringLiteral(s){
+  return JSON.stringify(String(s ?? ''));
 }
 
 function escHtml(s){
@@ -787,6 +792,9 @@ function renderAll(){
   renderDivisas();
   renderMarcas();
   renderResumen();
+  if(MARCA_LINEA_DETAIL_STATE && document.getElementById('page-marca-linea-detail')) {
+    renderMarcaLineaDetail();
+  }
   if(NEGOCIO_DETAIL_STATE && document.getElementById('page-negocio')) {
     const row = getRecordById(NEGOCIO_DETAIL_STATE.rowId);
     if(row) renderNegocioDetail(row);
@@ -799,6 +807,7 @@ function renderAll(){
 function showPage(id,btn){
   const currentPage = getActivePageId();
   if(currentPage === 'negocio' && id !== 'negocio') NEGOCIO_DETAIL_STATE = null;
+  if(currentPage === 'marca-linea-detail' && id !== 'marca-linea-detail' && id !== 'negocio') MARCA_LINEA_DETAIL_STATE = null;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
@@ -875,6 +884,62 @@ function showMoreDivisaRows(moneda){
   DIVISAS_DETAIL_LIMITS[key] = (DIVISAS_DETAIL_LIMITS[key] || 10) + DIVISAS_DETAIL_STEP;
   renderDivisas();
   restoreScrollSnapshot('divisas', scrollState);
+}
+
+function normalizeCategoryValue(value){
+  return cleanDisplayText(value, '')
+    .toString()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getMarcaLineaDetailTypeLabel(type){
+  return ({ marca:'Marca', linea:'Linea', producto:'Producto' })[type] || 'Categoria';
+}
+
+function getMarcaLineaDetailRowValue(row, type){
+  if(type === 'marca') return getRowBrandName(row);
+  if(type === 'linea') return getRowLineName(row);
+  if(type === 'producto') return getRowProductName(row);
+  return '';
+}
+
+function getMarcaLineaDetailRows(state){
+  if(!state || !state.value) return [];
+  const target = normalizeCategoryValue(state.value);
+  return getVisibleData().filter(row => normalizeCategoryValue(getMarcaLineaDetailRowValue(row, state.type)) === target);
+}
+
+function openMarcaLineaDetail(type, value, sourcePage){
+  const cleanValue = cleanDisplayText(value, '').trim();
+  if(!cleanValue) return;
+  const backPage = sourcePage || getActivePageId();
+  MARCA_LINEA_DETAIL_STATE = {
+    type,
+    value: cleanValue,
+    estadoFilter: '',
+    backPage,
+    backScroll: captureScrollSnapshot(backPage)
+  };
+  renderMarcaLineaDetail();
+  showPage('marca-linea-detail');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function setMarcaLineaDetailEstado(value){
+  if(!MARCA_LINEA_DETAIL_STATE) return;
+  MARCA_LINEA_DETAIL_STATE.estadoFilter = value || '';
+  renderMarcaLineaDetail();
+}
+
+function closeMarcaLineaDetail(){
+  const backPage = (MARCA_LINEA_DETAIL_STATE && MARCA_LINEA_DETAIL_STATE.backPage) || 'marcas';
+  const backScroll = MARCA_LINEA_DETAIL_STATE && MARCA_LINEA_DETAIL_STATE.backScroll;
+  MARCA_LINEA_DETAIL_STATE = null;
+  showPage(backPage, getNavButtonForPage(backPage));
+  restoreScrollSnapshot(backPage, backScroll);
 }
 
 function openNegocioDetailById(id, sourcePage){
@@ -1042,17 +1107,144 @@ function renderNegocioDetail(row){
   `;
 }
 
+function renderMarcaLineaDetail(){
+  const host = document.getElementById('marca-linea-detail');
+  const state = MARCA_LINEA_DETAIL_STATE;
+  if(!host || !state) return;
+
+  const typeLabel = getMarcaLineaDetailTypeLabel(state.type);
+  const rows = getMarcaLineaDetailRows(state).sort((a,b)=>toCOP(b)-toCOP(a));
+  const estadoFilter = state.estadoFilter || '';
+  const filteredRows = estadoFilter ? rows.filter(r => cleanDisplayText(r['ESTADO'], '').toUpperCase() === estadoFilter) : rows;
+  const totalCOP = rows.reduce((sum, row) => sum + toCOP(row), 0);
+  const totalUSD = rows
+    .filter(r => cleanDisplayText(r['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
+    .reduce((sum, row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
+  const totalNegocios = rows.length;
+  const estados = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'].map((estado) => {
+    const estadoRows = rows.filter(r => cleanDisplayText(r['ESTADO'], '').toUpperCase() === estado);
+    return {
+      estado,
+      count: estadoRows.length,
+      total: estadoRows.reduce((sum, row) => sum + toCOP(row), 0)
+    };
+  });
+  const topEstado = estados.slice().sort((a,b)=>b.total-a.total)[0] || { estado:'SIN DATOS', total:0, count:0 };
+
+  host.innerHTML = `
+    <div class="detail-shell">
+      <div class="detail-topbar">
+        <button type="button" class="btn-clear detail-back-btn" onclick="closeMarcaLineaDetail()">Volver</button>
+        <span class="section-tag">Detalle de ${escHtml(typeLabel)}</span>
+      </div>
+
+      <div class="detail-hero">
+        <div>
+          <div class="detail-overline">${escHtml(typeLabel)} seleccionada</div>
+          <h2>${escHtml(state.value)}</h2>
+          <p>Vista consolidada de los negocios relacionados con esta ${escHtml(typeLabel.toLowerCase())}. Puedes revisar el comportamiento por estado y abrir cualquier negocio para ver su ficha completa.</p>
+          <div class="detail-chip-row">
+            <span class="detail-chip">Negocios: ${fmtNum(totalNegocios)}</span>
+            <span class="detail-chip">Filtro actual: ${escHtml(estadoFilter || 'Todos')}</span>
+            <span class="detail-chip">Estado lider: ${escHtml(topEstado.estado)}</span>
+          </div>
+        </div>
+        <div class="detail-hero-amounts">
+          <div>
+            <div class="detail-amount-label">Total COP</div>
+            <div class="detail-amount-main">${fmtCOP(totalCOP)}</div>
+          </div>
+          <div>
+            <div class="detail-amount-label">Total USD</div>
+            <div class="detail-amount-alt">${fmtUSD(totalUSD)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-kpi-grid">
+        <div class="detail-stat">
+          <span>Total negocios</span>
+          <strong>${fmtNum(totalNegocios)}</strong>
+          <small>Relacionados con ${escHtml(state.value)}</small>
+        </div>
+        <div class="detail-stat">
+          <span>Ganadas</span>
+          <strong>${fmtNum(estados[0].count)}</strong>
+          <small>${fmtCOP(estados[0].total)}</small>
+        </div>
+        <div class="detail-stat">
+          <span>Pendientes</span>
+          <strong>${fmtNum(estados[1].count)}</strong>
+          <small>${fmtCOP(estados[1].total)}</small>
+        </div>
+        <div class="detail-stat">
+          <span>Perdidas</span>
+          <strong>${fmtNum(estados[2].count)}</strong>
+          <small>${fmtCOP(estados[2].total)}</small>
+        </div>
+        <div class="detail-stat">
+          <span>Aplazadas</span>
+          <strong>${fmtNum(estados[3].count)}</strong>
+          <small>${fmtCOP(estados[3].total)}</small>
+        </div>
+      </div>
+
+      <div class="category-state-grid">
+        <button type="button" class="category-state-card${!estadoFilter ? ' active' : ''}" onclick="setMarcaLineaDetailEstado('')">
+          <span>Todos</span>
+          <strong>${fmtNum(totalNegocios)}</strong>
+          <small>${fmtCOP(totalCOP)}</small>
+        </button>
+        ${estados.map(item => `
+          <button type="button" class="category-state-card state-${item.estado.toLowerCase()}${estadoFilter === item.estado ? ' active' : ''}" onclick="setMarcaLineaDetailEstado('${item.estado}')">
+            <span>${escHtml(item.estado)}</span>
+            <strong>${fmtNum(item.count)}</strong>
+            <small>${fmtCOP(item.total)}</small>
+          </button>
+        `).join('')}
+      </div>
+
+      <div class="chart-card g1">
+        <div class="director-table-toolbar">
+          <div>
+            <div class="chart-hd">Negocios asociados</div>
+            <div style="font-size:11px;color:var(--text2)">Filtrados por ${escHtml(typeLabel.toLowerCase())} y estado del negocio.</div>
+          </div>
+          <div class="director-table-filter">
+            <div class="filter-label">Estado</div>
+            <select id="sel-marca-linea-estado" onchange="setMarcaLineaDetailEstado(this.value)">
+              <option value="">Todos</option>
+              <option value="GANADA"${estadoFilter==='GANADA'?' selected':''}>GANADA</option>
+              <option value="PENDIENTE"${estadoFilter==='PENDIENTE'?' selected':''}>PENDIENTE</option>
+              <option value="PERDIDA"${estadoFilter==='PERDIDA'?' selected':''}>PERDIDA</option>
+              <option value="APLAZADO"${estadoFilter==='APLAZADO'?' selected':''}>APLAZADO</option>
+            </select>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          ${buildTable(filteredRows, { clickable:true, sourcePage:'marca-linea-detail' })}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 /* ══════════════════════════════════════
    CHART HELPERS
 ══════════════════════════════════════ */
-function renderBars(containerId, items, color, fmtFn){
+function renderBars(containerId, items, color, fmtFn, opts){
   const el=document.getElementById(containerId);
   if(!el) return;
+  const options = opts || {};
   const max=Math.max(...items.map(i=>i.val),1);
   el.innerHTML=items.map((it,idx)=>{
     const pct=Math.round((it.val/max)*100);
     const c=Array.isArray(color)?color[idx%color.length]:color;
-    return `<div class="bar-row">
+    const onClick = options.getOnClick ? options.getOnClick(it, idx) : '';
+    const rowAttrs = onClick
+      ? ` class="bar-row bar-row-action" role="button" tabindex="0" onclick="${escAttr(onClick)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${onClick}}`)}" title="${escAttr(options.clickTitle || 'Abrir detalle')}" data-tooltip="${escAttr(options.tooltipPrefix ? options.tooltipPrefix + it.name : 'Abrir detalle de ' + it.name)}"`
+      : ` class="bar-row"`;
+    return `<div${rowAttrs}>
       <div class="bar-name w100" title="${it.name}">${it.name}</div>
       <div class="bar-track">
         <div class="bar-fill" style="width:${pct}%;background:${c}20;border:1px solid ${c}40">
@@ -1810,12 +2002,18 @@ function renderMarcas(){
   
   const marcas=[...new Set(ALL_DATA.map(r=>r['MARCA']||'').filter(Boolean))];
   const marcaData=marcas.map(m=>({name:m,val:ALL_DATA.filter(r=>r['MARCA']===m).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
-  renderBars('bar-marcas',marcaData.slice(0, TOP_BAR_LIMIT),COLORS);
+  renderBars('bar-marcas',marcaData.slice(0, TOP_BAR_LIMIT),COLORS,null,{
+    getOnClick: item => `openMarcaLineaDetail('marca', ${jsStringLiteral(item.name)}, 'marcas')`,
+    clickTitle: 'Abrir detalle de marca'
+  });
   renderDonut('donut-marca','leg-marca',marcaData);
   
   const lineas=[...new Set(ALL_DATA.map(r=>r['LINEA DE PRODUCTO']||'').filter(Boolean))];
   const linData=lineas.map(l=>({name:l,val:ALL_DATA.filter(r=>r['LINEA DE PRODUCTO']===l).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
-  renderBars('bar-lineas',linData,COLORS);
+  renderBars('bar-lineas',linData,COLORS,null,{
+    getOnClick: item => `openMarcaLineaDetail('linea', ${jsStringLiteral(item.name)}, 'marcas')`,
+    clickTitle: 'Abrir detalle de linea'
+  });
   renderDonut('donut-linea2','leg-linea2',linData);
   
   // Marca por ejecutivo
@@ -1867,7 +2065,7 @@ function renderMarcas(){
       const marca=pd[0]?pd[0]['MARCA']||'—':'—';
       const linea=pd[0]?pd[0]['LINEA DE PRODUCTO']||'—':'—';
       const moneda=(r=>r['MONEDA 2']||'—')(pd[0]||{});
-      return `<tr>
+      return `<tr class="table-row-action" onclick="openMarcaLineaDetail('producto', ${jsStringLiteral(p)}, 'marcas')" title="Abrir detalle del producto">
         <td style="color:var(--text)">${p}</td>
         <td class="td-mono" style="color:var(--corp-cyan)">${marca}</td>
         <td>${linea}</td>
@@ -2321,6 +2519,9 @@ window.renderDirector = renderDirector;
 window.renderEjecutivo = renderEjecutivo;
 window.renderMarcas = renderMarcas;
 window.selectEjecutivo = selectEjecutivo;
+window.openMarcaLineaDetail = openMarcaLineaDetail;
+window.closeMarcaLineaDetail = closeMarcaLineaDetail;
+window.setMarcaLineaDetailEstado = setMarcaLineaDetailEstado;
 window.setDirectorEstadoFilter = setDirectorEstadoFilter;
 window.showMoreEstadoRows = showMoreEstadoRows;
 window.openNegocioDetailById = openNegocioDetailById;

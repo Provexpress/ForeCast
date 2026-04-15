@@ -601,6 +601,9 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
 .table-row-action{cursor:pointer}
 .table-row-action td{transition:var(--transition)}
 .table-row-action:hover td{background:rgba(45,79,214,.08);color:#F3F6FF}
+.bar-row-action{cursor:pointer;border-radius:12px;padding:6px 8px;margin:0 -8px;transition:var(--transition)}
+.bar-row-action:hover{background:rgba(45,79,214,.08)}
+.bar-row-action:focus-visible{outline:2px solid var(--corp-blue2);outline-offset:2px}
 .estado-card{backdrop-filter:blur(8px)}
 .estado-card-head{gap:12px}
 .estado-card-body{scrollbar-gutter:stable both-edges}
@@ -679,6 +682,23 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
   display:block;font-family:var(--font-display);font-size:16px;font-weight:700;color:#F4F7FF;
 }
 .detail-stat small{display:block;margin-top:8px;font-size:11px;color:#DCE6FF}
+.category-state-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.category-state-card{
+  appearance:none;border:1px solid rgba(255,255,255,.08);border-radius:14px;
+  background:linear-gradient(160deg,var(--card),var(--card2));padding:16px;text-align:left;
+  cursor:pointer;transition:var(--transition);color:inherit;
+}
+.category-state-card:hover{transform:translateY(-1px);border-color:rgba(45,79,214,.35);background:linear-gradient(160deg,rgba(18,26,64,.96),rgba(16,22,56,.96))}
+.category-state-card.active{border-color:rgba(45,79,214,.55);box-shadow:0 0 0 1px rgba(45,79,214,.22) inset}
+.category-state-card span{
+  display:block;font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-soft);margin-bottom:8px;
+}
+.category-state-card strong{display:block;font-family:var(--font-display);font-size:18px;font-weight:700;color:#F4F7FF}
+.category-state-card small{display:block;margin-top:8px;font-size:11px;color:#DCE6FF}
+.category-state-card.state-ganada strong{color:var(--corp-green)}
+.category-state-card.state-pendiente strong{color:var(--corp-amber)}
+.category-state-card.state-perdida strong{color:var(--corp-blue2)}
+.category-state-card.state-aplazado strong{color:#E84040}
 .detail-observation{
   padding:18px 20px;border-radius:14px;border:1px solid rgba(42,191,223,.18);
   background:linear-gradient(135deg,rgba(42,191,223,.08),rgba(255,255,255,.02));
