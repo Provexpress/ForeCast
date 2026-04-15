@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="src/styles/main.css?v=20260415a">
 
 <!-- Microsoft Authentication Library -->
-<script src="src/scripts/auth.js?v=20260327a"></script>
+<script src="src/scripts/auth.js?v=20260415b"></script>
 
 </head>
 <body>
@@ -73,6 +73,7 @@
   <button id="tab-gerencia" class="nav-btn active" onclick="showPage('gerencia',this)">🏢 Gerencia General</button>
   <button id="tab-director" class="nav-btn" onclick="showPage('director',this)">👔 Por Director</button>
   <button id="tab-ejecutivo" class="nav-btn" onclick="showPage('ejecutivo',this)">👤 Por Ejecutivo</button>
+  <button id="tab-sales" class="nav-btn" onclick="showPage('sales',this)">🤝 Sales</button>
   <button id="tab-divisas" class="nav-btn" onclick="showPage('divisas',this)">💱 COP / USD</button>
   <button id="tab-marcas" class="nav-btn" onclick="showPage('marcas',this)">🏷 Marcas & Líneas</button>
   <button id="tab-resumen" class="nav-btn" onclick="showPage('resumen',this)">📊 Resumen Total</button>
@@ -231,6 +232,39 @@
   <div id="ejecutivo-content"></div>
 </div>
 
+<!-- ══════════════════════════════════
+     PAGE: SALES SUPPORT
+══════════════════════════════════ -->
+<div class="page" id="page-sales">
+  <div class="section-hd"><h2>Sales Support</h2><span class="section-tag">REPORTE OPERATIVO</span></div>
+  <div class="persona-grid" id="sales-support-grid"></div>
+
+  <div class="filters" style="margin-top:8px">
+    <div class="filter-group">
+      <div class="filter-label">Sales Support</div>
+      <select id="sel-sales-support" onchange="renderSales()"></select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Mes</div>
+      <select id="sel-sales-mes" onchange="renderSales()">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Estado</div>
+      <select id="sel-sales-estado" onchange="renderSales()">
+        <option value="">Todos</option>
+        <option value="GANADA">GANADA</option>
+        <option value="PENDIENTE">PENDIENTE</option>
+        <option value="PERDIDA">PERDIDA</option>
+        <option value="APLAZADO">APLAZADO</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="sales-content"></div>
+</div>
+
 <div class="page" id="page-negocio">
   <div id="negocio-detail"></div>
 </div>
@@ -359,7 +393,7 @@
 
 </main>
 
-<script src="src/scripts/main.js?v=20260415a"></script>
+<script src="src/scripts/main.js?v=20260415b"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->

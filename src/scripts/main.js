@@ -2,12 +2,14 @@
    DATA & STATE
 ══════════════════════════════════════ */
 let ALL_DATA = [];
+let SALES_DATA = [];
 let TRM = 4150;
 let TRM_READY = false;
 let SELECTED_EXEC_BY_DIR = {};
 let RECORD_SEQ = 0;
 let NEGOCIO_DETAIL_STATE = null;
 let MARCA_LINEA_DETAIL_STATE = null;
+let LOADED_SALES_BY_SUPPORT = {};
 
 const GERENCIA_ESTADO_STEP = 20;
 const GERENCIA_ESTADO_LIMITS = {
@@ -90,7 +92,7 @@ async function fetchTRM() {
     TRM_READY = true;
     const inp = document.getElementById('trm-input');
     if(inp) inp.value = Number(TRM).toFixed(2);
-    if(ALL_DATA.length) renderAll();
+    if(ALL_DATA.length || SALES_DATA.length) renderAll();
     cacheTRM(TRM, window._trmDate);
     console.log('[TRM]', TRM);
   };
@@ -200,11 +202,18 @@ const HEADER_KEY_MAP = {
   'VENTA CLIENTE':'MONTO VENTA CLIENTE',
   'MONTO VENTA':'MONTO VENTA CLIENTE',
   'VALOR VENTA':'MONTO VENTA CLIENTE',
+  'VALOR VENTA CLIENTE':'MONTO VENTA CLIENTE',
   'VALOR CLIENTE':'MONTO VENTA CLIENTE',
+  'NUMERO COTIZACION':'NUMERO DE COTIZACION',
+  'NRO COTIZACION':'NUMERO DE COTIZACION',
+  'NO COTIZACION':'NUMERO DE COTIZACION',
+  'COTIZACION':'NUMERO DE COTIZACION',
   'NUMERO PARTE':'NUMERO DE PARTE',
   'NRO PARTE':'NUMERO DE PARTE',
   'NO PARTE':'NUMERO DE PARTE',
   'PART NUMBER':'NUMERO DE PARTE',
+  'COSTO DEL NEGOCIO':'COSTO NEGOCIO',
+  'COSTO TOTAL NEGOCIO':'COSTO NEGOCIO',
   'MONEDA':'MONEDA 2',
   'DIVISA':'MONEDA 2',
   'MONEDA2':'MONEDA 2',
@@ -213,6 +222,7 @@ const HEADER_KEY_MAP = {
   'FECHA VENTA':'FECHA DIA/MES/AÑO',
   'TRM':'TRM REFERENCIA',
   'TRM REF':'TRM REFERENCIA',
+  'TRM DE REFERENCIA':'TRM REFERENCIA',
   'LINEA':'LINEA DE PRODUCTO',
   'LÍNEA':'LINEA DE PRODUCTO',
   'LÍNEA DE PRODUCTO':'LINEA DE PRODUCTO',
@@ -239,16 +249,21 @@ const DETAIL_FIELD_LABELS = {
   SOLUCION: 'Solucion',
   SERVICIO: 'Servicio',
   'NUMERO DE PARTE': 'Numero de parte',
+  'NUMERO DE COTIZACION': 'Numero de cotizacion',
   MARCA: 'Marca',
   FABRICANTE: 'Marca',
   'LINEA DE PRODUCTO': 'Linea',
   ESTADO: 'Estado',
   DIRECTOR: 'Director',
   COMERCIAL: 'Ejecutivo',
+  'SALES SUPPORT': 'Sales Support',
+  SOPORTA: 'Soporta',
   'MONEDA 2': 'Moneda',
   'FECHA DIA/MES/AÑO': 'Fecha',
   'MONTO VENTA CLIENTE': 'Valor negocio',
   COSTO: 'Costo',
+  'COSTO NEGOCIO': 'Costo negocio',
+  UTILIDAD: 'Utilidad',
   'TRM REFERENCIA': 'TRM del dia',
   MARGEN: 'Margen',
   'MODIFICACION O UPGRADE': 'Modificacion o upgrade',
@@ -261,8 +276,10 @@ function mapHeaderName(h){
   return HEADER_KEY_MAP[normalized] || raw;
 }
 
-function registerRecord(rec, sourceFile, sourceSheet){
-  rec.__RID = 'neg-' + (++RECORD_SEQ);
+function registerRecord(rec, sourceFile, sourceSheet, dataset){
+  const ds = dataset === 'sales' ? 'sales' : 'forecast';
+  rec.__RID = (ds === 'sales' ? 'sales-' : 'neg-') + (++RECORD_SEQ);
+  rec.__DATASET = ds;
   rec.__SOURCE_FILE = sourceFile || '';
   rec.__SOURCE_SHEET = sourceSheet || '';
   return rec;
@@ -300,6 +317,30 @@ function getRowObservation(row){
   return firstFilled(row, ['OBSERVACIONES','OBSERVACION','COMENTARIOS','COMENTARIO']);
 }
 
+function getSalesSupportName(row){
+  return firstFilled(row, ['SALES SUPPORT','COMERCIAL']) || '';
+}
+
+function getSalesSoportaName(row){
+  return firstFilled(row, ['SOPORTA','SOPORTADO','COMERCIAL APOYADO','DIRECTOR APOYADO']) || '';
+}
+
+function getSalesQuoteNumber(row){
+  return firstFilled(row, ['NUMERO DE COTIZACION','NUMERO COTIZACION','NRO COTIZACION','COTIZACION']) || '';
+}
+
+function getSalesCostValue(row){
+  return parseMonto(firstFilled(row, ['COSTO NEGOCIO','COSTO'])) || 0;
+}
+
+function getSalesUtilidadValue(row){
+  const raw = firstFilled(row, ['UTILIDAD']);
+  if(raw !== '' && raw !== null && raw !== undefined) {
+    return parseMonto(raw) || 0;
+  }
+  return getUtilidad(row).valor;
+}
+
 function getRowDateValue(row){
   return firstFilled(row, ['FECHA DIA/MES/AÑO','FECHA']);
 }
@@ -322,7 +363,7 @@ function formatDateValue(v){
 }
 
 function getRecordById(id){
-  return ALL_DATA.find(r => r.__RID === id) || null;
+  return ALL_DATA.find(r => r.__RID === id) || SALES_DATA.find(r => r.__RID === id) || null;
 }
 
 function formatFieldLabel(key){
@@ -419,7 +460,9 @@ function parsefecha(v){
 function normalizeEstado(v){
   if(v===null||v===undefined) return '';
   const s = String(v).trim().toUpperCase();
-  if(s === 'PEDIDA') return 'PERDIDA';
+  if(s === 'GANADO') return 'GANADA';
+  if(s === 'PERDIDO' || s === 'PEDIDA') return 'PERDIDA';
+  if(s === 'APLAZADA') return 'APLAZADO';
   return s;
 }
 
@@ -499,10 +542,57 @@ function formatMarginDisplay(raw, fallback='Sin dato'){
 
 function getUtilidad(row){
   const moneda = cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase();
+  const utilidadRaw = firstFilled(row, ['UTILIDAD']);
+  if(utilidadRaw !== '' && utilidadRaw !== null && utilidadRaw !== undefined) {
+    return { valor: parseMonto(utilidadRaw) || 0, moneda };
+  }
   const valor = parseMonto(row['MONTO VENTA CLIENTE']);
   const margen = getMarginRatio(row['MARGEN']);
   if(!(valor > 0) || margen === null) return { valor: 0, moneda };
   return { valor: valor * margen, moneda };
+}
+
+function toTitleName(s){
+  if(!s) return '';
+  return String(s).replace(/^[' ]+/,'').trim()
+    .replace(/\w\S*/g,w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase());
+}
+
+function cleanNameSegment(value){
+  return cleanDisplayText(value, '').replace(/\s+/g,' ').trim();
+}
+
+function isSalesSupportFile(name){
+  const base = String(name || '').replace(/\.(xlsx|xls)$/i,'').trim();
+  return /^sales support\b/i.test(base);
+}
+
+function parseSalesSupportFileName(name){
+  const base = String(name || '').replace(/\.(xlsx|xls)$/i,'').trim();
+  if(!/^sales support\b/i.test(base)) return null;
+  const rest = base.replace(/^sales support\b/i,'').trim();
+  const parts = rest.split(/\s+-\s+/);
+  return {
+    supportName: cleanNameSegment(parts[0] || ''),
+    soportaName: cleanNameSegment(parts.slice(1).join(' - '))
+  };
+}
+
+function decorateRecordFromFile(rec, fileName, directorHint){
+  const salesMeta = parseSalesSupportFileName(fileName);
+  rec['DIRECTOR'] = directorHint ? toTitleName(directorHint) : toTitleName(rec['DIRECTOR'] || rec['DIRECTOR '] || '');
+  rec['ESTADO'] = normalizeEstado(rec['ESTADO']);
+  if(salesMeta){
+    const supportName = cleanNameSegment(salesMeta.supportName);
+    const soportaName = cleanNameSegment(firstFilled(rec, ['SOPORTA']) || salesMeta.soportaName);
+    rec['SALES SUPPORT'] = supportName;
+    rec['COMERCIAL'] = supportName || cleanNameSegment(rec['COMERCIAL']);
+    rec['SOPORTA'] = soportaName;
+  } else {
+    const fileNameExec = toTitleName(fileName.replace(/\.(xlsx|xls)$/i,'').trim());
+    rec['COMERCIAL'] = fileNameExec || toTitleName(rec['COMERCIAL'] || '');
+  }
+  return rec;
 }
 
 function sumUtilidad(data, moneda){
@@ -550,6 +640,7 @@ function parseXlsx(file, directorHint){
         const rawHdrs = raw[hdrIdx].map(h=>h?String(h).trim():'');
         const hdrs = rawHdrs.map(mapHeaderName);
         const recs = [];
+        const datasetType = isSalesSupportFile(file.name) ? 'sales' : 'forecast';
         // Debug: log headers for first file
         if(!window._hdrDebugDone){ window._hdrDebugDone=true; console.log('[HDRS]', file.name, hdrs.filter(h=>h)); }
         for(let i=hdrIdx+1;i<raw.length;i++){
@@ -557,19 +648,8 @@ function parseXlsx(file, directorHint){
           if(!row[1]) continue;
           const rec={};
           hdrs.forEach((h,j)=>{if(h) rec[h]=row[j]!==undefined?row[j]:null;});
-          // Normalizar: carpeta = fuente de verdad para director
-          const toTitle = s => {
-            if(!s) return '';
-            return String(s).replace(/^[' ]+/,'').trim()
-              .replace(/\w\S*/g,w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase());
-          };
-          // CARPETA/ARCHIVO tiene prioridad sobre lo que escribió el ejecutivo
-          rec['DIRECTOR'] = directorHint ? toTitle(directorHint) : toTitle(rec['DIRECTOR'] || rec['DIRECTOR '] || '');
-          // Nombre del ejecutivo = nombre del archivo (sin extensión) — evita typos/abreviaturas
-          const fileNameExec = toTitle(file.name.replace(/\.(xlsx|xls)$/i,'').trim());
-          rec['COMERCIAL'] = fileNameExec || toTitle(rec['COMERCIAL'] || '');
-          rec['ESTADO'] = normalizeEstado(rec['ESTADO']);
-          registerRecord(rec, file.name, wsName);
+          decorateRecordFromFile(rec, file.name, directorHint);
+          registerRecord(rec, file.name, wsName, datasetType);
           if(recs.length===0) console.log('[ROW1]', file.name, {fecha:rec['FECHA DIA/MES/AÑO'], monto:rec['MONTO VENTA CLIENTE'], moneda:rec['MONEDA 2'], cliente:rec['CLIENTE']});
           recs.push(rec);
         }
@@ -613,7 +693,9 @@ async function processFiles(files){
   if(!xlsFiles.length){alert('No se encontraron archivos .xlsx de ejecutivos en la carpeta seleccionada');return;}
   
   ALL_DATA = [];
+  SALES_DATA = [];
   RECORD_SEQ = 0;
+  LOADED_SALES_BY_SUPPORT = {};
   
   // Mostrar overlay de progreso (funciona tanto si upload-zone está visible como oculto)
   let overlay = document.getElementById('load-overlay');
@@ -646,7 +728,7 @@ async function processFiles(files){
     if(!byDir[dir]) byDir[dir]=[];
     byDir[dir].push(f);
   });
-  LOADED_FILES_BY_DIR = byDir; // save for persona display
+  LOADED_FILES_BY_DIR = {};
   
   // Procesar uno a uno con progreso
   let done=0;
@@ -660,24 +742,38 @@ async function processFiles(files){
       progTxt.textContent = `Leyendo: ${f.name} (${done+1}/${total})`;
       progBar.style.width = Math.round(((done)/total)*100)+'%';
       const recs = await parseXlsx(f, dirName);
-      ALL_DATA.push(...recs);
+      if(isSalesSupportFile(f.name)){
+        const meta = parseSalesSupportFileName(f.name) || {};
+        const supportName = cleanNameSegment(meta.supportName || 'Sales Support');
+        if(!LOADED_SALES_BY_SUPPORT[supportName]) LOADED_SALES_BY_SUPPORT[supportName] = [];
+        LOADED_SALES_BY_SUPPORT[supportName].push({ name: f.name, dir: dirName, soporta: cleanNameSegment(meta.soportaName) });
+        SALES_DATA.push(...recs);
+      } else {
+        if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
+        LOADED_FILES_BY_DIR[dirName].push(f);
+        ALL_DATA.push(...recs);
+      }
       done++;
     }
   }
   progBar.style.width = '100%';
-  progTxt.textContent = `✅ ${total} archivo${total!==1?'s':''} cargados — ${ALL_DATA.length} negocios`;
+  progTxt.textContent = `✅ ${total} archivo${total!==1?'s':''} cargados — ${ALL_DATA.length} forecast / ${SALES_DATA.length} sales`;
   
   // Mostrar estructura detectada
   let structHTML = '<div style="font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text2);margin-bottom:10px">Estructura detectada:</div>';
   dirNames.forEach((d,di)=>{
     const c = Object.values(dirColors)[di%5];
-    const ejecs = [...new Set(byDir[d].map(f=>f.name.replace(/\.(xlsx|xls)$/i,'')))];
+    const regularFiles = byDir[d].filter(f => !isSalesSupportFile(f.name));
+    const salesFiles = byDir[d].filter(f => isSalesSupportFile(f.name));
+    const ejecs = [...new Set(regularFiles.map(f=>f.name.replace(/\.(xlsx|xls)$/i,'')))];
+    const sales = [...new Set(salesFiles.map(f=>cleanNameSegment((parseSalesSupportFileName(f.name)||{}).supportName || f.name.replace(/\.(xlsx|xls)$/i,''))))];
     structHTML += `<div style="margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:${c};font-family:var(--font-display);font-weight:700">
-        <span>📁</span> ${d} <span style="color:var(--text2);font-weight:400">(${ejecs.length} ejecutivo${ejecs.length!==1?'s':''})</span>
+        <span>📁</span> ${d} <span style="color:var(--text2);font-weight:400">(${ejecs.length} ejecutivo${ejecs.length!==1?'s':''}${sales.length ? ' · '+sales.length+' sales' : ''})</span>
       </div>
       <div style="margin-left:20px;margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">
         ${ejecs.map(e=>`<span style="font-size:10px;background:${c}15;border:1px solid ${c}30;border-radius:4px;padding:2px 8px;color:var(--text3)">📄 ${e}</span>`).join('')}
+        ${sales.map(e=>`<span style="font-size:10px;background:rgba(42,191,223,.12);border:1px solid rgba(42,191,223,.28);border-radius:4px;padding:2px 8px;color:#CFEFFF">🤝 ${e}</span>`).join('')}
       </div>
     </div>`;
   });
@@ -701,7 +797,7 @@ async function processFiles(files){
 document.getElementById('trm-input').addEventListener('input',function(){
   TRM_READY = true;
   TRM=getTRM();
-  if(ALL_DATA.length) renderAll();
+  if(ALL_DATA.length || SALES_DATA.length) renderAll();
 });
 
 function finalizeLoad(){
@@ -713,8 +809,11 @@ function finalizeLoad(){
   const reloadInfo = document.getElementById('reload-info');
   if(reloadInfo) {
     const nFiles = Object.values(LOADED_FILES_BY_DIR).reduce((s,a)=>s+a.length,0);
+    const nSalesFiles = Object.values(LOADED_SALES_BY_SUPPORT).reduce((s,a)=>s+a.length,0);
     const nDirs = Object.keys(LOADED_FILES_BY_DIR).length;
-    reloadInfo.textContent = nFiles + ' archivos cargados · ' + nDirs + ' equipos · Última carga: ' + new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+    reloadInfo.textContent = CURRENT_USER && CURRENT_USER.role === 'sales_support'
+      ? nSalesFiles + ' archivos sales · Última carga: ' + new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})
+      : nFiles + ' archivos cargados · ' + nDirs + ' equipos' + (nSalesFiles ? ' · '+nSalesFiles+' sales' : '') + ' · Última carga: ' + new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
   }
   // TRM se mantiene desde Banrep (no se sobrescribe con Excel)
   TRM=getTRM();
@@ -726,11 +825,16 @@ function finalizeLoad(){
 
   // Status header
   const visibleData = getVisibleData();
+  const visibleSales = getVisibleSalesData();
   const dirs = [...new Set(visibleData.map(r=>(r['DIRECTOR']||'').trim()).filter(Boolean))].sort();
   const execs = [...new Set(visibleData.map(r=>r['COMERCIAL']||'').filter(Boolean))].sort();
   const execsWithData = [...new Set(visibleData.map(r=>(r['COMERCIAL']||'').trim()).filter(Boolean))];
-  document.getElementById('file-count-hd').textContent=
-    visibleData.length+' negocios · '+dirs.length+' dir · '+execsWithData.length+' ejecutivos con datos';
+  const salesSupports = [...new Set(visibleSales.map(r=>getSalesSupportName(r)).filter(Boolean))];
+  const salesTargets = [...new Set(visibleSales.map(r=>getSalesSoportaName(r)).filter(Boolean))];
+  document.getElementById('file-count-hd').textContent =
+    CURRENT_USER && CURRENT_USER.role === 'sales_support'
+      ? `${visibleSales.length} registros sales · ${salesSupports.length} support · ${salesTargets.length} apoyos`
+      : `${visibleData.length} negocios · ${dirs.length} dir · ${execsWithData.length} ejecutivos${visibleSales.length ? ' · '+visibleSales.length+' sales' : ''}`;
   const now = new Date();
   document.getElementById('last-update-hd').textContent=
     'Actualizado: '+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})+' · '+
@@ -770,6 +874,7 @@ function finalizeLoad(){
 function getVisibleData() {
   if(!CURRENT_USER) return ALL_DATA;
   const { role, directorGroup, name } = CURRENT_USER;
+  if(role === 'sales_support') return [];
   if(role === 'director') {
     return ALL_DATA.filter(r => (r['DIRECTOR']||'').trim() === (directorGroup||'').trim());
   }
@@ -785,10 +890,31 @@ function getVisibleData() {
   return ALL_DATA; // gerencia ve todo
 }
 
+function getSalesSupportTargetName() {
+  const email = (CURRENT_USER && CURRENT_USER.email || '').toLowerCase().trim();
+  const map = window.SALES_SUPPORT_BY_EMAIL || {};
+  return (map[email] || CURRENT_USER && CURRENT_USER.name || '').trim();
+}
+
+function getVisibleSalesData() {
+  if(!CURRENT_USER) return SALES_DATA;
+  const { role, directorGroup } = CURRENT_USER;
+  if(role === 'sales_support') {
+    const targetName = getSalesSupportTargetName();
+    return SALES_DATA.filter(r => namesMatch(getSalesSupportName(r), targetName));
+  }
+  if(role === 'director') {
+    return SALES_DATA.filter(r => (r['DIRECTOR']||'').trim() === (directorGroup||'').trim());
+  }
+  if(role === 'ejecutivo') return [];
+  return SALES_DATA;
+}
+
 function renderAll(){
   renderGerencia();
   renderDirector();
   renderEjecutivo();
+  renderSales();
   renderDivisas();
   renderMarcas();
   renderResumen();
@@ -968,7 +1094,7 @@ function formatFieldValue(key, value, row){
   const mapped = normalizeHeaderKey(mapHeaderName(key));
   if(value === null || value === undefined || String(value).trim() === '') return 'Sin dato';
   if(mapped.startsWith('FECHA')) return escHtml(cleanDisplayText(formatDateValue(value), 'Sin fecha'));
-  if(mapped === 'MONTO VENTA CLIENTE'){
+  if(mapped === 'MONTO VENTA CLIENTE' || mapped === 'COSTO NEGOCIO' || mapped === 'COSTO' || mapped === 'UTILIDAD'){
     const mon = cleanDisplayText(row['MONEDA 2'], 'COP').toUpperCase();
     const monto = parseMonto(value);
     return mon === 'USD' ? fmtUSD(monto) : fmtCOP(monto);
@@ -984,15 +1110,19 @@ function renderNegocioDetail(row){
   const host = document.getElementById('negocio-detail');
   if(!host || !row) return;
 
+  const isSalesRow = row.__DATASET === 'sales';
   const estado = cleanDisplayText(row['ESTADO'], 'Sin estado').toUpperCase();
   const estadoClass = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'].includes(estado) ? estado : 'PENDIENTE';
   const cliente = cleanDisplayText(getRowClientName(row), 'Sin cliente');
-  const producto = cleanDisplayText(getRowProductName(row), 'Sin proyecto');
+  const producto = cleanDisplayText(getRowProductName(row), isSalesRow ? 'Registro Sales Support' : 'Sin proyecto');
   const marca = cleanDisplayText(getRowBrandName(row), 'Sin marca');
-  const numeroParte = cleanDisplayText(getRowPartNumber(row), 'Sin numero de parte');
+  const numeroParte = isSalesRow
+    ? cleanDisplayText(getSalesQuoteNumber(row), 'Sin numero de cotizacion')
+    : cleanDisplayText(getRowPartNumber(row), 'Sin numero de parte');
   const linea = cleanDisplayText(getRowLineName(row), 'Sin linea');
+  const soporta = cleanDisplayText(getSalesSoportaName(row), 'Sin apoyo definido');
   const director = cleanDisplayText(firstFilled(row, ['DIRECTOR']), 'Sin director');
-  const ejecutivo = cleanDisplayText(firstFilled(row, ['COMERCIAL']), 'Sin ejecutivo');
+  const ejecutivo = cleanDisplayText(firstFilled(row, ['SALES SUPPORT','COMERCIAL']), isSalesRow ? 'Sin sales support' : 'Sin ejecutivo');
   const moneda = cleanDisplayText(firstFilled(row, ['MONEDA 2']), 'COP').toUpperCase();
   const valor = parseMonto(row['MONTO VENTA CLIENTE']) || 0;
   const copTotal = toCOP(row);
@@ -1004,15 +1134,23 @@ function renderNegocioDetail(row){
   const modificacion = cleanDisplayText(firstFilled(row, ['MODIFICACION O UPGRADE']), 'Sin dato');
   const sourceFile = cleanDisplayText(firstFilled(row, ['__SOURCE_FILE']), 'Sin archivo');
   const sourceSheet = cleanDisplayText(firstFilled(row, ['__SOURCE_SHEET']), 'Sin hoja');
+  const responsibleLabel = isSalesRow ? 'Sales Support' : 'Ejecutivo';
+  const numberLabel = isSalesRow ? 'Cotizacion' : 'Parte';
 
   const orderedKeys = [
-    'CLIENTE','NOMBRE CLIENTE','EMPRESA','PRODUCTO','PROYECTO','NUMERO DE PARTE','MARCA','LINEA DE PRODUCTO','ESTADO',
-    'DIRECTOR','COMERCIAL','MONEDA 2','MONTO VENTA CLIENTE','TRM REFERENCIA','FECHA DIA/MES/AÑO',
+    'CLIENTE','NOMBRE CLIENTE','EMPRESA','PRODUCTO','PROYECTO','NUMERO DE PARTE','NUMERO DE COTIZACION',
+    'MARCA','LINEA DE PRODUCTO','ESTADO','DIRECTOR','COMERCIAL','SALES SUPPORT','SOPORTA',
+    'MONEDA 2','COSTO NEGOCIO','COSTO','MONTO VENTA CLIENTE','UTILIDAD','TRM REFERENCIA','FECHA DIA/MES/AÑO',
     'MARGEN','MODIFICACION O UPGRADE','OBSERVACIONES'
   ].map(normalizeHeaderKey);
 
   const allEntries = Object.entries(row)
-    .filter(([key, value]) => !String(key).startsWith('__') && value !== null && value !== undefined && String(value).trim() !== '')
+    .filter(([key, value]) => {
+      if(String(key).startsWith('__')) return false;
+      if(value === null || value === undefined || String(value).trim() === '') return false;
+      if(isSalesRow && normalizeHeaderKey(mapHeaderName(key)) === 'COMERCIAL' && row['SALES SUPPORT']) return false;
+      return true;
+    })
     .sort((a,b) => {
       const keyA = normalizeHeaderKey(mapHeaderName(a[0]));
       const keyB = normalizeHeaderKey(mapHeaderName(b[0]));
@@ -1033,15 +1171,15 @@ function renderNegocioDetail(row){
 
       <div class="detail-hero">
         <div>
-          <div class="detail-overline">Proyecto o negocio</div>
+          <div class="detail-overline">${isSalesRow ? 'Registro sales support' : 'Proyecto o negocio'}</div>
           <h2>${escHtml(producto)}</h2>
-          <p>${escHtml(cliente)} / ${escHtml(marca)} / ${escHtml(linea)}</p>
+          <p>${isSalesRow ? `${escHtml(cliente)} / Soporta: ${escHtml(soporta)}` : `${escHtml(cliente)} / ${escHtml(marca)} / ${escHtml(linea)}`}</p>
           <div class="detail-chip-row">
             <span class="badge badge-${estadoClass}">${escHtml(estado)}</span>
             <span class="detail-chip">Director: ${escHtml(director)}</span>
-            <span class="detail-chip">Ejecutivo: ${escHtml(ejecutivo)}</span>
+            <span class="detail-chip">${escHtml(responsibleLabel)}: ${escHtml(ejecutivo)}</span>
             <span class="detail-chip">Fecha: ${escHtml(fecha)}</span>
-            <span class="detail-chip">Parte: ${escHtml(numeroParte)}</span>
+            <span class="detail-chip">${escHtml(numberLabel)}: ${escHtml(numeroParte)}</span>
           </div>
         </div>
         <div class="detail-hero-amounts">
@@ -1058,9 +1196,9 @@ function renderNegocioDetail(row){
 
       <div class="detail-kpi-grid">
         <div class="detail-stat">
-          <span>Numero de parte</span>
+          <span>${escHtml(numberLabel)}</span>
           <strong>${escHtml(numeroParte)}</strong>
-          <small>Referencia del item o solucion</small>
+          <small>${isSalesRow ? 'Identificador de la cotizacion' : 'Referencia del item o solucion'}</small>
         </div>
         <div class="detail-stat">
           <span>Moneda</span>
@@ -1881,6 +2019,210 @@ function selectEjecutivo(name){
   renderEjecutivo();
 }
 
+function getMonthLabel(monthKey){
+  if(!monthKey) return 'Sin mes';
+  if(MES_LABELS[monthKey]) return ({Ene:'Enero',Feb:'Febrero',Mar:'Marzo'})[MES_LABELS[monthKey]] || MES_LABELS[monthKey];
+  const [year, month] = String(monthKey).split('-');
+  const labels = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const idx = Number(month) - 1;
+  return idx >= 0 && idx < labels.length ? labels[idx] : monthKey;
+}
+
+function buildSalesTable(data, opts){
+  const options = opts || {};
+  const sourcePage = options.sourcePage || getActivePageId();
+  return `<table class="responsive-table">
+    <thead><tr><th>Fecha</th><th>Cotizacion</th><th>Cliente</th><th>Soporta</th><th>Moneda</th><th>Costo Negocio</th><th>Valor venta</th><th>Utilidad</th><th>Margen</th><th>TRM ref</th><th>Estado</th></tr></thead>
+    <tbody>${data.length ? data.map(r=>{
+      const mon = cleanDisplayText(r['MONEDA 2'], 'COP').trim().toUpperCase();
+      const fecha = cleanDisplayText(formatDateValue(getRowDateValue(r)), 'Sin fecha');
+      const cotizacion = cleanDisplayText(getSalesQuoteNumber(r), 'Sin numero');
+      const cliente = cleanDisplayText(getRowClientName(r), 'Sin cliente');
+      const soporta = cleanDisplayText(getSalesSoportaName(r), 'Sin apoyo');
+      const costo = getSalesCostValue(r);
+      const valor = parseMonto(r['MONTO VENTA CLIENTE']) || 0;
+      const utilidad = getSalesUtilidadValue(r);
+      const margen = formatMarginDisplay(r['MARGEN'], '-');
+      const trmRef = parseMonto(r['TRM REFERENCIA']) || 0;
+      const estado = cleanDisplayText(r['ESTADO'], 'Sin estado').toUpperCase();
+      const estadoClass = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'].includes(estado) ? estado : 'PENDIENTE';
+      const rowAttrs = options.clickable && r.__RID
+        ? ` class="table-row-action" onclick="openNegocioDetailById('${r.__RID}','${escAttr(sourcePage)}')" title="Abrir detalle del registro sales"`
+        : '';
+      return `<tr${rowAttrs}>
+        <td class="td-mono" data-label="Fecha">${escHtml(fecha)}</td>
+        <td class="td-mono" data-label="Cotizacion">${escHtml(cotizacion)}</td>
+        <td data-label="Cliente">${escHtml(cliente)}</td>
+        <td data-label="Soporta">${escHtml(soporta)}</td>
+        <td data-label="Moneda"><span class="badge ${mon==='USD'?'badge-PEDIDA':'badge-PENDIENTE'}">${mon}</span></td>
+        <td class="td-mono ${mon==='USD'?'td-usd':'td-cop'}" data-label="Costo Negocio">${mon==='USD'?fmtUSD(costo):fmtCOP(costo)}</td>
+        <td class="td-mono ${mon==='USD'?'td-usd':'td-cop'}" data-label="Valor venta">${mon==='USD'?fmtUSD(valor):fmtCOP(valor)}</td>
+        <td class="td-mono" style="color:var(--corp-cyan)" data-label="Utilidad">${mon==='USD'?fmtUSD(utilidad):fmtCOP(utilidad)}</td>
+        <td class="td-mono" style="color:var(--corp-amber)" data-label="Margen">${escHtml(margen)}</td>
+        <td class="td-mono" data-label="TRM ref">${trmRef ? fmtTRM(trmRef) : '—'}</td>
+        <td data-label="Estado"><span class="badge badge-${estadoClass}">${escHtml(estado)}</span></td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="11" style="text-align:center;color:var(--text2)">Sin registros sales para este filtro.</td></tr>`}</tbody>
+  </table>`;
+}
+
+function renderSales(){
+  const allSales = getVisibleSalesData();
+  const role = CURRENT_USER ? CURRENT_USER.role : null;
+  const targetName = role === 'sales_support' ? getSalesSupportTargetName() : '';
+  const host = document.getElementById('sales-content');
+  const grid = document.getElementById('sales-support-grid');
+  const selSupport = document.getElementById('sel-sales-support');
+  const selMes = document.getElementById('sel-sales-mes');
+  const selEstado = document.getElementById('sel-sales-estado');
+  if(!host || !grid || !selSupport || !selMes || !selEstado) return;
+
+  const supportsFromData = [...new Set(allSales.map(r=>getSalesSupportName(r)).filter(Boolean))];
+  const supportsFromFiles = Object.keys(LOADED_SALES_BY_SUPPORT || {}).filter(Boolean);
+  const allSupports = [...new Set([...supportsFromData, ...supportsFromFiles])].sort((a,b)=>a.localeCompare(b,'es'));
+
+  if(role === 'sales_support' && targetName) {
+    selSupport.innerHTML = `<option value="${escAttr(targetName)}">${escHtml(targetName)}</option>`;
+    selSupport.value = targetName;
+  } else {
+    const current = selSupport.value;
+    selSupport.innerHTML = allSupports.map(name=>`<option value="${escAttr(name)}">${escHtml(name)}</option>`).join('');
+    if(current && allSupports.includes(current)) selSupport.value = current;
+    else if(allSupports[0]) selSupport.value = allSupports[0];
+  }
+
+  const monthValues = [...new Set(allSales.map(r=>getMonth(getRowDateValue(r))).filter(Boolean))].sort();
+  const currentMonth = selMes.value;
+  selMes.innerHTML = `<option value="">Todos</option>${monthValues.map(month=>`<option value="${month}">${getMonthLabel(month)}</option>`).join('')}`;
+  if(currentMonth && monthValues.includes(currentMonth)) selMes.value = currentMonth;
+
+  if(!allSupports.length){
+    grid.innerHTML = '';
+    host.innerHTML = `<div class="chart-card g1"><div style="font-size:12px;color:var(--text2)">No hay archivos Sales Support cargados para este usuario o grupo.</div></div>`;
+    return;
+  }
+
+  const selectedSupport = role === 'sales_support' && targetName ? targetName : selSupport.value;
+  const mes = selMes.value;
+  const estado = selEstado.value;
+
+  grid.innerHTML = allSupports.map((supportName, idx)=>{
+    const supportRows = allSales.filter(r => namesMatch(getSalesSupportName(r), supportName));
+    const totalCOP = supportRows.reduce((sum,row)=>sum+toCOP(row),0);
+    const totalGanadas = supportRows.filter(r=>cleanDisplayText(r['ESTADO'],'').toUpperCase()==='GANADA').length;
+    const supportedCount = [...new Set(supportRows.map(r=>getSalesSoportaName(r)).filter(Boolean))].length;
+    const c = COLORS[idx % COLORS.length];
+    const hasData = supportRows.length > 0;
+    const selected = namesMatch(selectedSupport, supportName) ? 'selected' : '';
+    return `<div class="persona-card ${selected} ${hasData?'':'no-data'}" onclick="${escAttr(`selectSalesSupport(${jsStringLiteral(supportName)})`)}">
+      <div class="persona-avatar" style="background:${c}${hasData?'25':'10'};border:2px solid ${c}${hasData?'50':'20'};color:${hasData?c:'var(--text2)'}">${initials(supportName)}</div>
+      <div class="persona-name" style="color:${hasData?'var(--text)':'var(--text2)'}">${escHtml(supportName)}</div>
+      <div class="persona-role">Sales Support</div>
+      ${hasData
+        ? `<div class="persona-stats">
+            <div class="p-stat"><div class="p-stat-label">Total</div><div class="p-stat-val" style="color:${c};font-size:11px">${abr(totalCOP)}</div></div>
+            <div class="p-stat"><div class="p-stat-label">Registros</div><div class="p-stat-val">${supportRows.length}</div></div>
+            <div class="p-stat"><div class="p-stat-label">Ganadas</div><div class="p-stat-val" style="color:var(--corp-green)">${totalGanadas}</div></div>
+            <div class="p-stat"><div class="p-stat-label">Soporta</div><div class="p-stat-val">${supportedCount}</div></div>
+          </div>`
+        : `<div style="font-size:9px;color:var(--text3);font-family:var(--font-display);margin-top:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;letter-spacing:.5px">Sin registros aun</div>`}
+    </div>`;
+  }).join('');
+
+  let data = allSales.filter(r => namesMatch(getSalesSupportName(r), selectedSupport));
+  if(mes) data = data.filter(r => getMonth(getRowDateValue(r)) === mes);
+  if(estado) data = data.filter(r => cleanDisplayText(r['ESTADO'],'').toUpperCase() === estado);
+  data = data.sort((a,b)=>toCOP(b)-toCOP(a));
+
+  const totalCOP = data.reduce((sum,row)=>sum+toCOP(row),0);
+  const totalUSD = data.filter(r=>cleanDisplayText(r['MONEDA 2'],'COP').trim().toUpperCase()==='USD').reduce((sum,row)=>sum+(parseMonto(row['MONTO VENTA CLIENTE'])||0),0);
+  const utilidadCOP = sumUtilidad(data,'COP');
+  const utilidadUSD = sumUtilidad(data,'USD');
+  const totalRecords = data.length;
+  const totalGanadas = data.filter(r=>cleanDisplayText(r['ESTADO'],'').toUpperCase()==='GANADA').length;
+  const supportedNames = [...new Set(data.map(r=>getSalesSoportaName(r)).filter(Boolean))];
+  const topSoporta = supportedNames.map(name=>({
+    name,
+    val: data.filter(r=>getSalesSoportaName(r)===name).reduce((sum,row)=>sum+toCOP(row),0)
+  })).sort((a,b)=>b.val-a.val).slice(0, TOP_BAR_LIMIT);
+  const estadoData = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'].map(name=>({
+    name,
+    val: data.filter(r=>cleanDisplayText(r['ESTADO'],'').toUpperCase()===name).length
+  }));
+
+  host.innerHTML = `
+    <div class="section-hd" style="margin-top:16px"><h2>${escHtml(selectedSupport)}</h2><span class="section-tag">SALES SUPPORT</span></div>
+    <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
+      <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Total COP</div>
+        <div class="kpi-val">${abr(totalCOP)}</div>
+        <div class="kpi-sub">${fmtCOP(totalCOP)}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--usd-color)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Total USD</div>
+        <div class="kpi-val">${fmtUSD(totalUSD)}</div>
+        <div class="kpi-sub">TRM dia: ${fmtTRMDisplay(getTRM())}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Utilidad COP</div>
+        <div class="kpi-val">${abr(utilidadCOP)}</div>
+        <div class="kpi-sub">${fmtCOP(utilidadCOP)}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Utilidad USD</div>
+        <div class="kpi-val">${fmtUSD(utilidadUSD)}</div>
+        <div class="kpi-sub">Liq: ${fmtCOP(utilidadUSD * getTRM())}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Ganadas</div>
+        <div class="kpi-val">${totalGanadas}</div>
+        <div class="kpi-sub">${totalRecords} registros</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-amber)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Soporta</div>
+        <div class="kpi-val">${supportedNames.length}</div>
+        <div class="kpi-sub">Comerciales o directores</div>
+      </div>
+    </div>
+
+    <div class="g2">
+      <div class="chart-card">
+        <div class="chart-hd">Top soporta</div>
+        <div class="bar-list" id="bar-sales-soporta"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-hd">Estado registros</div>
+        <div class="donut-wrap">
+          <svg id="donut-sales-est" viewBox="0 0 100 100" style="width:130px;height:130px;flex-shrink:0"></svg>
+          <div class="donut-leg" id="leg-sales-est"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card g1">
+      <div class="chart-hd">Detalle Sales Support</div>
+      <div class="director-table-toolbar">
+        <div>
+          <div class="director-table-toolbar-label">Reporte separado del forecast</div>
+          <div class="director-table-toolbar-meta">Estos registros se leen desde archivos Sales Support y no suman a comerciales ni a directores.</div>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        ${buildSalesTable(data, { clickable:true, sourcePage:'sales' })}
+      </div>
+    </div>
+  `;
+
+  renderBars('bar-sales-soporta', topSoporta, COLORS);
+  renderDonut('donut-sales-est', 'leg-sales-est', estadoData);
+}
+
+function selectSalesSupport(name){
+  const sel = document.getElementById('sel-sales-support');
+  if(sel) sel.value = name;
+  renderSales();
+}
+
 /* ══════════════════════════════════════
    DIVISAS
 ══════════════════════════════════════ */
@@ -2065,7 +2407,7 @@ function renderMarcas(){
       const marca=pd[0]?pd[0]['MARCA']||'—':'—';
       const linea=pd[0]?pd[0]['LINEA DE PRODUCTO']||'—':'—';
       const moneda=(r=>r['MONEDA 2']||'—')(pd[0]||{});
-      return `<tr class="table-row-action" onclick="openMarcaLineaDetail('producto', ${jsStringLiteral(p)}, 'marcas')" title="Abrir detalle del producto">
+      return `<tr class="table-row-action" onclick="${escAttr(`openMarcaLineaDetail('producto', ${jsStringLiteral(p)}, 'marcas')`)}" title="Abrir detalle del producto">
         <td style="color:var(--text)">${p}</td>
         <td class="td-mono" style="color:var(--corp-cyan)">${marca}</td>
         <td>${linea}</td>
@@ -2272,10 +2614,14 @@ async function loadFolderFromSharePoint() {
     const siteId = await getSiteId();
     const { role, directorGroup } = CURRENT_USER;
     ALL_DATA = [];
+    SALES_DATA = [];
     RECORD_SEQ = 0;
     LOADED_FILES_BY_DIR = {};
+    LOADED_SALES_BY_SUPPORT = {};
 
-    if(role === 'ejecutivo') {
+    if(role === 'sales_support') {
+      await loadSalesSupportFiles(siteId);
+    } else if(role === 'ejecutivo') {
       await loadEjecutivoFile(siteId);
     } else if(role === 'director') {
       const folder = directorGroup.includes('Miller') ? 'Gupo Miller Romero' : 'Grupo ' + directorGroup;
@@ -2340,8 +2686,16 @@ async function loadDirectorFolder(siteId, folderName) {
     if(item.name.toLowerCase().includes('base de datos')) continue;
     updateLoadingStatus('Leyendo: ' + item.name);
     const recs = await loadSpFile(item, dirName);
-    ALL_DATA.push(...recs);
-    LOADED_FILES_BY_DIR[dirName].push({ name: item.name });
+    if(isSalesSupportFile(item.name)) {
+      const meta = parseSalesSupportFileName(item.name) || {};
+      const supportName = cleanNameSegment(meta.supportName || 'Sales Support');
+      if(!LOADED_SALES_BY_SUPPORT[supportName]) LOADED_SALES_BY_SUPPORT[supportName] = [];
+      LOADED_SALES_BY_SUPPORT[supportName].push({ name: item.name, dir: dirName, soporta: cleanNameSegment(meta.soportaName) });
+      SALES_DATA.push(...recs);
+    } else {
+      ALL_DATA.push(...recs);
+      LOADED_FILES_BY_DIR[dirName].push({ name: item.name });
+    }
   }
 }
 
@@ -2367,12 +2721,47 @@ function buildExecSearchQueries(targetName, email) {
 
 function findBestExecFile(items, targetName) {
   const targetNorm = normalizePersonName(targetName||'');
-  const cand = (items||[]).filter(it => it && it.name && /\.xlsx?$/i.test(it.name) && !it.name.startsWith('~$'));
+  const cand = (items||[]).filter(it => it && it.name && /\.xlsx?$/i.test(it.name) && !it.name.startsWith('~$') && !isSalesSupportFile(it.name));
   if(!cand.length) return null;
   let file = cand.find(f => normalizePersonName(f.name) === targetNorm);
   if(!file) file = cand.find(f => namesMatch(f.name, targetName));
   if(!file && targetNorm) file = cand.find(f => normalizePersonName(f.name).includes(targetNorm));
   return file || null;
+}
+
+async function loadSalesSupportFiles(siteId) {
+  const folders = ['Grupo Juan David Novoa','Grupo Maria Angelica Caballero','Grupo Oscar Beltran','Gupo Miller Romero'];
+  const targetName = getSalesSupportTargetName();
+  let found = false;
+  for(const folder of folders) {
+    const folderPath = 'COMERCIAL/FORECAST 2026/' + folder;
+    const token = await getToken(['Files.Read.All']);
+    try {
+      const url = _driveId
+        ? 'https://graph.microsoft.com/v1.0/drives/' + _driveId + '/root:/' + encodeURIComponent(folderPath) + ':/children?$top=100'
+        : 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodeURIComponent(folderPath) + ':/children?$top=100';
+      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      if(!d.value) continue;
+      const dirName = folder.replace(/^(Grupo|Gupo)\s+/i,'').trim();
+      for(const item of d.value) {
+        if(!item.name.match(/\.xlsx?$/i)) continue;
+        if(!isSalesSupportFile(item.name)) continue;
+        const meta = parseSalesSupportFileName(item.name);
+        if(!meta || !namesMatch(meta.supportName, targetName)) continue;
+        updateLoadingStatus('Leyendo: ' + item.name);
+        const recs = await loadSpFile(item, dirName);
+        const supportName = cleanNameSegment(meta.supportName || targetName);
+        if(!LOADED_SALES_BY_SUPPORT[supportName]) LOADED_SALES_BY_SUPPORT[supportName] = [];
+        LOADED_SALES_BY_SUPPORT[supportName].push({ name: item.name, dir: dirName, soporta: cleanNameSegment(meta.soportaName) });
+        SALES_DATA.push(...recs);
+        found = true;
+      }
+    } catch(e) { console.warn('Error leyendo folder sales', folder, e); }
+  }
+  if(!found) {
+    throw new Error('No se encontraron archivos Sales Support para ' + (targetName || 'este usuario') + '.');
+  }
 }
 
 async function searchExecFileInForecast(siteId, targetName) {
@@ -2447,17 +2836,14 @@ async function loadSpFile(item, dirName) {
     for(let i=0;i<raw.length;i++) { if(raw[i]&&raw[i].some(c=>c&&String(c).includes('CLIENTE'))){ hdrIdx=i; break; } }
     if(hdrIdx<0) return [];
     const hdrs = raw[hdrIdx].map(h=>h ? mapHeaderName(String(h).trim()) : '');
-    const toTitle = s => s?String(s).replace(/^[' ]+/,'').trim().replace(/\w\S*/g,w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()):'';
-    const fileExec = toTitle(item.name.replace(/\.xlsx?$/i,'').trim());
+    const datasetType = isSalesSupportFile(item.name) ? 'sales' : 'forecast';
     const recs = [];
     for(let i=hdrIdx+1;i<raw.length;i++) {
       const row=raw[i]; if(!row[1]) continue;
       const rec={};
       hdrs.forEach((h,j)=>{ if(h) rec[h]=row[j]!==undefined?row[j]:null; });
-      rec['DIRECTOR']  = toTitle(dirName);
-      rec['COMERCIAL'] = fileExec;
-      rec['ESTADO'] = normalizeEstado(rec['ESTADO']);
-      registerRecord(rec, item.name, wsName);
+      decorateRecordFromFile(rec, item.name, dirName);
+      registerRecord(rec, item.name, wsName, datasetType);
       recs.push(rec);
     }
     return recs;
@@ -2472,6 +2858,7 @@ function applyRoleTabs() {
     gerencia:  document.getElementById('tab-gerencia'),
     director:  document.getElementById('tab-director'),
     ejecutivo: document.getElementById('tab-ejecutivo'),
+    sales:     document.getElementById('tab-sales'),
     divisas:   document.getElementById('tab-divisas'),
     marcas:    document.getElementById('tab-marcas'),
     resumen:   document.getElementById('tab-resumen'),
@@ -2479,9 +2866,18 @@ function applyRoleTabs() {
   // Reset — mostrar todas
   Object.values(tabs).forEach(t => { if(t) t.style.display = ''; });
 
-  if(role === 'ejecutivo') {
+  if(role === 'sales_support') {
     tabs.gerencia && (tabs.gerencia.style.display = 'none');
     tabs.director && (tabs.director.style.display = 'none');
+    tabs.ejecutivo && (tabs.ejecutivo.style.display = 'none');
+    tabs.divisas  && (tabs.divisas.style.display  = 'none');
+    tabs.marcas   && (tabs.marcas.style.display   = 'none');
+    tabs.resumen  && (tabs.resumen.style.display  = 'none');
+    showPage('sales', tabs.sales);
+  } else if(role === 'ejecutivo') {
+    tabs.gerencia && (tabs.gerencia.style.display = 'none');
+    tabs.director && (tabs.director.style.display = 'none');
+    tabs.sales    && (tabs.sales.style.display    = 'none');
     tabs.divisas  && (tabs.divisas.style.display  = 'none');
     tabs.marcas   && (tabs.marcas.style.display   = 'none');
     tabs.resumen  && (tabs.resumen.style.display  = 'none');
@@ -2517,8 +2913,10 @@ window.setDivisaEstadoFilter = setDivisaEstadoFilter;
 window.showMoreDivisaRows = showMoreDivisaRows;
 window.renderDirector = renderDirector;
 window.renderEjecutivo = renderEjecutivo;
+window.renderSales = renderSales;
 window.renderMarcas = renderMarcas;
 window.selectEjecutivo = selectEjecutivo;
+window.selectSalesSupport = selectSalesSupport;
 window.openMarcaLineaDetail = openMarcaLineaDetail;
 window.closeMarcaLineaDetail = closeMarcaLineaDetail;
 window.setMarcaLineaDetailEstado = setMarcaLineaDetailEstado;

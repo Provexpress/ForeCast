@@ -142,7 +142,17 @@ const EXECUTIVO_BY_EMAIL = {
   'andrea.vargas@provexpress.com.co': 'Yurany Andrea Vargas',
 };
 
+const SALES_SUPPORT_BY_EMAIL = {
+  'soporte.comercial5@provexpress.com.co': 'Isleni Yasmin Vasquez Pastrana',
+  'soporte.comercial4@provexpress.com.co': 'Erika Gabriela Mieles Ortiz',
+  'soporte.comercial6@provexpress.com.co': 'Nury Marcela Vargas Suarez',
+  'soporte.comercial3@provexpress.com.co': 'Janira Alejandra Maldonado Prieto',
+  'soporte.comercial@provexpress.com.co': 'Karen Cagua',
+  'soporte.comercial2@provexpress.com.co': 'Alexandra Julieth Vargas Charris',
+};
+
 window.EXECUTIVO_BY_EMAIL = EXECUTIVO_BY_EMAIL;
+window.SALES_SUPPORT_BY_EMAIL = SALES_SUPPORT_BY_EMAIL;
 
 function normalizeEmail(value) {
   return String(value || '').toLowerCase().trim();
@@ -185,10 +195,12 @@ function getUserRole(email) {
   const e = (email||'').toLowerCase().trim();
   const isGerencia = ROLES.gerencia.includes(e);
   const isDirector = e in ROLES.directores;
+  const isSalesSupport = e in SALES_SUPPORT_BY_EMAIL;
   const dirGroup   = ROLES.directores[e] || null;
   if(isGerencia && isDirector) return { role:'gerencia_director', directorGroup: dirGroup };
   if(isGerencia)  return { role:'gerencia',  directorGroup: null };
   if(isDirector)  return { role:'director',  directorGroup: dirGroup };
+  if(isSalesSupport) return { role:'sales_support', directorGroup: null };
   return { role:'ejecutivo', directorGroup: null };
 }
 
@@ -244,7 +256,8 @@ function doLogin() {
   const { role, directorGroup } = getUserRole(email);
   // Inferir nombre del email: juan.novoa@ → "Juan Novoa"
   const namePart = email.split('@')[0].replace(/\./g,' ');
-  const name = namePart.replace(/\w\S*/g,w=>w.charAt(0).toUpperCase()+w.slice(1));
+  const fallbackName = namePart.replace(/\w\S*/g,w=>w.charAt(0).toUpperCase()+w.slice(1));
+  const name = SALES_SUPPORT_BY_EMAIL[email] || fallbackName;
 
   CURRENT_USER = { email, name, role, directorGroup };
 
@@ -270,7 +283,8 @@ function doLogin() {
       gerencia: 'Carga la carpeta ÁREA COMERCIAL - FORECAST 2026 para ver todos los datos',
       gerencia_director: 'Carga la carpeta ÁREA COMERCIAL - FORECAST 2026 para ver todos los datos',
       director: `Carga tu carpeta Grupo ${CURRENT_USER.directorGroup} para ver tu equipo`,
-      ejecutivo: 'Carga tu archivo Excel para ver tu forecast'
+      ejecutivo: 'Carga tu archivo Excel para ver tu forecast',
+      sales_support: 'Carga o sincroniza tus archivos Sales Support para ver tu reporte separado del forecast'
     };
     const msgEl = uzD.querySelector('p');
     if(msgEl) msgEl.textContent = roleMsg[CURRENT_USER.role] || 'Selecciona la carpeta para continuar';
@@ -286,7 +300,7 @@ function showUserBadge() {
   const nm = document.getElementById('user-name');
   if(nm) nm.textContent = CURRENT_USER.name.split(' ')[0];
   const rb = document.getElementById('user-role-badge');
-  const roleLabels = {gerencia:'Gerencia',gerencia_director:'Gerencia · Director',director:'Director',ejecutivo:'Ejecutivo'};
+  const roleLabels = {gerencia:'Gerencia',gerencia_director:'Gerencia · Director',director:'Director',ejecutivo:'Ejecutivo',sales_support:'Sales Support'};
   if(rb) rb.textContent = roleLabels[CURRENT_USER.role]||CURRENT_USER.role;
   // Mostrar botón de cambio de vista solo para especialista.preventa
   const gearBtn = document.getElementById('view-switcher-btn');
@@ -328,10 +342,11 @@ function switchView(role, directorGroup, nameOverride) {
   renderAll();
   // Update role badge
   const rb = document.getElementById('user-role-badge');
-  const roleLabels = {gerencia:'Gerencia',director:'Director',ejecutivo:'Ejecutivo'};
+  const roleLabels = {gerencia:'Gerencia',director:'Director',ejecutivo:'Ejecutivo',sales_support:'Sales Support'};
   let tail = '';
   if(role === 'director' && directorGroup) tail = ' · '+directorGroup.split(' ')[0];
   if(role === 'ejecutivo' && viewName) tail = ' · '+viewName.split(' ')[0];
+  if(role === 'sales_support' && viewName) tail = ' · '+viewName.split(' ')[0];
   if(rb) rb.textContent = (roleLabels[role]||role) + tail + ' ⚙';
   // Highlight active button
   document.querySelectorAll('.view-opt-btn').forEach(b => b.classList.remove('active'));
