@@ -140,6 +140,7 @@ const COLORS = [
   '#2D4FD6','#8B5FC8','#2ABFDF','#0DBF82','#F0A020',
   '#E84040','#E040A0','#40C8F0','#F06040','#1B2B8C'
 ];
+const FORECAST_YEAR = '2026';
 const MONTH_LABELS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const MONTH_LABELS_LONG = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
@@ -608,8 +609,11 @@ function getMonth(d){
   return parsefecha(d);
 }
 
-function getForecastMonths(data){
-  return [...new Set((data || []).map(r => getMonth(getRowDateValue(r))).filter(m => /^\d{4}-\d{2}$/.test(m)))].sort();
+function getForecastMonths(data, year){
+  const allMonths = [...new Set((data || []).map(r => getMonth(getRowDateValue(r))).filter(m => /^\d{4}-\d{2}$/.test(m)))].sort();
+  const targetYear = String(year || FORECAST_YEAR || '').trim();
+  const yearMonths = targetYear ? allMonths.filter(month => month.startsWith(targetYear + '-')) : allMonths;
+  return yearMonths.length ? yearMonths : allMonths;
 }
 
 function getMonthIndex(monthKey){
