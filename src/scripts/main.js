@@ -2469,7 +2469,7 @@ function renderMarcas(){
   
   const marcas=[...new Set(ALL_DATA.map(r=>r['MARCA']||'').filter(Boolean))];
   const marcaData=marcas.map(m=>({name:m,val:ALL_DATA.filter(r=>r['MARCA']===m).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
-  renderBars('bar-marcas',marcaData.slice(0, TOP_BAR_LIMIT),COLORS,null,{
+  renderBars('bar-marcas',marcaData,COLORS,null,{
     getOnClick: item => `openMarcaLineaDetail('marca', ${jsStringLiteral(item.name)}, 'marcas')`,
     clickTitle: 'Abrir detalle de marca'
   });
