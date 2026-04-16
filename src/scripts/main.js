@@ -627,6 +627,10 @@ function findHeaderRowIndex(rows){
   return -1;
 }
 
+function isMeaningfulDataRow(row){
+  return Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '');
+}
+
 function parseSalesSupportFileName(name){
   const base = String(name || '').replace(/\.(xlsx|xls)$/i,'').trim();
   if(!/^sales support\b/i.test(base)) return null;
@@ -742,7 +746,7 @@ function parseXlsx(file, directorHint){
         if(!window._hdrDebugDone){ window._hdrDebugDone=true; console.log('[HDRS]', file.name, hdrs.filter(h=>h)); }
         for(let i=hdrIdx+1;i<raw.length;i++){
           const row=raw[i];
-          if(!row[1]) continue;
+          if(!isMeaningfulDataRow(row)) continue;
           const rec={};
           hdrs.forEach((h,j)=>{if(h) rec[h]=row[j]!==undefined?row[j]:null;});
           decorateRecordFromFile(rec, file.name, directorHint);
@@ -750,6 +754,7 @@ function parseXlsx(file, directorHint){
           if(recs.length===0) console.log('[ROW1]', file.name, {fecha:rec['FECHA DIA/MES/AÑO'], monto:rec['MONTO VENTA CLIENTE'], moneda:rec['MONEDA 2'], cliente:rec['CLIENTE']});
           recs.push(rec);
         }
+        if(datasetType === 'sales') console.log('[SALES PARSE]', file.name, wsName, 'rows:', recs.length, 'headerRow:', hdrIdx);
         resolve(recs);
       }catch(err){console.warn('Error parseando',file.name,err);resolve([]);}
     };
@@ -2934,13 +2939,14 @@ async function loadSpFile(item, dirName) {
     const hdrs = raw[hdrIdx].map(h=>h ? mapHeaderName(String(h).trim()) : '');
     const recs = [];
     for(let i=hdrIdx+1;i<raw.length;i++) {
-      const row=raw[i]; if(!row[1]) continue;
+      const row=raw[i]; if(!isMeaningfulDataRow(row)) continue;
       const rec={};
       hdrs.forEach((h,j)=>{ if(h) rec[h]=row[j]!==undefined?row[j]:null; });
       decorateRecordFromFile(rec, item.name, dirName);
       registerRecord(rec, item.name, wsName, datasetType);
       recs.push(rec);
     }
+    if(datasetType === 'sales') console.log('[SALES PARSE SP]', item.name, wsName, 'rows:', recs.length, 'headerRow:', hdrIdx);
     return recs;
   } catch(e) { console.warn('Error leyendo', item.name, e); return []; }
 }
