@@ -2469,7 +2469,7 @@ function renderMarcas(){
   
   const marcas=[...new Set(ALL_DATA.map(r=>r['MARCA']||'').filter(Boolean))];
   const marcaData=marcas.map(m=>({name:m,val:ALL_DATA.filter(r=>r['MARCA']===m).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
-  renderBars('bar-marcas',marcaData,COLORS,null,{
+  renderBars('bar-marcas',marcaData.slice(0, TOP_BAR_LIMIT),COLORS,null,{
     getOnClick: item => `openMarcaLineaDetail('marca', ${jsStringLiteral(item.name)}, 'marcas')`,
     clickTitle: 'Abrir detalle de marca'
   });
@@ -2522,23 +2522,19 @@ function renderMarcas(){
     }).join('') : `<tr><td colspan="${marcas.length+2}" style="text-align:center;color:var(--text2);padding:20px 14px">Sin ejecutivos con datos para este grupo.</td></tr>`}</tbody>
   </table>`;
   
-  // Productos únicos
-  const prods=[...new Set(ALL_DATA.map(r=>r['PRODUCTO']||'').filter(Boolean))];
+  // Todas las marcas registradas
   document.getElementById('tbl-productos').innerHTML=`<table>
-    <thead><tr><th>Producto / Tipo Máquina</th><th>Marca</th><th>Línea</th><th>Moneda</th><th>Negocios</th><th>Valor Total COP</th></tr></thead>
-    <tbody>${prods.map(p=>{
-      const pd=ALL_DATA.filter(r=>r['PRODUCTO']===p);
-      const tot=pd.reduce((s,r)=>s+toCOP(r),0);
-      const marca=pd[0]?pd[0]['MARCA']||'—':'—';
-      const linea=pd[0]?pd[0]['LINEA DE PRODUCTO']||'—':'—';
-      const moneda=(r=>r['MONEDA 2']||'—')(pd[0]||{});
-      return `<tr class="table-row-action" onclick="${escAttr(`openMarcaLineaDetail('producto', ${jsStringLiteral(p)}, 'marcas')`)}" title="Abrir detalle del producto">
-        <td style="color:var(--text)">${p}</td>
-        <td class="td-mono" style="color:var(--corp-cyan)">${marca}</td>
-        <td>${linea}</td>
-        <td><span class="badge ${moneda==='USD'?'badge-PEDIDA':'badge-PENDIENTE'}">${moneda}</span></td>
-        <td class="td-mono">${pd.length}</td>
-        <td class="td-mono td-cop">${fmtCOP(tot)}</td>
+    <thead><tr><th>Marca</th><th>Lineas</th><th>Productos</th><th>Negocios</th><th>Valor Total COP</th></tr></thead>
+    <tbody>${marcaData.map(item=>{
+      const marcaRows=ALL_DATA.filter(r=>(r['MARCA']||'')===item.name);
+      const lineasMarca=[...new Set(marcaRows.map(r=>r['LINEA DE PRODUCTO']||'').filter(Boolean))];
+      const productosMarca=[...new Set(marcaRows.map(r=>r['PRODUCTO']||'').filter(Boolean))];
+      return `<tr class="table-row-action" onclick="${escAttr(`openMarcaLineaDetail('marca', ${jsStringLiteral(item.name)}, 'marcas')`)}" title="Abrir detalle de marca">
+        <td style="color:var(--text)">${item.name}</td>
+        <td class="td-mono">${lineasMarca.length}</td>
+        <td class="td-mono">${productosMarca.length}</td>
+        <td class="td-mono">${marcaRows.length}</td>
+        <td class="td-mono td-cop">${fmtCOP(item.val)}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
