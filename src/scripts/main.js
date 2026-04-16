@@ -586,6 +586,29 @@ function isSalesSupportFile(name){
   return /^sales support\b/i.test(base);
 }
 
+function normalizeSheetName(name){
+  return String(name || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/\s+/g,'')
+    .trim();
+}
+
+function pickWorksheetName(sheetNames, datasetType){
+  const names = Array.isArray(sheetNames) ? sheetNames : [];
+  if(!names.length) return '';
+  const preferred = datasetType === 'sales'
+    ? ['salesreport','sales support','salessupport','sales report','comercial','gerencia']
+    : ['gerencia','comercial'];
+
+  for(const needle of preferred){
+    const normNeedle = normalizeSheetName(needle);
+    const match = names.find(name => normalizeSheetName(name).includes(normNeedle));
+    if(match) return match;
+  }
+  return names[0];
+}
+
 function parseSalesSupportFileName(name){
   const base = String(name || '').replace(/\.(xlsx|xls)$/i,'').trim();
   if(!/^sales support\b/i.test(base)) return null;
@@ -686,7 +709,8 @@ function parseXlsx(file, directorHint){
     r.onload = function(ev){
       try{
         const wb = XLSX.read(ev.target.result,{type:'binary',cellDates:true});
-        const wsName = wb.SheetNames.find(s=>s.includes('Gerencia')||s.includes('Comercial'))||wb.SheetNames[0];
+        const datasetType = isSalesSupportFile(file.name) ? 'sales' : 'forecast';
+        const wsName = pickWorksheetName(wb.SheetNames, datasetType);
         const ws = wb.Sheets[wsName];
         const raw = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
         
@@ -699,7 +723,6 @@ function parseXlsx(file, directorHint){
         const rawHdrs = raw[hdrIdx].map(h=>h?String(h).trim():'');
         const hdrs = rawHdrs.map(mapHeaderName);
         const recs = [];
-        const datasetType = isSalesSupportFile(file.name) ? 'sales' : 'forecast';
         // Debug: log headers for first file
         if(!window._hdrDebugDone){ window._hdrDebugDone=true; console.log('[HDRS]', file.name, hdrs.filter(h=>h)); }
         for(let i=hdrIdx+1;i<raw.length;i++){
@@ -2887,14 +2910,14 @@ async function loadSpFile(item, dirName) {
   try {
     const buf = await (await fetch(url)).arrayBuffer();
     const wb  = XLSX.read(buf, { type:'array', cellDates:true });
-    const wsName = wb.SheetNames.find(s=>s.includes('Gerencia')||s.includes('Comercial'))||wb.SheetNames[0];
+    const datasetType = isSalesSupportFile(item.name) ? 'sales' : 'forecast';
+    const wsName = pickWorksheetName(wb.SheetNames, datasetType);
     const ws  = wb.Sheets[wsName];
     const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
     let hdrIdx = -1;
     for(let i=0;i<raw.length;i++) { if(raw[i]&&raw[i].some(c=>c&&String(c).includes('CLIENTE'))){ hdrIdx=i; break; } }
     if(hdrIdx<0) return [];
     const hdrs = raw[hdrIdx].map(h=>h ? mapHeaderName(String(h).trim()) : '');
-    const datasetType = isSalesSupportFile(item.name) ? 'sales' : 'forecast';
     const recs = [];
     for(let i=hdrIdx+1;i<raw.length;i++) {
       const row=raw[i]; if(!row[1]) continue;
