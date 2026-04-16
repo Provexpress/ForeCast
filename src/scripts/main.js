@@ -201,15 +201,18 @@ function normalizeHeaderKey(v){
 }
 
 const HEADER_KEY_MAP = {
+  'CLIENTE':'CLIENTE',
   'VENTA CLIENTE':'MONTO VENTA CLIENTE',
   'MONTO VENTA':'MONTO VENTA CLIENTE',
   'VALOR VENTA':'MONTO VENTA CLIENTE',
   'VALOR VENTA CLIENTE':'MONTO VENTA CLIENTE',
   'VALOR CLIENTE':'MONTO VENTA CLIENTE',
+  'NUMERO DE COTIZACION':'NUMERO DE COTIZACION',
   'NUMERO COTIZACION':'NUMERO DE COTIZACION',
   'NRO COTIZACION':'NUMERO DE COTIZACION',
   'NO COTIZACION':'NUMERO DE COTIZACION',
   'COTIZACION':'NUMERO DE COTIZACION',
+  'COSTO NEGOCIO':'COSTO NEGOCIO',
   'NUMERO PARTE':'NUMERO DE PARTE',
   'NRO PARTE':'NUMERO DE PARTE',
   'NO PARTE':'NUMERO DE PARTE',
@@ -219,6 +222,10 @@ const HEADER_KEY_MAP = {
   'MONEDA':'MONEDA 2',
   'DIVISA':'MONEDA 2',
   'MONEDA2':'MONEDA 2',
+  'ESTADO':'ESTADO',
+  'UTILIDAD':'UTILIDAD',
+  'MARGEN':'MARGEN',
+  'SOPORTA':'SOPORTA',
   'FECHA':'FECHA DIA/MES/AÑO',
   'FECHA NEGOCIO':'FECHA DIA/MES/AÑO',
   'FECHA VENTA':'FECHA DIA/MES/AÑO',
@@ -646,8 +653,17 @@ function parseSalesSupportFileName(name){
 
 function decorateRecordFromFile(rec, fileName, directorHint){
   const salesMeta = parseSalesSupportFileName(fileName);
+  rec['CLIENTE'] = firstFilled(rec, ['CLIENTE']) || rec['CLIENTE'] || '';
+  rec['NUMERO DE COTIZACION'] = firstFilled(rec, ['NUMERO DE COTIZACION']) || rec['NUMERO DE COTIZACION'] || '';
+  rec['COSTO NEGOCIO'] = firstFilled(rec, ['COSTO NEGOCIO','COSTO']) || rec['COSTO NEGOCIO'] || '';
+  rec['MONTO VENTA CLIENTE'] = firstFilled(rec, ['MONTO VENTA CLIENTE']) || rec['MONTO VENTA CLIENTE'] || '';
+  rec['UTILIDAD'] = firstFilled(rec, ['UTILIDAD']) || rec['UTILIDAD'] || '';
+  rec['MARGEN'] = firstFilled(rec, ['MARGEN']) || rec['MARGEN'] || '';
+  rec['MONEDA 2'] = firstFilled(rec, ['MONEDA 2']) || rec['MONEDA 2'] || '';
+  rec['TRM REFERENCIA'] = firstFilled(rec, ['TRM REFERENCIA']) || rec['TRM REFERENCIA'] || '';
+  rec['FECHA DIA/MES/AÑO'] = firstFilled(rec, ['FECHA DIA/MES/AÑO']) || rec['FECHA DIA/MES/AÑO'] || '';
   rec['DIRECTOR'] = directorHint ? toTitleName(directorHint) : toTitleName(rec['DIRECTOR'] || rec['DIRECTOR '] || '');
-  rec['ESTADO'] = normalizeEstado(rec['ESTADO']);
+  rec['ESTADO'] = normalizeEstado(firstFilled(rec, ['ESTADO']));
   if(salesMeta){
     const supportName = cleanNameSegment(salesMeta.supportName);
     const soportaName = formatSalesTargets(firstFilled(rec, ['SOPORTA']) || salesMeta.soportaNames);
