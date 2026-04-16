@@ -609,6 +609,24 @@ function pickWorksheetName(sheetNames, datasetType){
   return names[0];
 }
 
+function isLikelyHeaderRow(row){
+  if(!Array.isArray(row) || !row.length) return false;
+  const headers = row.map(cell => normalizeHeaderKey(cell)).filter(Boolean);
+  if(!headers.length) return false;
+  const hasCliente = headers.some(h => h.includes('CLIENTE'));
+  const hasEstado = headers.includes('ESTADO');
+  const hasMoneda = headers.includes('MONEDA') || headers.includes('MONEDA 2');
+  const hasValor = headers.some(h => h.includes('VENTA CLIENTE') || h.includes('MONTO VENTA') || h.includes('VALOR VENTA'));
+  return hasCliente && (hasEstado || hasMoneda || hasValor);
+}
+
+function findHeaderRowIndex(rows){
+  for(let i = 0; i < rows.length; i++) {
+    if(isLikelyHeaderRow(rows[i])) return i;
+  }
+  return -1;
+}
+
 function parseSalesSupportFileName(name){
   const base = String(name || '').replace(/\.(xlsx|xls)$/i,'').trim();
   if(!/^sales support\b/i.test(base)) return null;
@@ -714,10 +732,7 @@ function parseXlsx(file, directorHint){
         const ws = wb.Sheets[wsName];
         const raw = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
         
-        let hdrIdx = -1;
-        for(let i=0;i<raw.length;i++){
-          if(raw[i] && raw[i].some(c=>c&&String(c).includes('CLIENTE'))){hdrIdx=i;break;}
-        }
+        const hdrIdx = findHeaderRowIndex(raw);
         if(hdrIdx<0){resolve([]);return;}
         
         const rawHdrs = raw[hdrIdx].map(h=>h?String(h).trim():'');
@@ -2914,8 +2929,7 @@ async function loadSpFile(item, dirName) {
     const wsName = pickWorksheetName(wb.SheetNames, datasetType);
     const ws  = wb.Sheets[wsName];
     const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
-    let hdrIdx = -1;
-    for(let i=0;i<raw.length;i++) { if(raw[i]&&raw[i].some(c=>c&&String(c).includes('CLIENTE'))){ hdrIdx=i; break; } }
+    const hdrIdx = findHeaderRowIndex(raw);
     if(hdrIdx<0) return [];
     const hdrs = raw[hdrIdx].map(h=>h ? mapHeaderName(String(h).trim()) : '');
     const recs = [];
