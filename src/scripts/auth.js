@@ -155,8 +155,27 @@ const SALES_SUPPORT_BY_EMAIL = {
 window.EXECUTIVO_BY_EMAIL = EXECUTIVO_BY_EMAIL;
 window.SALES_SUPPORT_BY_EMAIL = SALES_SUPPORT_BY_EMAIL;
 
+const SPECIAL_ROLE_IDENTITIES = [
+  { email:'juannovoa@provexpress.com.co', name:'Juan David Novoa', role:'gerencia_director', directorGroup:'Juan David Novoa' },
+  { email:'oscar.beltran@provexpress.com.co', name:'Oscar Beltran', role:'gerencia_director', directorGroup:'Oscar Beltran' },
+];
+
 function normalizeEmail(value) {
   return String(value || '').toLowerCase().trim();
+}
+
+function normalizeIdentityName(value) {
+  return String(value || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getSpecialRoleByName(name) {
+  const target = normalizeIdentityName(name);
+  if(!target) return null;
+  return SPECIAL_ROLE_IDENTITIES.find(item => normalizeIdentityName(item.name) === target) || null;
 }
 
 function getIdentityCandidates(profile, account) {
@@ -185,6 +204,12 @@ function resolveUserIdentity(profile, account) {
       const roleInfo = getUserRole(candidate);
       return { email: candidate, role: roleInfo.role, directorGroup: roleInfo.directorGroup, candidates };
     }
+  }
+
+  const specialRole = getSpecialRoleByName(profile && profile.displayName);
+  if(specialRole) {
+    const email = candidates[0] || specialRole.email;
+    return { email, role: specialRole.role, directorGroup: specialRole.directorGroup, candidates };
   }
 
   const email = candidates[0] || '';
