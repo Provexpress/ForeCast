@@ -1008,6 +1008,16 @@ function getVisibleData() {
   return ALL_DATA; // gerencia ve todo
 }
 
+function isOscarMarcasGlobalScope(){
+  if(!CURRENT_USER || CURRENT_USER.role !== 'director') return false;
+  return normalizePersonName(CURRENT_USER.directorGroup) === normalizePersonName('Oscar Beltran');
+}
+
+function getVisibleMarcasData(){
+  if(isOscarMarcasGlobalScope()) return ALL_DATA;
+  return getVisibleData();
+}
+
 function getSalesSupportTargetName() {
   const email = (CURRENT_USER && CURRENT_USER.email || '').toLowerCase().trim();
   const map = window.SALES_SUPPORT_BY_EMAIL || {};
@@ -1154,7 +1164,7 @@ function getMarcaLineaDetailRowValue(row, type){
 function getMarcaLineaDetailRows(state){
   if(!state || !state.value) return [];
   const target = normalizeCategoryValue(state.value);
-  return getVisibleData().filter(row => normalizeCategoryValue(getMarcaLineaDetailRowValue(row, state.type)) === target);
+  return getVisibleMarcasData().filter(row => normalizeCategoryValue(getMarcaLineaDetailRowValue(row, state.type)) === target);
 }
 
 function openMarcaLineaDetail(type, value, sourcePage){
@@ -2464,8 +2474,25 @@ function renderDivisas(){
    MARCAS
 ══════════════════════════════════════ */
 function renderMarcas(){
-  const ALL_DATA = getVisibleData();
-  if(!ALL_DATA.length) return;
+  const ALL_DATA = getVisibleMarcasData();
+  const pageTag = document.querySelector('#page-marcas .section-tag');
+  if(pageTag) pageTag.textContent = isOscarMarcasGlobalScope() ? 'TODOS LOS USUARIOS' : 'TOP POR CATEGORIA';
+  if(!ALL_DATA.length){
+    const empty = `<div style="padding:24px 16px;text-align:center;color:var(--text2);font-family:var(--font-body)">Sin registros disponibles para esta vista.</div>`;
+    const barMarcas = document.getElementById('bar-marcas');
+    const barLineas = document.getElementById('bar-lineas');
+    const tblMarcaEj = document.getElementById('tbl-marca-ej');
+    const tblProductos = document.getElementById('tbl-productos');
+    const legMarca = document.getElementById('leg-marca');
+    const legLinea = document.getElementById('leg-linea2');
+    if(barMarcas) barMarcas.innerHTML = empty;
+    if(barLineas) barLineas.innerHTML = empty;
+    if(tblMarcaEj) tblMarcaEj.innerHTML = empty;
+    if(tblProductos) tblProductos.innerHTML = empty;
+    if(legMarca) legMarca.innerHTML = '';
+    if(legLinea) legLinea.innerHTML = '';
+    return;
+  }
   
   const marcas=[...new Set(ALL_DATA.map(r=>r['MARCA']||'').filter(Boolean))];
   const marcaData=marcas.map(m=>({name:m,val:ALL_DATA.filter(r=>r['MARCA']===m).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
