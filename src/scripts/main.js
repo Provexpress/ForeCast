@@ -2764,11 +2764,11 @@ async function loadFolderFromSharePoint() {
     } else if(role === 'ejecutivo') {
       await loadEjecutivoFile(siteId);
     } else if(role === 'director') {
-      const folder = directorGroup.includes('Miller') ? 'Gupo Miller Romero' : 'Grupo ' + directorGroup;
+      const folder = await getDirectorFolderName(siteId, directorGroup);
       await loadDirectorFolder(siteId, folder);
     } else {
       // Gerencia — todas las carpetas
-      const folders = ['Grupo Juan David Novoa','Grupo Maria Angelica Caballero','Grupo Oscar Beltran','Gupo Miller Romero'];
+      const folders = await getForecastFolders(siteId);
       for(const f of folders) await loadDirectorFolder(siteId, f);
     }
     finalizeLoad();
@@ -2782,6 +2782,60 @@ async function loadFolderFromSharePoint() {
 
 let _siteId = null;
 let _driveId = null;
+let _forecastFolders = null;
+
+function encodeGraphPath(path){
+  return String(path || '')
+    .split('/')
+    .filter(Boolean)
+    .map(part => encodeURIComponent(part))
+    .join('/');
+}
+
+function buildGraphRootUrl(siteId, path, suffix){
+  const encodedPath = encodeGraphPath(path);
+  const tail = suffix || 'children?$top=50';
+  return _driveId
+    ? 'https://graph.microsoft.com/v1.0/drives/' + _driveId + '/root:/' + encodedPath + ':/' + tail
+    : 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodedPath + ':/' + tail;
+}
+
+function normalizeFolderName(value){
+  return String(value || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/^(grupo|gupo)\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function getForecastFolders(siteId){
+  if(_forecastFolders && _forecastFolders.length) return _forecastFolders;
+  const token = await getToken(['Files.Read.All']);
+  const url = buildGraphRootUrl(siteId, 'COMERCIAL/FORECAST 2026', 'children?$top=100');
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  const d = await r.json();
+  const folders = (d.value || [])
+    .filter(item => item && item.folder)
+    .map(item => item.name)
+    .filter(name => /^(Grupo|Gupo)\s+/i.test(name));
+  if(folders.length) {
+    _forecastFolders = folders;
+    console.log('[FORECAST FOLDERS]', folders);
+    return folders;
+  }
+  const fallback = ['Grupo Juan David Novoa','Grupo Maria Angelica Caballero','Grupo Oscar Beltran','Gupo Miller Romero'];
+  console.warn('[FORECAST FOLDERS] usando fallback', d);
+  _forecastFolders = fallback;
+  return fallback;
+}
+
+async function getDirectorFolderName(siteId, directorGroup){
+  const folders = await getForecastFolders(siteId);
+  const target = normalizeFolderName(directorGroup);
+  return folders.find(name => normalizeFolderName(name) === target) || (directorGroup.includes('Miller') ? 'Gupo Miller Romero' : 'Grupo ' + directorGroup);
+}
+
 async function getSiteId() {
   if(_siteId) return _siteId;
   const token = await getToken(['Files.Read.All']);
@@ -2810,10 +2864,7 @@ async function loadDirectorFolder(siteId, folderName) {
   const token = await getToken(['Files.Read.All']);
   updateLoadingStatus('Cargando: ' + folderName + '...');
   const folderPath = 'COMERCIAL/FORECAST 2026/' + folderName;
-  // Use specific drive if found, otherwise default drive
-  const driveBase = _driveId
-    ? 'https://graph.microsoft.com/v1.0/drives/' + _driveId + '/root:/' + encodeURIComponent(folderPath) + ':/children?$top=50'
-    : 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodeURIComponent(folderPath) + ':/children?$top=50';
+  const driveBase = buildGraphRootUrl(siteId, folderPath, 'children?$top=50');
   console.log('[FOLDER]', driveBase);
   const r = await fetch(driveBase, { headers: { Authorization: 'Bearer ' + token } });
   const d = await r.json();
@@ -2870,16 +2921,14 @@ function findBestExecFile(items, targetName) {
 }
 
 async function loadSalesSupportFiles(siteId) {
-  const folders = ['Grupo Juan David Novoa','Grupo Maria Angelica Caballero','Grupo Oscar Beltran','Gupo Miller Romero'];
+  const folders = await getForecastFolders(siteId);
   const targetName = getSalesSupportTargetName();
   let found = false;
   for(const folder of folders) {
     const folderPath = 'COMERCIAL/FORECAST 2026/' + folder;
     const token = await getToken(['Files.Read.All']);
     try {
-      const url = _driveId
-        ? 'https://graph.microsoft.com/v1.0/drives/' + _driveId + '/root:/' + encodeURIComponent(folderPath) + ':/children?$top=100'
-        : 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodeURIComponent(folderPath) + ':/children?$top=100';
+      const url = buildGraphRootUrl(siteId, folderPath, 'children?$top=100');
       const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
       const d = await r.json();
       if(!d.value) continue;
@@ -2911,9 +2960,7 @@ async function searchExecFileInForecast(siteId, targetName) {
   const token = await getToken(['Files.Read.All']);
   const folderPath = 'COMERCIAL/FORECAST 2026';
   for(const q of queries) {
-    const url = _driveId
-      ? 'https://graph.microsoft.com/v1.0/drives/' + _driveId + '/root:/' + encodeURIComponent(folderPath) + ':/search(q=\'' + encodeURIComponent(q) + '\')?$top=50'
-      : 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodeURIComponent(folderPath) + ':/search(q=\'' + encodeURIComponent(q) + '\')?$top=50';
+    const url = buildGraphRootUrl(siteId, folderPath, 'search(q=\'' + encodeURIComponent(q) + '\')?$top=50');
     const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
     const d = await r.json();
     const file = findBestExecFile(d.value || [], targetName);
@@ -2923,17 +2970,13 @@ async function searchExecFileInForecast(siteId, targetName) {
 }
 
 async function loadEjecutivoFile(siteId) {
-  const folders = ['Grupo Juan David Novoa','Grupo Maria Angelica Caballero','Grupo Oscar Beltran','Gupo Miller Romero'];
+  const folders = await getForecastFolders(siteId);
   const targetName = getExecTargetName();
   let found = false;
   for(const folder of folders) {
-    const path = AZURE_CONFIG.driveBase + '/' + folder;
     const token = await getToken(['Files.Read.All']);
     try {
-      const r = await fetch(
-        _driveId ? 'https://graph.microsoft.com/v1.0/drives/' + _driveId + '/root:/' + encodeURIComponent('COMERCIAL/FORECAST 2026/' + folder) + ':/children?$top=50' : 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodeURIComponent(path) + ':/children?$top=50',
-        { headers: { Authorization: 'Bearer ' + token } }
-      );
+      const r = await fetch(buildGraphRootUrl(siteId, 'COMERCIAL/FORECAST 2026/' + folder, 'children?$top=50'), { headers: { Authorization: 'Bearer ' + token } });
       const d = await r.json();
       if(!d.value) continue;
       const file = findBestExecFile(d.value, targetName);
