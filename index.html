@@ -55,14 +55,14 @@
     <div id="view-panel" style="display:none;position:fixed;top:70px;right:16px;z-index:500;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:16px;min-width:220px;box-shadow:var(--shadow-lg)">
       <div style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text2);margin-bottom:12px;text-transform:uppercase">Vista activa</div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <button onclick="switchView('gerencia')" class="view-opt-btn" data-view="gerencia">👑 Gerencia General</button>
-        <button onclick="switchView('director','Juan David Novoa')" class="view-opt-btn" data-view="dir-jd">📊 Director — Juan David</button>
-        <button onclick="switchView('director','Maria Angelica Caballero')" class="view-opt-btn" data-view="dir-ma">📊 Director — María Angélica</button>
-        <button onclick="switchView('director','Oscar Beltran')" class="view-opt-btn" data-view="dir-ob">📊 Director — Oscar Beltrán</button>
-        <button onclick="switchView('director','Miller Romero')" class="view-opt-btn" data-view="dir-mr">📊 Director — Miller Romero</button>
+        <button onclick="switchView(this,'gerencia')" class="view-opt-btn" data-view="gerencia">👑 Gerencia General</button>
+        <button onclick="switchView(this,'director','Juan David Novoa')" class="view-opt-btn" data-view="dir-jd">📊 Director — Juan David</button>
+        <button onclick="switchView(this,'director','Maria Angelica Caballero')" class="view-opt-btn" data-view="dir-ma">📊 Director — María Angélica</button>
+        <button onclick="switchView(this,'director','Oscar Beltran')" class="view-opt-btn" data-view="dir-ob">📊 Director — Oscar Beltrán</button>
+        <button onclick="switchView(this,'director','Miller Romero')" class="view-opt-btn" data-view="dir-mr">📊 Director — Miller Romero</button>
         <div style="height:1px;background:var(--border);margin:4px 0"></div>
-        <button onclick="switchView('ejecutivo',null,'César Cespedes')" class="view-opt-btn" data-view="ej-cc">👤 Ejecutivo — César Cespedes</button>
-        <button onclick="switchView('ejecutivo',null,'Diana Catalina Castro')" class="view-opt-btn" data-view="ej-dc">👤 Ejecutivo — Diana Catalina Castro</button>
+        <button onclick="switchView(this,'ejecutivo',null,'César Cespedes')" class="view-opt-btn" data-view="ej-cc">👤 Ejecutivo — César Cespedes</button>
+        <button onclick="switchView(this,'ejecutivo',null,'Diana Catalina Castro')" class="view-opt-btn" data-view="ej-dc">👤 Ejecutivo — Diana Catalina Castro</button>
       </div>
     </div>
   </div>

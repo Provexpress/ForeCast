@@ -3,7 +3,6 @@
 // ══════════════════════════════════════
 
 var CURRENT_USER = null;
-var SP_TOKEN     = null;
 var msalApp      = null;
 
 function getAuthRedirectUri() {
@@ -79,7 +78,6 @@ async function spLogin() {
   const profile = await res.json();
   const { email, role, directorGroup, candidates } = resolveUserIdentity(profile, account);
   CURRENT_USER = { email, name: profile.displayName, role, directorGroup };
-  SP_TOKEN = await getToken(['Files.Read.All']);
   sessionStorage.setItem('forecast_user', JSON.stringify(CURRENT_USER));
   console.log('[AUTH]', email, role, candidates);
   return true;
@@ -230,93 +228,6 @@ function getUserRole(email) {
   return { role:'ejecutivo', directorGroup: null };
 }
 
-function showLoginScreen() {
-  // Crear pantalla de login si no existe
-  let loginDiv = document.getElementById('login-screen');
-  if(!loginDiv) {
-    loginDiv = document.createElement('div');
-    loginDiv.id = 'login-screen';
-    loginDiv.style.cssText = 'position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0';
-    loginDiv.innerHTML = `
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px 48px;max-width:420px;width:90%;box-shadow:0 24px 80px rgba(0,0,0,.5)">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:32px">
-          <img src="data:image/webp;base64,${window._logoB64||''}" style="height:32px" onerror="this.style.display='none'">
-          <div>
-            <div style="font-family:var(--font-display);font-size:14px;font-weight:800;letter-spacing:1px;color:var(--text)">FORECAST 2026</div>
-            <div style="font-size:10px;color:var(--text2);font-family:var(--font-display);letter-spacing:.5px">ÁREA COMERCIAL</div>
-          </div>
-        </div>
-        <div style="font-size:13px;color:var(--text2);margin-bottom:8px;font-family:var(--font-display);letter-spacing:.5px">CORREO CORPORATIVO</div>
-        <input id="login-email" type="email" placeholder="tu.nombre@provexpress.com.co"
-          style="width:100%;box-sizing:border-box;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;font-family:var(--font-body);outline:none;margin-bottom:8px"
-          onkeydown="if(event.key==='Enter') doLogin()">
-        <div id="login-error" style="font-size:11px;color:#ff6b6b;min-height:18px;margin-bottom:12px;font-family:var(--font-body)"></div>
-        <button onclick="doLogin()" style="width:100%;padding:13px;border-radius:8px;border:none;background:var(--corp-blue2);color:#fff;font-family:var(--font-display);font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:opacity .2s"
-          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-          INGRESAR →
-        </button>
-        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:10px;color:var(--text3);font-family:var(--font-body);text-align:center">
-          Acceso restringido · Solo personal Provexpress
-        </div>
-      </div>`;
-    document.body.appendChild(loginDiv);
-  }
-  loginDiv.style.display = 'flex';
-  setTimeout(()=>{ const inp=document.getElementById('login-email'); if(inp) inp.focus(); }, 100);
-}
-
-function doLogin() {
-  const inp   = document.getElementById('login-email');
-  const errEl = document.getElementById('login-error');
-  const email = (inp ? inp.value : '').toLowerCase().trim();
-
-  if(!email || !email.includes('@')) {
-    if(errEl) errEl.textContent = 'Ingresa un correo válido';
-    return;
-  }
-  if(!email.endsWith('@provexpress.com.co')) {
-    if(errEl) errEl.textContent = 'Solo se permite correo @provexpress.com.co';
-    return;
-  }
-
-  const { role, directorGroup } = getUserRole(email);
-  // Inferir nombre del email: juan.novoa@ → "Juan Novoa"
-  const namePart = email.split('@')[0].replace(/\./g,' ');
-  const fallbackName = namePart.replace(/\w\S*/g,w=>w.charAt(0).toUpperCase()+w.slice(1));
-  const name = SALES_SUPPORT_BY_EMAIL[email] || fallbackName;
-
-  CURRENT_USER = { email, name, role, directorGroup };
-
-  // Guardar sesión en sessionStorage
-  sessionStorage.setItem('forecast_user', JSON.stringify(CURRENT_USER));
-
-  // Ocultar login
-  const loginDiv = document.getElementById('login-screen');
-  if(loginDiv) loginDiv.style.display = 'none';
-
-  // Aplicar vistas por rol y mostrar badge
-  applyRoleTabs();
-  showUserBadge();
-
-  // Cambiar label del botón y mensaje de bienvenida
-  const lbl = document.getElementById('btn-reload-txt');
-  if(lbl) lbl.textContent = '📂 Cargar Carpeta';
-
-  // Mostrar mensaje de bienvenida en upload zone
-  const uzD = document.getElementById('upload-zone-g');
-  if(uzD) {
-    const roleMsg = {
-      gerencia: 'Carga la carpeta ÁREA COMERCIAL - FORECAST 2026 para ver todos los datos',
-      gerencia_director: 'Carga la carpeta ÁREA COMERCIAL - FORECAST 2026 para ver todos los datos',
-      director: `Carga tu carpeta Grupo ${CURRENT_USER.directorGroup} para ver tu equipo`,
-      ejecutivo: 'Carga tu archivo Excel para ver tu forecast',
-      sales_support: 'Carga o sincroniza tus archivos Sales Support para ver tu reporte separado del forecast'
-    };
-    const msgEl = uzD.querySelector('p');
-    if(msgEl) msgEl.textContent = roleMsg[CURRENT_USER.role] || 'Selecciona la carpeta para continuar';
-  }
-}
-
 function showUserBadge() {
   if(!CURRENT_USER) return;
   const badge = document.getElementById('user-badge');
@@ -350,7 +261,7 @@ document.addEventListener('click', e => {
   }
 });
 
-function switchView(role, directorGroup, nameOverride) {
+function switchView(buttonEl, role, directorGroup, nameOverride) {
   // Override CURRENT_USER view without changing real identity
   const prev = CURRENT_USER;
   const realName = prev._realName || prev.name;
@@ -376,24 +287,10 @@ function switchView(role, directorGroup, nameOverride) {
   if(rb) rb.textContent = (roleLabels[role]||role) + tail + ' ⚙';
   // Highlight active button
   document.querySelectorAll('.view-opt-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  if(buttonEl) buttonEl.classList.add('active');
   // Close panel
   const panel = document.getElementById('view-panel');
   if(panel) panel.style.display = 'none';
-}
-
-// Restaurar sesión si ya inició sesión antes
-function restoreSession() {
-  try {
-    const saved = sessionStorage.getItem('forecast_user');
-    if(saved) {
-      CURRENT_USER = JSON.parse(saved);
-      showUserBadge();
-      applyRoleTabs();
-      return true;
-    }
-  } catch(e) {}
-  return false;
 }
 
 // ── overlay helpers ──────────────────────────

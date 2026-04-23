@@ -23,7 +23,6 @@ const DIVISAS_DETAIL_LIMITS = { COP: 10, USD: 10 };
 const TOP_BAR_LIMIT = 15;
 
 const TRM_CACHE_KEY = 'trm_last';
-const TRM_DATE_KEY = 'trm_date';
 
 function loadCachedTRM(){
   try {
@@ -36,52 +35,12 @@ function loadCachedTRM(){
     }
   } catch(_) {}
 }
-function cacheTRM(val, dateStr){
+function cacheTRM(val){
   try {
     if(val && val > 100){
       localStorage.setItem(TRM_CACHE_KEY, String(val));
-      if(dateStr) localStorage.setItem(TRM_DATE_KEY, String(dateStr));
     }
   } catch(_) {}
-}
-async function fetchText(url, timeoutMs){
-  const ctrl = new AbortController();
-  const t = setTimeout(()=>ctrl.abort(), timeoutMs || 8000);
-  try {
-    const r = await fetch(url, {cache:'no-store', signal: ctrl.signal});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    return await r.text();
-  } finally { clearTimeout(t); }
-}
-async function fetchFirstText(urls, timeoutMs){
-  for(const u of urls){
-    try { return await fetchText(u, timeoutMs); } catch(_) {}
-  }
-  return '';
-}
-function extractTRMFromText(text){
-  const reHtml = new RegExp('<span class=\"valor-indicador-principal\">\\s*([0-9.]+,[0-9]{2})\\s*COP\\/USD<\\/span>[\\s\\S]*?<span class=\"fecha-indicador-principal\">\\s*(\\d{2}\\/\\d{2}\\/\\d{4})<\\/span>');
-  const m = text.match(reHtml);
-  if(m){
-    return {value: parseFloat(m[1].replace(/\\./g,'').replace(',','.')), date: m[2]};
-  }
-  const rePlain = new RegExp('([0-9.]+,[0-9]{2})\\s*COP\\/USD');
-  const mp = text.match(rePlain);
-  if(mp){
-    const dm = text.match(new RegExp('(\\d{2}\\/\\d{2}\\/\\d{4})'));
-    return {value: parseFloat(mp[1].replace(/\\./g,'').replace(',','.')), date: dm ? dm[1] : ''};
-  }
-  return null;
-}
-function extractTRMFromSDMX(text){
-  const mv = text.match(/ObsValue[^>]*value=\"([0-9.]+)\"/);
-  if(!mv) return null;
-  const md = text.match(/ObsDimension[^>]*value=\"(\\d{8})\"/);
-  let dateStr = '';
-  if(md && md[1] && md[1].length===8){
-    dateStr = md[1].substring(6,8)+'/'+md[1].substring(4,6)+'/'+md[1].substring(0,4);
-  }
-  return {value: parseFloat(mv[1]), date: dateStr};
 }
 
 loadCachedTRM();
@@ -93,7 +52,7 @@ async function fetchTRM() {
     const inp = document.getElementById('trm-input');
     if(inp) inp.value = Number(TRM).toFixed(2);
     if(ALL_DATA.length || SALES_DATA.length) renderAll();
-    cacheTRM(TRM, window._trmDate);
+    cacheTRM(TRM);
     console.log('[TRM]', TRM);
   };
 
@@ -170,11 +129,22 @@ function abr(v){
   return '$ '+Math.round(v).toLocaleString('es-CO');
 }
 function escAttr(s){
-  return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  return String(s||'')
+    .replace(/&/g,'&amp;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
 }
 
-function jsStringLiteral(s){
-  return JSON.stringify(String(s ?? ''));
+function jsValueLiteral(value){
+  if(value === undefined) return 'undefined';
+  return JSON.stringify(value);
+}
+
+function jsCall(name){
+  const args = Array.from(arguments).slice(1).map(jsValueLiteral).join(',');
+  return `${name}(${args})`;
 }
 
 function escHtml(s){
@@ -190,6 +160,20 @@ function cleanDisplayText(value, fallback='Sin dato'){
   const raw = value === null || value === undefined ? '' : String(value).trim();
   if(!raw) return fallback;
   return raw;
+}
+
+function optionHtml(value, label, selected){
+  return `<option value="${escAttr(value)}"${selected ? ' selected' : ''}>${escHtml(label)}</option>`;
+}
+
+function buildOptionList(items, config){
+  const opts = config || {};
+  return (items || []).map(item => {
+    const value = opts.getValue ? opts.getValue(item) : item;
+    const label = opts.getLabel ? opts.getLabel(item) : item;
+    const selected = opts.selectedValue !== undefined && String(value) === String(opts.selectedValue);
+    return optionHtml(value, label, selected);
+  }).join('');
 }
 
 function normalizeHeaderKey(v){
@@ -492,6 +476,11 @@ function normalizeEstado(v){
   return s;
 }
 
+function getEstadoBadgeClass(value){
+  const estado = normalizeEstado(value);
+  return ['GANADA','PENDIENTE','PERDIDA','APLAZADO'].includes(estado) ? estado : 'PENDIENTE';
+}
+
 let _chartTooltip = null;
 function getChartTooltip(){
   if(_chartTooltip) return _chartTooltip;
@@ -716,7 +705,9 @@ function syncMonthSelectOptions(selectId, months){
   const sel = document.getElementById(selectId);
   if(!sel) return;
   const current = sel.value;
-  sel.innerHTML = `<option value="">Todos</option>${months.map(month => `<option value="${month}">${getMonthLongLabel(month)}</option>`).join('')}`;
+  sel.innerHTML = optionHtml('', 'Todos', false) + buildOptionList(months, {
+    getLabel: getMonthLongLabel
+  });
   if(current && months.includes(current)) sel.value = current;
   else sel.value = '';
 }
@@ -736,47 +727,6 @@ function todayStr(){
 /* ══════════════════════════════════════
    FILE LOADING
 ══════════════════════════════════════ */
-/* ══════════════════════════════════════
-   FOLDER & FILE LOADING — detecta estructura director/ejecutivo
-══════════════════════════════════════ */
-
-// Parsea un archivo Excel y devuelve array de registros
-function parseXlsx(file, directorHint){
-  return new Promise((resolve)=>{
-    const r = new FileReader();
-    r.onload = function(ev){
-      try{
-        const wb = XLSX.read(ev.target.result,{type:'binary',cellDates:true});
-        const datasetType = isSalesSupportFile(file.name) ? 'sales' : 'forecast';
-        const wsName = pickWorksheetName(wb.SheetNames, datasetType);
-        const ws = wb.Sheets[wsName];
-        const raw = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
-        
-        const hdrIdx = findHeaderRowIndex(raw);
-        if(hdrIdx<0){resolve([]);return;}
-        
-        const rawHdrs = raw[hdrIdx].map(h=>h?String(h).trim():'');
-        const hdrs = rawHdrs.map(mapHeaderName);
-        const recs = [];
-        // Debug: log headers for first file
-        if(!window._hdrDebugDone){ window._hdrDebugDone=true; console.log('[HDRS]', file.name, hdrs.filter(h=>h)); }
-        for(let i=hdrIdx+1;i<raw.length;i++){
-          const row=raw[i];
-          if(!isMeaningfulDataRow(row)) continue;
-          const rec={};
-          hdrs.forEach((h,j)=>{if(h) rec[h]=row[j]!==undefined?row[j]:null;});
-          decorateRecordFromFile(rec, file.name, directorHint);
-          registerRecord(rec, file.name, wsName, datasetType);
-          if(recs.length===0) console.log('[ROW1]', file.name, {fecha:rec['FECHA DIA/MES/AÑO'], monto:rec['MONTO VENTA CLIENTE'], moneda:rec['MONEDA 2'], cliente:rec['CLIENTE']});
-          recs.push(rec);
-        }
-        if(datasetType === 'sales') console.log('[SALES PARSE]', file.name, wsName, 'rows:', recs.length, 'headerRow:', hdrIdx);
-        resolve(recs);
-      }catch(err){console.warn('Error parseando',file.name,err);resolve([]);}
-    };
-    r.readAsBinaryString(file);
-  });
-}
 
 // Extrae el nombre del director desde el path de la carpeta
 // Ej: "FORECAST 2026/Grupo Juan David Novoa/Freddy.xlsx" → "Juan David Novoa"
@@ -792,124 +742,8 @@ function directorFromPath(path){
   return '';
 }
 
-// Procesa lista de File objects (de folder o archivos sueltos)
-let LOADED_FILES_BY_DIR = {}; // track all loaded files even if empty
-
-async function processFiles(files){
-  // Filtrar solo .xlsx/.xls
-  const xlsFiles = files.filter(f=>{
-    if(!/\.(xlsx|xls)$/i.test(f.name)) return false;
-    if(f.name.startsWith('~$')) return false; // Excel temp files
-    // Ignorar archivos que claramente no son ejecutivos (bases de datos, plantillas, etc.)
-    const nameLower = f.name.toLowerCase();
-    if(nameLower.includes('base de datos')) return false;
-    if(nameLower.includes('plantilla')) return false;
-    if(nameLower.includes('template')) return false;
-    if(/^\d/.test(f.name)) return false; // empieza con número
-    return true;
-  });
-  if(!xlsFiles.length){alert('No se encontraron archivos .xlsx de ejecutivos en la carpeta seleccionada');return;}
-  
-  ALL_DATA = [];
-  SALES_DATA = [];
-  RECORD_SEQ = 0;
-  LOADED_SALES_BY_SUPPORT = {};
-  
-  // Mostrar overlay de progreso (funciona tanto si upload-zone está visible como oculto)
-  let overlay = document.getElementById('load-overlay');
-  if(!overlay){
-    overlay = document.createElement('div');
-    overlay.id = 'load-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(3,5,14,.88);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px';
-    overlay.innerHTML = `
-      <div style="font-family:var(--font-display);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--corp-cyan)">Cargando datos...</div>
-      <div id="load-status" style="font-size:12px;color:var(--text3);font-family:var(--font-body);min-width:320px;text-align:center"></div>
-      <div style="background:var(--border);border-radius:6px;height:6px;overflow:hidden;width:320px">
-        <div id="load-bar" style="height:100%;background:linear-gradient(90deg,var(--corp-blue),var(--corp-cyan));width:0%;transition:width .25s;border-radius:6px"></div>
-      </div>
-      <div id="folder-structure" style="max-width:480px;text-align:left"></div>
-    `;
-    document.body.appendChild(overlay);
-  } else {
-    overlay.style.display = 'flex';
-  }
-  const progBar  = document.getElementById('load-bar');
-  const progTxt  = document.getElementById('load-status');
-  const fstruc   = document.getElementById('folder-structure');
-  fstruc.innerHTML = '';
-  
-  // Agrupar por director según path
-  const byDir = {};
-  xlsFiles.forEach(f=>{
-    const path = f.webkitRelativePath || f.name;
-    const dir  = directorFromPath(path) || 'Sin Director';
-    if(!byDir[dir]) byDir[dir]=[];
-    byDir[dir].push(f);
-  });
-  LOADED_FILES_BY_DIR = {};
-  
-  // Procesar uno a uno con progreso
-  let done=0;
-  const total=xlsFiles.length;
-  const dirColors={'0':'#2D7BF7','1':'#00C2D4','2':'#0DBF82','3':'#F0A020','4':'#E040A0'};
-  
-  const dirNames = Object.keys(byDir);
-  for(let di=0;di<dirNames.length;di++){
-    const dirName = dirNames[di];
-    for(const f of byDir[dirName]){
-      progTxt.textContent = `Leyendo: ${f.name} (${done+1}/${total})`;
-      progBar.style.width = Math.round(((done)/total)*100)+'%';
-      const recs = await parseXlsx(f, dirName);
-      if(isSalesSupportFile(f.name)){
-        const meta = parseSalesSupportFileName(f.name) || {};
-        const supportName = cleanNameSegment(meta.supportName || 'Sales Support');
-        if(!LOADED_SALES_BY_SUPPORT[supportName]) LOADED_SALES_BY_SUPPORT[supportName] = [];
-        LOADED_SALES_BY_SUPPORT[supportName].push({ name: f.name, dir: dirName, soporta: cleanNameSegment(meta.soportaName) });
-        SALES_DATA.push(...recs);
-      } else {
-        if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
-        LOADED_FILES_BY_DIR[dirName].push(f);
-        ALL_DATA.push(...recs);
-      }
-      done++;
-    }
-  }
-  progBar.style.width = '100%';
-  progTxt.textContent = `✅ ${total} archivo${total!==1?'s':''} cargados — ${ALL_DATA.length} forecast / ${SALES_DATA.length} sales`;
-  
-  // Mostrar estructura detectada
-  let structHTML = '<div style="font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text2);margin-bottom:10px">Estructura detectada:</div>';
-  dirNames.forEach((d,di)=>{
-    const c = Object.values(dirColors)[di%5];
-    const regularFiles = byDir[d].filter(f => !isSalesSupportFile(f.name));
-    const salesFiles = byDir[d].filter(f => isSalesSupportFile(f.name));
-    const ejecs = [...new Set(regularFiles.map(f=>f.name.replace(/\.(xlsx|xls)$/i,'')))];
-    const sales = [...new Set(salesFiles.map(f=>cleanNameSegment((parseSalesSupportFileName(f.name)||{}).supportName || f.name.replace(/\.(xlsx|xls)$/i,''))))];
-    structHTML += `<div style="margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:${c};font-family:var(--font-display);font-weight:700">
-        <span>📁</span> ${d} <span style="color:var(--text2);font-weight:400">(${ejecs.length} ejecutivo${ejecs.length!==1?'s':''}${sales.length ? ' · '+sales.length+' sales' : ''})</span>
-      </div>
-      <div style="margin-left:20px;margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">
-        ${ejecs.map(e=>`<span style="font-size:10px;background:${c}15;border:1px solid ${c}30;border-radius:4px;padding:2px 8px;color:var(--text3)">📄 ${e}</span>`).join('')}
-        ${sales.map(e=>`<span style="font-size:10px;background:rgba(42,191,223,.12);border:1px solid rgba(42,191,223,.28);border-radius:4px;padding:2px 8px;color:#CFEFFF">🤝 ${e}</span>`).join('')}
-      </div>
-    </div>`;
-  });
-  fstruc.innerHTML = structHTML;
-  fstruc.style.display = 'block';
-  
-  // Ocultar overlay y mostrar dashboard
-  setTimeout(()=>{
-    const ov = document.getElementById('load-overlay');
-    if(ov) ov.style.display='none';
-    // Asegurarse que el dashboard esté visible
-    const uz = document.getElementById('upload-zone-g');
-    if(uz) uz.style.display='none';
-    document.getElementById('gerencia-content').style.display='block';
-    document.getElementById('hoy-strip').style.display='block';
-    finalizeLoad();
-  }, 1200);
-}
+// Archivos cargados por director, incluyendo archivos sin filas válidas
+let LOADED_FILES_BY_DIR = {};
 
 // TRM change
 document.getElementById('trm-input').addEventListener('input',function(){
@@ -978,13 +812,13 @@ function finalizeLoad(){
     ...ALL_DATA.map(r=>(r['DIRECTOR']||'').trim()),
     ...Object.keys(LOADED_FILES_BY_DIR||{}).map(d=>d.trim())
   ].filter(Boolean))].sort();
-  selDir.innerHTML=dirsForSel.map(d=>`<option value="${d}">${d}</option>`).join('');
+  selDir.innerHTML=buildOptionList(dirsForSel);
   
   const execsFromFiles2=Object.values(LOADED_FILES_BY_DIR||{}).flat()
     .map(f=>f.name.replace(/\.(xlsx|xls)$/i,'').trim()).filter(Boolean);
   const allExecsForSel=[...new Set([...execs,...execsFromFiles2])].sort();
   const selEj=document.getElementById('sel-ejecutivo');
-  selEj.innerHTML=allExecsForSel.map(e=>`<option value="${e}">${e}</option>`).join('');
+  selEj.innerHTML=buildOptionList(allExecsForSel);
 
   renderAll();
 }
@@ -1512,7 +1346,7 @@ function renderBars(containerId, items, color, fmtFn, opts){
       ? ` class="bar-row bar-row-action" role="button" tabindex="0" onclick="${escAttr(onClick)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${onClick}}`)}" title="${escAttr(options.clickTitle || 'Abrir detalle')}" data-tooltip="${escAttr(options.tooltipPrefix ? options.tooltipPrefix + it.name : 'Abrir detalle de ' + it.name)}"`
       : ` class="bar-row"`;
     return `<div${rowAttrs}>
-      <div class="bar-name w100" title="${it.name}">${it.name}</div>
+      <div class="bar-name w100" title="${escAttr(it.name)}">${escHtml(it.name)}</div>
       <div class="bar-track">
         <div class="bar-fill" style="width:${pct}%;background:${c}20;border:1px solid ${c}40">
           <span class="bar-val" style="color:${c}">${fmtFn?fmtFn(it.val):abr(it.val)}</span>
@@ -1545,7 +1379,7 @@ function renderDonut(svgId, legId, items){
   
   leg.innerHTML=items.slice(0,6).map((it,i)=>{
     const pct=((it.val/total)*100).toFixed(1);
-    return `<div class="leg-item" style="display:flex;align-items:center;gap:8px;font-size:12px"><div class="leg-dot" style="background:${COLORS[i%COLORS.length]};width:10px;height:10px;border-radius:50%;flex-shrink:0"></div><span title="${it.name}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-strong);font-weight:600">${it.name}</span><span class="leg-pct" style="color:var(--text);font-family:var(--font-mono);font-weight:600">${pct}%</span></div>`;
+    return `<div class="leg-item" style="display:flex;align-items:center;gap:8px;font-size:12px"><div class="leg-dot" style="background:${COLORS[i%COLORS.length]};width:10px;height:10px;border-radius:50%;flex-shrink:0"></div><span title="${escAttr(it.name)}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-strong);font-weight:600">${escHtml(it.name)}</span><span class="leg-pct" style="color:var(--text);font-family:var(--font-mono);font-weight:600">${pct}%</span></div>`;
   }).join('');
 }
 
@@ -1600,7 +1434,7 @@ function renderEvoChart(containerId, dataByDir, months){
     const c=COLORS[di%COLORS.length];
     const short=d.split(' ').slice(0,2).join(' ');
     svg+=`<rect x="${lx}" y="4" width="9" height="9" rx="2" fill="${c}"/>`;
-    svg+=`<text x="${lx+12}" y="12" font-size="9" font-weight="400" fill="#B8C8E8" font-family="IBM Plex Sans,sans-serif">${short}</text>`;
+    svg+=`<text x="${lx+12}" y="12" font-size="9" font-weight="400" fill="#B8C8E8" font-family="IBM Plex Sans,sans-serif">${escHtml(short)}</text>`;
     lx+=short.length*4.8+20;
   });
 
@@ -1738,7 +1572,7 @@ function renderGerenciaEstadoTables(data) {
       const valor = toCOP(r);
       const linea = cleanDisplayText(getRowLineName(r), 'Sin linea');
       return `
-        <tr class="table-row-action" style="border-top:1px solid var(--border)" onclick="openNegocioDetailById('${r.__RID}','gerencia')" title="Abrir detalle del negocio">
+        <tr class="table-row-action" style="border-top:1px solid var(--border)" onclick="${escAttr(jsCall('openNegocioDetailById', r.__RID, 'gerencia'))}" title="Abrir detalle del negocio">
           <td style="padding:5px 8px;font-size:10px;color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(cliente)}">${escHtml(cliente)}</td>
           <td style="padding:5px 8px;font-size:10px;color:#B0BCDF;font-weight:600;white-space:nowrap">${escHtml(comercial)}</td>
           <td style="padding:5px 8px;font-size:10px;color:#B0BCDF;font-weight:500;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis" title="${escAttr(linea)}">${escHtml(linea)}</td>
@@ -1800,7 +1634,7 @@ function renderDirector(){
     { value:'PENDIENTE', label:'PENDIENTE' },
     { value:'PERDIDA', label:'PERDIDA' },
     { value:'APLAZADO', label:'APLAZADO' }
-  ].map(opt => `<option value="${opt.value}" ${opt.value===est?'selected':''}>${opt.label}</option>`).join('');
+  ];
   const detailToolbar = `
     <div class="director-table-toolbar">
       <div>
@@ -1810,7 +1644,7 @@ function renderDirector(){
       <div class="filter-group director-table-filter">
         <div class="filter-label">Estado tabla</div>
         <select id="sel-dir-estado-detail" onchange="setDirectorEstadoFilter(this.value)">
-          ${estadoOptions}
+          ${buildOptionList(estadoOptions, { getValue: opt => opt.value, getLabel: opt => opt.label, selectedValue: est })}
         </select>
       </div>
     </div>`;
@@ -1873,12 +1707,12 @@ function renderDirector(){
     const c=COLORS[i%COLORS.length];
     const ini=e.split(' ').slice(0,2).map(w=>w[0]).join('');
     const isSelected=(SELECTED_EXEC_BY_DIR[dir]||'')===e;
-    return `<div class="kpi exec-card ${isSelected?'selected':''}" style="--ac:${c};min-width:160px;opacity:${hasD?1:.55}" onclick="selectDirectorExec('${e}')">
+    return `<div class="kpi exec-card ${isSelected?'selected':''}" style="--ac:${c};min-width:160px;opacity:${hasD?1:.55}" onclick="${escAttr(jsCall('selectDirectorExec', e))}">
       <div class="kpi-accent"></div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <div style="width:30px;height:30px;border-radius:50%;background:${c}30;border:1px solid ${c}60;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:700;color:${c}">${ini}</div>
+        <div style="width:30px;height:30px;border-radius:50%;background:${c}30;border:1px solid ${c}60;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:700;color:${c}">${escHtml(ini)}</div>
         <div>
-          <div style="font-size:11px;font-family:var(--font-display);font-weight:700;color:var(--text)">${e.split(' ')[0]}</div>
+          <div style="font-size:11px;font-family:var(--font-display);font-weight:700;color:var(--text)">${escHtml(e.split(' ')[0])}</div>
           <div style="font-size:9px;color:var(--text3)">${hasD?ejData.length+' negocios':'Sin datos aún'}</div>
         </div>
       </div>
@@ -1896,7 +1730,7 @@ function renderDirector(){
   const execGanadas = execData.filter(r=>r['ESTADO']==='GANADA');
   const execKPIs = selectedExec ? `
     <div class="section-hd" style="margin-top:14px">
-      <h2>${selectedExec}</h2>
+      <h2>${escHtml(selectedExec)}</h2>
       <span class="section-tag">EJECUTIVO</span>
       <button class="btn-clear" onclick="clearDirectorExec()">Ver todo el equipo</button>
     </div>
@@ -1929,11 +1763,11 @@ function renderDirector(){
       <div class="kpi" style="--ac:var(--corp-amber)"><div class="kpi-accent"></div>
         <div class="kpi-label">Negocios</div>
         <div class="kpi-val">${execData.length}</div>
-        <div class="kpi-sub">Director: ${dir}</div>
+        <div class="kpi-sub">Director: ${escHtml(dir)}</div>
       </div>
     </div>
     <div class="chart-card g1">
-      <div class="chart-hd">Detalle de Negocios — ${selectedExec}</div>
+      <div class="chart-hd">Detalle de Negocios — ${escHtml(selectedExec)}</div>
       ${detailToolbar}
       ${execData.length ? buildTable(execData, { clickable:true, sourcePage:'director' }) : `<div style="font-size:11px;color:var(--text2)">Sin registros para este filtro.</div>`}
     </div>
@@ -1946,7 +1780,7 @@ function renderDirector(){
   `;
   
   document.getElementById('director-content').innerHTML=`
-    <div class="section-hd"><h2>${dir}</h2><span class="section-tag">DIRECTOR</span></div>
+    <div class="section-hd"><h2>${escHtml(dir)}</h2><span class="section-tag">DIRECTOR</span></div>
     
     <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
       <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
@@ -1983,7 +1817,7 @@ function renderDirector(){
 
     <div class="g2b">
       <div class="chart-card">
-        <div class="chart-hd">Evolución Mensual — ${dir.split(' ')[0]}</div>
+        <div class="chart-hd">Evolución Mensual — ${escHtml(dir.split(' ')[0])}</div>
         ${evoSVG()}
       </div>
       <div class="chart-card">
@@ -2051,11 +1885,11 @@ function renderEjecutivo(){
   const allExecs = [...new Set([...execsFromData, ...execsFromFiles])].sort();
   if(selEj){
     if(role === 'ejecutivo' && targetName){
-      selEj.innerHTML = `<option value="${targetName}">${targetName}</option>`;
+      selEj.innerHTML = optionHtml(targetName, targetName, false);
       selEj.value = targetName;
     } else {
       const current = selEj.value;
-      selEj.innerHTML = allExecs.map(e=>`<option value="${e}">${e}</option>`).join('');
+      selEj.innerHTML = buildOptionList(allExecs);
       if(current && allExecs.includes(current)) selEj.value = current;
       else if(allExecs[0]) selEj.value = allExecs[0];
     }
@@ -2073,10 +1907,10 @@ function renderEjecutivo(){
     const dir=dirFromData||(dirFromFile?dirFromFile[0]:'—');
     const hasData=ed.length>0;
     const selected=e===ej?'selected':'';
-    return `<div class="persona-card ${selected} ${hasData?'':'no-data'}" onclick="selectEjecutivo('${e}')">
-      <div class="persona-avatar" style="background:${c}${hasData?'25':'10'};border:2px solid ${c}${hasData?'50':'20'};color:${hasData?c:'var(--text2)'}">${initials(e)}</div>
-      <div class="persona-name" style="color:${hasData?'var(--text)':'var(--text2)'}">${e}</div>
-      <div class="persona-role">${dir}</div>
+    return `<div class="persona-card ${selected} ${hasData?'':'no-data'}" onclick="${escAttr(jsCall('selectEjecutivo', e))}">
+      <div class="persona-avatar" style="background:${c}${hasData?'25':'10'};border:2px solid ${c}${hasData?'50':'20'};color:${hasData?c:'var(--text2)'}">${escHtml(initials(e))}</div>
+      <div class="persona-name" style="color:${hasData?'var(--text)':'var(--text2)'}">${escHtml(e)}</div>
+      <div class="persona-role">${escHtml(dir)}</div>
       ${hasData
         ?`<div class="persona-stats">
         <div class="p-stat"><div class="p-stat-label">Total</div><div class="p-stat-val" style="color:${c};font-size:11px">${abr(cop)}</div></div>
@@ -2103,7 +1937,7 @@ function renderEjecutivo(){
   const linData=lineas.map(l=>({name:l,val:data.filter(r=>r['LINEA DE PRODUCTO']===l).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
   
   document.getElementById('ejecutivo-content').innerHTML=`
-    <div class="section-hd" style="margin-top:16px"><h2>${ej}</h2><span class="section-tag" style="background:${ejColor}20;color:${ejColor};border-color:${ejColor}40">EJECUTIVO</span></div>
+    <div class="section-hd" style="margin-top:16px"><h2>${escHtml(ej)}</h2><span class="section-tag" style="background:${ejColor}20;color:${ejColor};border-color:${ejColor}40">EJECUTIVO</span></div>
     
     <div class="kpi-grid kpi-grid-4" style="margin-bottom:16px">
       <div class="kpi" style="--ac:${ejColor}"><div class="kpi-accent"></div>
@@ -2124,13 +1958,13 @@ function renderEjecutivo(){
       <div class="kpi" style="--ac:var(--corp-amber)"><div class="kpi-accent"></div>
         <div class="kpi-label">Negocios</div>
         <div class="kpi-val">${data.length}</div>
-        <div class="kpi-sub">Director: ${(data[0]||{})['DIRECTOR']||'—'}</div>
+        <div class="kpi-sub">Director: ${escHtml((data[0]||{})['DIRECTOR']||'—')}</div>
       </div>
     </div>
     
     <div class="g2">
       <div class="chart-card">
-        <div class="chart-hd">Top Líneas — ${ej.split(' ')[0]}</div>
+        <div class="chart-hd">Top Líneas — ${escHtml(ej.split(' ')[0])}</div>
         <div class="bar-list" id="bar-ej-lineas"></div>
       </div>
       <div class="chart-card">
@@ -2143,7 +1977,7 @@ function renderEjecutivo(){
     </div>
     
     <div class="chart-card g1">
-      <div class="chart-hd">Detalle de Negocios — ${ej}</div>
+      <div class="chart-hd">Detalle de Negocios — ${escHtml(ej)}</div>
       ${buildTable(data, { clickable:true, sourcePage:'ejecutivo' })}
     </div>
   `;
@@ -2180,16 +2014,16 @@ function buildSalesTable(data, opts){
       const margen = formatMarginDisplay(r['MARGEN'], '-');
       const trmRef = parseMonto(r['TRM REFERENCIA']) || 0;
       const estado = cleanDisplayText(r['ESTADO'], 'Sin estado').toUpperCase();
-      const estadoClass = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'].includes(estado) ? estado : 'PENDIENTE';
+      const estadoClass = getEstadoBadgeClass(estado);
       const rowAttrs = options.clickable && r.__RID
-        ? ` class="table-row-action" onclick="openNegocioDetailById('${r.__RID}','${escAttr(sourcePage)}')" title="Abrir detalle del registro sales"`
+        ? ` class="table-row-action" onclick="${escAttr(jsCall('openNegocioDetailById', r.__RID, sourcePage))}" title="Abrir detalle del registro sales"`
         : '';
       return `<tr${rowAttrs}>
         <td class="td-mono" data-label="Fecha">${escHtml(fecha)}</td>
         <td class="td-mono" data-label="Cotizacion">${escHtml(cotizacion)}</td>
         <td data-label="Cliente">${escHtml(cliente)}</td>
         <td data-label="Soporta">${escHtml(soporta)}</td>
-        <td data-label="Moneda"><span class="badge ${mon==='USD'?'badge-PEDIDA':'badge-PENDIENTE'}">${mon}</span></td>
+        <td data-label="Moneda"><span class="badge ${mon==='USD'?'badge-PEDIDA':'badge-PENDIENTE'}">${escHtml(mon)}</span></td>
         <td class="td-mono ${mon==='USD'?'td-usd':'td-cop'}" data-label="Costo Negocio">${mon==='USD'?fmtUSD(costo):fmtCOP(costo)}</td>
         <td class="td-mono ${mon==='USD'?'td-usd':'td-cop'}" data-label="Valor venta">${mon==='USD'?fmtUSD(valor):fmtCOP(valor)}</td>
         <td class="td-mono" style="color:var(--corp-cyan)" data-label="Utilidad">${mon==='USD'?fmtUSD(utilidad):fmtCOP(utilidad)}</td>
@@ -2217,18 +2051,20 @@ function renderSales(){
   const allSupports = [...new Set([...supportsFromData, ...supportsFromFiles])].sort((a,b)=>a.localeCompare(b,'es'));
 
   if(role === 'sales_support' && targetName) {
-    selSupport.innerHTML = `<option value="${escAttr(targetName)}">${escHtml(targetName)}</option>`;
+    selSupport.innerHTML = optionHtml(targetName, targetName, false);
     selSupport.value = targetName;
   } else {
     const current = selSupport.value;
-    selSupport.innerHTML = allSupports.map(name=>`<option value="${escAttr(name)}">${escHtml(name)}</option>`).join('');
+    selSupport.innerHTML = buildOptionList(allSupports);
     if(current && allSupports.includes(current)) selSupport.value = current;
     else if(allSupports[0]) selSupport.value = allSupports[0];
   }
 
   const monthValues = [...new Set(allSales.map(r=>getMonth(getRowDateValue(r))).filter(Boolean))].sort();
   const currentMonth = selMes.value;
-  selMes.innerHTML = `<option value="">Todos</option>${monthValues.map(month=>`<option value="${month}">${getMonthLabel(month)}</option>`).join('')}`;
+  selMes.innerHTML = optionHtml('', 'Todos', false) + buildOptionList(monthValues, {
+    getLabel: getMonthLabel
+  });
   if(currentMonth && monthValues.includes(currentMonth)) selMes.value = currentMonth;
 
   if(!allSupports.length){
@@ -2249,8 +2085,8 @@ function renderSales(){
     const c = COLORS[idx % COLORS.length];
     const hasData = supportRows.length > 0;
     const selected = namesMatch(selectedSupport, supportName) ? 'selected' : '';
-    return `<div class="persona-card ${selected} ${hasData?'':'no-data'}" onclick="${escAttr(`selectSalesSupport(${jsStringLiteral(supportName)})`)}">
-      <div class="persona-avatar" style="background:${c}${hasData?'25':'10'};border:2px solid ${c}${hasData?'50':'20'};color:${hasData?c:'var(--text2)'}">${initials(supportName)}</div>
+    return `<div class="persona-card ${selected} ${hasData?'':'no-data'}" onclick="${escAttr(jsCall('selectSalesSupport', supportName))}">
+      <div class="persona-avatar" style="background:${c}${hasData?'25':'10'};border:2px solid ${c}${hasData?'50':'20'};color:${hasData?c:'var(--text2)'}">${escHtml(initials(supportName))}</div>
       <div class="persona-name" style="color:${hasData?'var(--text)':'var(--text2)'}">${escHtml(supportName)}</div>
       <div class="persona-role">Sales Support</div>
       ${hasData
@@ -2411,13 +2247,15 @@ function renderDivisas(){
     <tbody>${usdDetailData.length ? usdDetailData.slice(0, usdVisible).map(r=>{
       const usd=parseMonto(r['MONTO VENTA CLIENTE'])||0;
       const liq=usd*trm;
+      const estado = cleanDisplayText(r['ESTADO'],'—');
+      const estadoClass = getEstadoBadgeClass(estado);
       return `<tr>
-        <td>${(r['COMERCIAL']||'').split(' ')[0]}</td>
-        <td>${r['CLIENTE']||'—'}</td>
-        <td style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r['PRODUCTO']||'—'}</td>
+        <td>${escHtml((r['COMERCIAL']||'').split(' ')[0])}</td>
+        <td>${escHtml(r['CLIENTE']||'—')}</td>
+        <td style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r['PRODUCTO']||'—')}</td>
         <td class="td-mono td-usd">${fmtUSD(usd)}</td>
         <td class="td-mono td-cop">${fmtCOP(liq)}</td>
-        <td><span class="badge badge-${r['ESTADO']}">${r['ESTADO']||'—'}</span></td>
+        <td><span class="badge badge-${estadoClass}">${escHtml(estado)}</span></td>
       </tr>`;
     }).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px 14px">Sin negocios ${estadoDetalle ? estadoDetalle.toLowerCase() : ''} en USD.</td></tr>`}</tbody>
   </table>${usdRemaining > 0 ? `<div class="table-more-wrap"><button type="button" class="table-more-btn" onclick="showMoreDivisaRows('USD')">Ver mas (${usdRemaining})</button></div>` : ''}`;
@@ -2427,12 +2265,14 @@ function renderDivisas(){
     <thead><tr><th>Ejecutivo</th><th>Cliente</th><th>Producto</th><th>COP</th><th>Estado</th></tr></thead>
     <tbody>${copDetailData.length ? copDetailData.slice(0, copVisible).map(r=>{
       const cop=parseMonto(r['MONTO VENTA CLIENTE'])||0;
+      const estado = cleanDisplayText(r['ESTADO'],'—');
+      const estadoClass = getEstadoBadgeClass(estado);
       return `<tr>
-        <td>${(r['COMERCIAL']||'').split(' ')[0]}</td>
-        <td>${r['CLIENTE']||'—'}</td>
-        <td style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r['PRODUCTO']||'—'}</td>
+        <td>${escHtml((r['COMERCIAL']||'').split(' ')[0])}</td>
+        <td>${escHtml(r['CLIENTE']||'—')}</td>
+        <td style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r['PRODUCTO']||'—')}</td>
         <td class="td-mono td-cop">${fmtCOP(cop)}</td>
-        <td><span class="badge badge-${r['ESTADO']}">${r['ESTADO']||'—'}</span></td>
+        <td><span class="badge badge-${estadoClass}">${escHtml(estado)}</span></td>
       </tr>`;
     }).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:20px 14px">Sin negocios ${estadoDetalle ? estadoDetalle.toLowerCase() : ''} en COP.</td></tr>`}</tbody>
   </table>${copRemaining > 0 ? `<div class="table-more-wrap"><button type="button" class="table-more-btn" onclick="showMoreDivisaRows('COP')">Ver mas (${copRemaining})</button></div>` : ''}`;
@@ -2449,7 +2289,7 @@ function renderDivisas(){
       const vUSD=du.reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
       const liq=vUSD*trm;
       return `<tr>
-        <td style="font-family:var(--font-display);font-weight:700;color:var(--text)">${d}</td>
+        <td style="font-family:var(--font-display);font-weight:700;color:var(--text)">${escHtml(d)}</td>
         <td class="td-mono">${dc.length}</td>
         <td class="td-mono td-cop">${fmtCOP(vCOP)}</td>
         <td class="td-mono">${du.length}</td>
@@ -2497,7 +2337,7 @@ function renderMarcas(){
   const marcas=[...new Set(ALL_DATA.map(r=>r['MARCA']||'').filter(Boolean))];
   const marcaData=marcas.map(m=>({name:m,val:ALL_DATA.filter(r=>r['MARCA']===m).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
   renderBars('bar-marcas',marcaData.slice(0, TOP_BAR_LIMIT),COLORS,null,{
-    getOnClick: item => `openMarcaLineaDetail('marca', ${jsStringLiteral(item.name)}, 'marcas')`,
+    getOnClick: item => jsCall('openMarcaLineaDetail', 'marca', item.name, 'marcas'),
     clickTitle: 'Abrir detalle de marca'
   });
   renderDonut('donut-marca','leg-marca',marcaData);
@@ -2505,7 +2345,7 @@ function renderMarcas(){
   const lineas=[...new Set(ALL_DATA.map(r=>r['LINEA DE PRODUCTO']||'').filter(Boolean))];
   const linData=lineas.map(l=>({name:l,val:ALL_DATA.filter(r=>r['LINEA DE PRODUCTO']===l).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
   renderBars('bar-lineas',linData,COLORS,null,{
-    getOnClick: item => `openMarcaLineaDetail('linea', ${jsStringLiteral(item.name)}, 'marcas')`,
+    getOnClick: item => jsCall('openMarcaLineaDetail', 'linea', item.name, 'marcas'),
     clickTitle: 'Abrir detalle de linea'
   });
   renderDonut('donut-linea2','leg-linea2',linData);
@@ -2521,8 +2361,8 @@ function renderMarcas(){
   if(directorSelect){
     const prev = directorSelect.value;
     const opts = directorOptions.length > 1
-      ? [`<option value="">Todos los directores</option>`, ...directorOptions.map(d=>`<option value="${escAttr(d)}">${escHtml(d)}</option>`)]
-      : directorOptions.map(d=>`<option value="${escAttr(d)}">${escHtml(d)}</option>`);
+      ? [optionHtml('', 'Todos los directores', false), buildOptionList(directorOptions)]
+      : [buildOptionList(directorOptions)];
     directorSelect.innerHTML = opts.join('');
     if(prev && directorOptions.includes(prev)) directorSelect.value = prev;
     else if(directorOptions.length === 1) directorSelect.value = directorOptions[0];
@@ -2536,15 +2376,15 @@ function renderMarcas(){
     : ALL_DATA;
   const execs=[...new Set(marcaExecData.map(r=>r['COMERCIAL']||'').filter(Boolean))];
   document.getElementById('tbl-marca-ej').innerHTML=`<table>
-    <thead><tr><th>Ejecutivo</th>${marcas.map(m=>`<th>${m}</th>`).join('')}<th>Top Marca</th></tr></thead>
+    <thead><tr><th>Ejecutivo</th>${marcas.map(m=>`<th>${escHtml(m)}</th>`).join('')}<th>Top Marca</th></tr></thead>
     <tbody>${execs.length ? execs.map(e=>{
       const ed=marcaExecData.filter(r=>r['COMERCIAL']===e);
       const marcaCounts=marcas.map(m=>ed.filter(r=>r['MARCA']===m).length);
       const topIdx=marcaCounts.indexOf(Math.max(...marcaCounts));
       return `<tr>
-        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${e.split(' ')[0]}</td>
+        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${escHtml(e.split(' ')[0])}</td>
         ${marcaCounts.map((c,i)=>`<td class="td-mono" style="color:${c>0?COLORS[i%COLORS.length]:'var(--text2)'}">${c||'—'}</td>`).join('')}
-        <td style="font-family:var(--font-display);font-weight:700;color:${COLORS[topIdx%COLORS.length]}">${marcas[topIdx]||'—'}</td>
+        <td style="font-family:var(--font-display);font-weight:700;color:${COLORS[topIdx%COLORS.length]}">${escHtml(marcas[topIdx]||'—')}</td>
       </tr>`;
     }).join('') : `<tr><td colspan="${marcas.length+2}" style="text-align:center;color:var(--text2);padding:20px 14px">Sin ejecutivos con datos para este grupo.</td></tr>`}</tbody>
   </table>`;
@@ -2556,8 +2396,8 @@ function renderMarcas(){
       const marcaRows=ALL_DATA.filter(r=>(r['MARCA']||'')===item.name);
       const lineasMarca=[...new Set(marcaRows.map(r=>r['LINEA DE PRODUCTO']||'').filter(Boolean))];
       const productosMarca=[...new Set(marcaRows.map(r=>r['PRODUCTO']||'').filter(Boolean))];
-      return `<tr class="table-row-action" onclick="${escAttr(`openMarcaLineaDetail('marca', ${jsStringLiteral(item.name)}, 'marcas')`)}" title="Abrir detalle de marca">
-        <td style="color:var(--text)">${item.name}</td>
+      return `<tr class="table-row-action" onclick="${escAttr(jsCall('openMarcaLineaDetail', 'marca', item.name, 'marcas'))}" title="Abrir detalle de marca">
+        <td style="color:var(--text)">${escHtml(item.name)}</td>
         <td class="td-mono">${lineasMarca.length}</td>
         <td class="td-mono">${productosMarca.length}</td>
         <td class="td-mono">${marcaRows.length}</td>
@@ -2615,8 +2455,8 @@ function renderResumen(){
       const monthlyValues = months.map(month => ed.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0));
       const tot=monthlyValues.reduce((sum, val)=>sum+val,0);
       return `<tr>
-        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${e}</td>
-        <td style="color:var(--text2)">${dir?dir['DIRECTOR']||'—':'—'}</td>
+        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${escHtml(e)}</td>
+        <td style="color:var(--text2)">${escHtml(dir?dir['DIRECTOR']||'—':'—')}</td>
         <td class="td-mono">${ed.length}</td>
         ${monthlyValues.map(val=>`<td class="td-mono td-cop">${val>0?abr(val):'—'}</td>`).join('')}
         <td class="td-mono td-cop" style="font-weight:700">${fmtCOP(tot)}</td>
@@ -2640,8 +2480,8 @@ function renderResumen(){
       const monthlyValues = months.map(month => ed.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0));
       const tot=monthlyValues.reduce((sum, val)=>sum+val,0);
       return `<tr>
-        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${e}</td>
-        <td style="color:var(--text2)">${dir?dir['DIRECTOR']||'—':'—'}</td>
+        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${escHtml(e)}</td>
+        <td style="color:var(--text2)">${escHtml(dir?dir['DIRECTOR']||'—':'—')}</td>
         <td class="td-mono">${ed.length}</td>
         ${monthlyValues.map(val=>`<td class="td-mono td-usd">${val>0?fmtUSD(val):'—'}</td>`).join('')}
         <td class="td-mono td-usd" style="font-weight:700">${fmtUSD(tot)}</td>
@@ -2670,8 +2510,8 @@ function renderResumen(){
         const eUSD=ed.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
         const total=eCOP+eUSD*trm;
         return `<tr>
-          <td style="font-family:var(--font-display);font-weight:700;color:var(--text2)">${ei===0?d:''}</td>
-          <td style="color:var(--text)">${e}</td>
+          <td style="font-family:var(--font-display);font-weight:700;color:var(--text2)">${ei===0?escHtml(d):''}</td>
+          <td style="color:var(--text)">${escHtml(e)}</td>
           <td class="td-mono td-cop">${fmtCOP(eCOP)}</td>
           <td class="td-mono td-usd">${eUSD>0?fmtUSD(eUSD):'—'}</td>
           <td class="td-mono td-usd">${eUSD>0?fmtCOP(eUSD*trm):'—'}</td>
@@ -2709,9 +2549,9 @@ function buildTable(data, opts){
       const marginRaw = r['MARGEN'];
       const marginText = formatMarginDisplay(marginRaw, '-');
       const estado = cleanDisplayText(r['ESTADO'], 'Sin estado').toUpperCase();
-      const estadoClass = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'].includes(estado) ? estado : 'PENDIENTE';
+      const estadoClass = getEstadoBadgeClass(estado);
       const rowAttrs = options.clickable && r.__RID
-        ? ` class="table-row-action" onclick="openNegocioDetailById('${r.__RID}','${escAttr(sourcePage)}')" title="Abrir detalle del negocio"`
+        ? ` class="table-row-action" onclick="${escAttr(jsCall('openNegocioDetailById', r.__RID, sourcePage))}" title="Abrir detalle del negocio"`
         : '';
       return `<tr${rowAttrs}>
         <td class="td-mono" style="font-size:10px" data-label="Fecha">${escHtml(fecha)}</td>
@@ -2719,7 +2559,7 @@ function buildTable(data, opts){
         <td style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(producto)}" data-label="Producto">${escHtml(producto)}</td>
         <td style="color:var(--corp-cyan)" data-label="Marca">${escHtml(marca)}</td>
         <td style="font-size:10px" data-label="Línea">${escHtml(linea)}</td>
-        <td data-label="Moneda"><span class="badge ${mon==='USD'?'badge-PEDIDA':'badge-PENDIENTE'}">${mon}</span></td>
+        <td data-label="Moneda"><span class="badge ${mon==='USD'?'badge-PEDIDA':'badge-PENDIENTE'}">${escHtml(mon)}</span></td>
         <td class="td-mono ${mon==='USD'?'td-usd':'td-cop'}" data-label="Valor">${mon==='USD'?fmtUSD(val):fmtCOP(val)}</td>
         <td class="td-mono td-cop" data-label="COP Total">${fmtCOP(cop)}</td>
         <td class="td-mono" style="color:var(--corp-amber)" data-label="Margen">${escHtml(marginText)}</td>
