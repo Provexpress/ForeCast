@@ -577,6 +577,10 @@ function cleanNameSegment(value){
   return cleanDisplayText(value, '').replace(/\s+/g,' ').trim();
 }
 
+function normalizeDirectorName(value){
+  return toTitleName(cleanNameSegment(value));
+}
+
 function isSalesSupportFile(name){
   const base = String(name || '').replace(/\.(xlsx|xls)$/i,'').trim();
   return /^sales support\b/i.test(base);
@@ -651,7 +655,7 @@ function decorateRecordFromFile(rec, fileName, directorHint){
   rec['MONEDA 2'] = firstFilled(rec, ['MONEDA 2']) || rec['MONEDA 2'] || '';
   rec['TRM REFERENCIA'] = firstFilled(rec, ['TRM REFERENCIA']) || rec['TRM REFERENCIA'] || '';
   rec['FECHA DIA/MES/AÑO'] = firstFilled(rec, ['FECHA DIA/MES/AÑO']) || rec['FECHA DIA/MES/AÑO'] || '';
-  rec['DIRECTOR'] = directorHint ? toTitleName(directorHint) : toTitleName(rec['DIRECTOR'] || rec['DIRECTOR '] || '');
+  rec['DIRECTOR'] = normalizeDirectorName(directorHint || rec['DIRECTOR'] || rec['DIRECTOR '] || '');
   rec['ESTADO'] = normalizeEstado(firstFilled(rec, ['ESTADO']));
   if(salesMeta){
     const supportName = cleanNameSegment(salesMeta.supportName);
@@ -735,10 +739,10 @@ function directorFromPath(path){
   // Buscar la parte que empiece con "Grupo" o "Gupo" (typo en sharepoint)
   const dirPart = parts.find(p=> /^(Grupo|Gupo)/i.test(p.trim()));
   if(dirPart){
-    return dirPart.replace(/^(Grupo|Gupo)\s+/i,'').trim();
+    return normalizeDirectorName(dirPart.replace(/^(Grupo|Gupo)\s+/i,'').trim());
   }
   // Si no, usar el folder padre del archivo
-  if(parts.length>=2) return parts[parts.length-2].trim();
+  if(parts.length>=2) return normalizeDirectorName(parts[parts.length-2].trim());
   return '';
 }
 
@@ -2709,7 +2713,7 @@ async function loadDirectorFolder(siteId, folderName) {
   const r = await fetch(driveBase, { headers: { Authorization: 'Bearer ' + token } });
   const d = await r.json();
   if(!d.value) { console.warn('Sin archivos en', folderName, d); return; }
-  const dirName = folderName.replace(/^(Grupo|Gupo)\s+/i,'').trim();
+  const dirName = normalizeDirectorName(folderName.replace(/^(Grupo|Gupo)\s+/i,'').trim());
   if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
   for(const item of d.value) {
     if(!item.name.match(/\.xlsx?$/i)) continue;
@@ -2772,7 +2776,7 @@ async function loadSalesSupportFiles(siteId) {
       const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
       const d = await r.json();
       if(!d.value) continue;
-      const dirName = folder.replace(/^(Grupo|Gupo)\s+/i,'').trim();
+      const dirName = normalizeDirectorName(folder.replace(/^(Grupo|Gupo)\s+/i,'').trim());
       for(const item of d.value) {
         if(!item.name.match(/\.xlsx?$/i)) continue;
         if(!isSalesSupportFile(item.name)) continue;
@@ -2821,7 +2825,7 @@ async function loadEjecutivoFile(siteId) {
       if(!d.value) continue;
       const file = findBestExecFile(d.value, targetName);
       if(file) {
-        const dirName = folder.replace(/^(Grupo|Gupo)\s+/i,'').trim();
+        const dirName = normalizeDirectorName(folder.replace(/^(Grupo|Gupo)\s+/i,'').trim());
         if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
         const recs = await loadSpFile(file, dirName);
         ALL_DATA.push(...recs);
@@ -2834,7 +2838,7 @@ async function loadEjecutivoFile(siteId) {
   // Fallback: search in FORECAST 2026 if file is nested or renamed
   const fallback = await searchExecFileInForecast(siteId, targetName);
   if(fallback) {
-    const dirName = directorFromPath((fallback.parentReference && fallback.parentReference.path) || '') || '';
+    const dirName = normalizeDirectorName(directorFromPath((fallback.parentReference && fallback.parentReference.path) || '') || '');
     if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
     const recs = await loadSpFile(fallback, dirName);
     ALL_DATA.push(...recs);
