@@ -578,7 +578,13 @@ function cleanNameSegment(value){
 }
 
 function normalizeDirectorName(value){
-  return toTitleName(cleanNameSegment(value));
+  const normalized = normalizePersonName(value);
+  if(!normalized) return '';
+  return normalized
+    .split(' ')
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 function isSalesSupportFile(name){
@@ -832,7 +838,8 @@ function getVisibleData() {
   const { role, directorGroup, name } = CURRENT_USER;
   if(role === 'sales_support') return [];
   if(role === 'director') {
-    return ALL_DATA.filter(r => (r['DIRECTOR']||'').trim() === (directorGroup||'').trim());
+    const targetDirector = normalizePersonName(directorGroup);
+    return ALL_DATA.filter(r => normalizePersonName(r['DIRECTOR']) === targetDirector);
   }
   if(role === 'ejecutivo') {
     const targetName = getExecTargetName();
@@ -870,7 +877,8 @@ function getVisibleSalesData() {
     return SALES_DATA.filter(r => namesMatch(getSalesSupportName(r), targetName));
   }
   if(role === 'director') {
-    return SALES_DATA.filter(r => (r['DIRECTOR']||'').trim() === (directorGroup||'').trim());
+    const targetDirector = normalizePersonName(directorGroup);
+    return SALES_DATA.filter(r => normalizePersonName(r['DIRECTOR']) === targetDirector);
   }
   if(role === 'ejecutivo') return [];
   return SALES_DATA;
