@@ -2141,6 +2141,38 @@ function selectEjecutivo(name){
   renderEjecutivo();
 }
 
+function openExecNegociosFromMarcas(execName, directorName){
+  const targetExec = cleanDisplayText(execName, '').trim();
+  if(!targetExec) return;
+  const role = CURRENT_USER ? CURRENT_USER.role : '';
+
+  if(role === 'director'){
+    const dirSelect = document.getElementById('sel-director');
+    const dirMonth = document.getElementById('sel-dir-mes');
+    const dirEstado = document.getElementById('sel-dir-estado');
+    const targetDirector = cleanDisplayText(
+      directorName || (CURRENT_USER && CURRENT_USER.directorGroup) || '',
+      ''
+    ).trim();
+    if(dirSelect && targetDirector) dirSelect.value = targetDirector;
+    if(dirMonth) dirMonth.value = '';
+    if(dirEstado) dirEstado.value = '';
+    if(targetDirector) SELECTED_EXEC_BY_DIR[targetDirector] = targetExec;
+    renderDirector();
+    showPage('director', getNavButtonForPage('director'));
+    return;
+  }
+
+  const ejSelect = document.getElementById('sel-ejecutivo');
+  const ejMonth = document.getElementById('sel-ej-mes');
+  const ejEstado = document.getElementById('sel-ej-estado');
+  if(ejSelect) ejSelect.value = targetExec;
+  if(ejMonth) ejMonth.value = '';
+  if(ejEstado) ejEstado.value = '';
+  renderEjecutivo();
+  showPage('ejecutivo', getNavButtonForPage('ejecutivo'));
+}
+
 function getMonthLabel(monthKey){
   if(!monthKey) return 'Sin mes';
   return getMonthLongLabel(monthKey);
@@ -2534,17 +2566,18 @@ function renderMarcas(){
     : ALL_DATA;
   const execs=[...new Set(marcaExecData.map(r=>r['COMERCIAL']||'').filter(Boolean))];
   document.getElementById('tbl-marca-ej').innerHTML=`<table>
-    <thead><tr><th>Ejecutivo</th>${marcas.map(m=>`<th>${escHtml(m)}</th>`).join('')}<th>Top Marca</th></tr></thead>
+    <thead><tr><th>Ejecutivo</th><th>Top Marca</th></tr></thead>
     <tbody>${execs.length ? execs.map(e=>{
       const ed=marcaExecData.filter(r=>r['COMERCIAL']===e);
       const marcaCounts=marcas.map(m=>ed.filter(r=>getRowBrandName(r)===m).length);
       const topIdx=marcaCounts.indexOf(Math.max(...marcaCounts));
-      return `<tr>
-        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${escHtml(e.split(' ')[0])}</td>
-        ${marcaCounts.map((c,i)=>`<td class="td-mono" style="color:${c>0?COLORS[i%COLORS.length]:'var(--text2)'}">${c||'—'}</td>`).join('')}
-        <td style="font-family:var(--font-display);font-weight:700;color:${COLORS[topIdx%COLORS.length]}">${escHtml(marcas[topIdx]||'—')}</td>
+      const execDirector = cleanDisplayText((ed[0]||{})['DIRECTOR'], selectedDirector || '');
+      const topMarca = marcas[topIdx] || '—';
+      return `<tr class="table-row-action" onclick="${escAttr(jsCall('openExecNegociosFromMarcas', e, execDirector))}" title="Abrir negocios del ejecutivo">
+        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${escHtml(e)}</td>
+        <td style="font-family:var(--font-display);font-weight:700;color:${COLORS[topIdx%COLORS.length]}">${escHtml(topMarca)}</td>
       </tr>`;
-    }).join('') : `<tr><td colspan="${marcas.length+2}" style="text-align:center;color:var(--text2);padding:20px 14px">Sin ejecutivos con datos para este grupo.</td></tr>`}</tbody>
+    }).join('') : `<tr><td colspan="2" style="text-align:center;color:var(--text2);padding:20px 14px">Sin ejecutivos con datos para este grupo.</td></tr>`}</tbody>
   </table>`;
 }
 
@@ -3081,6 +3114,7 @@ window.renderEjecutivo = renderEjecutivo;
 window.renderSales = renderSales;
 window.renderMarcas = renderMarcas;
 window.selectEjecutivo = selectEjecutivo;
+window.openExecNegociosFromMarcas = openExecNegociosFromMarcas;
 window.selectSalesSupport = selectSalesSupport;
 window.openMarcaLineaDetail = openMarcaLineaDetail;
 window.closeMarcaLineaDetail = closeMarcaLineaDetail;
