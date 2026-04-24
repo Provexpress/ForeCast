@@ -294,16 +294,120 @@ function getRowProductName(row){
   return firstFilled(row, ['PRODUCTO','PROYECTO','SOLUCION','SERVICIO']) || '';
 }
 
+const BRAND_NAME_ALIASES = {
+  acer: 'ACER',
+  adobe: 'ADOBE',
+  apple: 'APPLE',
+  aruba: 'ARUBA',
+  asus: 'ASUS',
+  bitdefender: 'BITDEFENDER',
+  cisco: 'CISCO',
+  dahua: 'DAHUA',
+  dell: 'DELL',
+  epson: 'EPSON',
+  fortinet: 'FORTINET',
+  fortine: 'FORTINET',
+  generica: 'GENERICA',
+  generico: 'GENERICA',
+  hikvision: 'HIKVISION',
+  honeywell: 'HONEYWELL',
+  hp: 'HP',
+  'hp inc': 'HP',
+  'hp inc.': 'HP',
+  hpe: 'HPE',
+  'hewlett-packard': 'HP',
+  'hewlett packard': 'HP',
+  jabra: 'JABRA',
+  kingston: 'KINGSTON',
+  kinstong: 'KINGSTON',
+  kiinstong: 'KINGSTON',
+  kyocera: 'KYOCERA',
+  kiocera: 'KYOCERA',
+  lenovo: 'LENOVO',
+  lg: 'LG',
+  logitech: 'LOGITECH',
+  loguitech: 'LOGITECH',
+  logutech: 'LOGITECH',
+  microsof: 'MICROSOFT',
+  microsoft: 'MICROSOFT',
+  motorola: 'MOTOROLA',
+  multimarca: 'MULTIMARCA',
+  multimarcas: 'MULTIMARCA',
+  poly: 'POLY',
+  qnap: 'QNAP',
+  ricoh: 'RICOH',
+  samsung: 'SAMSUNG',
+  samsumg: 'SAMSUNG',
+  samsusng: 'SAMSUNG',
+  sony: 'SONY',
+  '3n star': '3N STAR',
+  '3nstar': '3N STAR',
+  'tp-link': 'TP-LINK',
+  tplink: 'TP-LINK',
+  ubiquiti: 'UBIQUITI',
+  ubituiti: 'UBIQUITI',
+  varios: 'VARIOS',
+  varias: 'VARIOS',
+  viewsonic: 'VIEWSONIC',
+  xiaomi: 'XIAOMI',
+  zebra: 'ZEBRA'
+};
+
+function isCompositeBrandName(value){
+  return /,|;|\+|\/|\sy\s|(?:\s-\s*|\s*-\s)/i.test(value || '');
+}
+
+function normalizeBrandDisplay(value){
+  return String(value || '')
+    .replace(/\s*,\s*/g, ', ')
+    .replace(/\s*;\s*/g, '; ')
+    .replace(/\s*\/\s*/g, ' / ')
+    .replace(/\s*\+\s*/g, ' + ')
+    .replace(/\s+y\s+/ig, ' Y ')
+    .replace(/\s*-\s*/g, ' - ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
+}
+
+function normalizeBrandName(value){
+  const raw = cleanDisplayText(value, '');
+  if(!raw) return '';
+  const compact = raw.replace(/\s+/g, ' ').trim();
+  const aliasKey = normalizeCategoryValue(compact);
+  if(BRAND_NAME_ALIASES[aliasKey]) return BRAND_NAME_ALIASES[aliasKey];
+  if(isCompositeBrandName(compact)) return normalizeBrandDisplay(compact);
+  return compact.toUpperCase();
+}
+
 function getRowBrandName(row){
-  return firstFilled(row, ['MARCA','FABRICANTE']) || '';
+  return normalizeBrandName(firstFilled(row, ['MARCA','FABRICANTE']) || '');
 }
 
 function getRowPartNumber(row){
   return firstFilled(row, ['NUMERO DE PARTE','NUMERO PARTE','NRO PARTE','NO PARTE','PART NUMBER']) || '';
 }
 
+const LINE_NAME_ALIASES = {
+  tecnologia: 'TECNOLOGIA',
+  tecnolgia: 'TECNOLOGIA',
+  tcnologia: 'TECNOLOGIA'
+};
+
+function normalizeLineName(value){
+  const raw = cleanDisplayText(value, '');
+  if(!raw) return '';
+  const display = raw
+    .replace(/\s*\/\s*/g, ' / ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
+  const aliasKey = normalizeCategoryValue(display);
+  return LINE_NAME_ALIASES[aliasKey] || display;
+}
+
 function getRowLineName(row){
-  return firstFilled(row, ['LINEA DE PRODUCTO','LINEA']) || '';
+  return normalizeLineName(firstFilled(row, ['LINEA DE PRODUCTO','LINEA']) || '');
 }
 
 function getRowObservation(row){
@@ -1345,6 +1449,38 @@ function renderMarcaLineaDetail(){
 /* ══════════════════════════════════════
    CHART HELPERS
 ══════════════════════════════════════ */
+function buildLineValueData(rows){
+  const totals = new Map();
+  (rows || []).forEach(row => {
+    const linea = getRowLineName(row);
+    if(!linea) return;
+    totals.set(linea, (totals.get(linea) || 0) + toCOP(row));
+  });
+  return [...totals.entries()]
+    .map(([name, val]) => ({ name, val }))
+    .sort((a,b)=>b.val-a.val);
+}
+
+function getUniqueLineNames(rows){
+  return [...new Set((rows || []).map(getRowLineName).filter(Boolean))];
+}
+
+function buildBrandValueData(rows){
+  const totals = new Map();
+  (rows || []).forEach(row => {
+    const marca = getRowBrandName(row);
+    if(!marca) return;
+    totals.set(marca, (totals.get(marca) || 0) + toCOP(row));
+  });
+  return [...totals.entries()]
+    .map(([name, val]) => ({ name, val }))
+    .sort((a,b)=>b.val-a.val);
+}
+
+function getUniqueBrandNames(rows){
+  return [...new Set((rows || []).map(getRowBrandName).filter(Boolean))];
+}
+
 function renderBars(containerId, items, color, fmtFn, opts){
   const el=document.getElementById(containerId);
   if(!el) return;
@@ -1550,8 +1686,7 @@ function renderGerencia(){
   const estData=estados.map(e=>({name:e,val:ALL_DATA.filter(r=>r['ESTADO']===e).reduce((s,r)=>s+toCOP(r),0)}));
   renderDonut('donut-estado','leg-estado',estData);
   
-  const lineas=[...new Set(ALL_DATA.map(r=>r['LINEA DE PRODUCTO']||'').filter(Boolean))];
-  const linData=lineas.map(l=>({name:l,val:ALL_DATA.filter(r=>r['LINEA DE PRODUCTO']===l).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
+  const linData=buildLineValueData(ALL_DATA);
   renderDonut('donut-linea','leg-linea',linData);
 
   // Tablas de estados
@@ -1945,8 +2080,7 @@ function renderEjecutivo(){
   const ganadas=data.filter(r=>r['ESTADO']==='GANADA');
   const ejColor=COLORS[execs.indexOf(ej)%COLORS.length];
   
-  const lineas=[...new Set(data.map(r=>r['LINEA DE PRODUCTO']||'').filter(Boolean))];
-  const linData=lineas.map(l=>({name:l,val:data.filter(r=>r['LINEA DE PRODUCTO']===l).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
+  const linData=buildLineValueData(data);
   
   document.getElementById('ejecutivo-content').innerHTML=`
     <div class="section-hd" style="margin-top:16px"><h2>${escHtml(ej)}</h2><span class="section-tag" style="background:${ejColor}20;color:${ejColor};border-color:${ejColor}40">EJECUTIVO</span></div>
@@ -2346,16 +2480,15 @@ function renderMarcas(){
     return;
   }
   
-  const marcas=[...new Set(ALL_DATA.map(r=>r['MARCA']||'').filter(Boolean))];
-  const marcaData=marcas.map(m=>({name:m,val:ALL_DATA.filter(r=>r['MARCA']===m).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
-  renderBars('bar-marcas',marcaData.slice(0, TOP_BAR_LIMIT),COLORS,null,{
+  const marcaData=buildBrandValueData(ALL_DATA);
+  const marcas=marcaData.map(item => item.name);
+  renderBars('bar-marcas',marcaData,COLORS,null,{
     getOnClick: item => jsCall('openMarcaLineaDetail', 'marca', item.name, 'marcas'),
     clickTitle: 'Abrir detalle de marca'
   });
   renderDonut('donut-marca','leg-marca',marcaData);
   
-  const lineas=[...new Set(ALL_DATA.map(r=>r['LINEA DE PRODUCTO']||'').filter(Boolean))];
-  const linData=lineas.map(l=>({name:l,val:ALL_DATA.filter(r=>r['LINEA DE PRODUCTO']===l).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
+  const linData=buildLineValueData(ALL_DATA);
   renderBars('bar-lineas',linData,COLORS,null,{
     getOnClick: item => jsCall('openMarcaLineaDetail', 'linea', item.name, 'marcas'),
     clickTitle: 'Abrir detalle de linea'
@@ -2391,7 +2524,7 @@ function renderMarcas(){
     <thead><tr><th>Ejecutivo</th>${marcas.map(m=>`<th>${escHtml(m)}</th>`).join('')}<th>Top Marca</th></tr></thead>
     <tbody>${execs.length ? execs.map(e=>{
       const ed=marcaExecData.filter(r=>r['COMERCIAL']===e);
-      const marcaCounts=marcas.map(m=>ed.filter(r=>r['MARCA']===m).length);
+      const marcaCounts=marcas.map(m=>ed.filter(r=>getRowBrandName(r)===m).length);
       const topIdx=marcaCounts.indexOf(Math.max(...marcaCounts));
       return `<tr>
         <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${escHtml(e.split(' ')[0])}</td>
@@ -2405,8 +2538,8 @@ function renderMarcas(){
   document.getElementById('tbl-productos').innerHTML=`<table>
     <thead><tr><th>Marca</th><th>Lineas</th><th>Productos</th><th>Negocios</th><th>Valor Total COP</th></tr></thead>
     <tbody>${marcaData.map(item=>{
-      const marcaRows=ALL_DATA.filter(r=>(r['MARCA']||'')===item.name);
-      const lineasMarca=[...new Set(marcaRows.map(r=>r['LINEA DE PRODUCTO']||'').filter(Boolean))];
+      const marcaRows=ALL_DATA.filter(r=>getRowBrandName(r)===item.name);
+      const lineasMarca=getUniqueLineNames(marcaRows);
       const productosMarca=[...new Set(marcaRows.map(r=>r['PRODUCTO']||'').filter(Boolean))];
       return `<tr class="table-row-action" onclick="${escAttr(jsCall('openMarcaLineaDetail', 'marca', item.name, 'marcas'))}" title="Abrir detalle de marca">
         <td style="color:var(--text)">${escHtml(item.name)}</td>
