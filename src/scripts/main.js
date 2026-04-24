@@ -1,4 +1,4 @@
-/* ══════════════════════════════════════
+﻿/* ══════════════════════════════════════
    DATA & STATE
 ══════════════════════════════════════ */
 let ALL_DATA = [];
@@ -21,6 +21,9 @@ const GERENCIA_ESTADO_LIMITS = {
 const DIVISAS_DETAIL_STEP = 10;
 const DIVISAS_DETAIL_LIMITS = { COP: 10, USD: 10 };
 const TOP_BAR_LIMIT = 15;
+const MARCAS_BAR_STEP = 10;
+const MARCAS_BAR_INITIAL = 10;
+let MARCAS_BAR_LIMIT = MARCAS_BAR_INITIAL;
 
 const TRM_CACHE_KEY = 'trm_last';
 
@@ -314,7 +317,7 @@ const BRAND_NAME_ALIASES = {
   hp: 'HP',
   'hp inc': 'HP',
   'hp inc.': 'HP',
-  hpe: 'HPE',
+  hpe: 'HP',
   'hewlett-packard': 'HP',
   'hewlett packard': 'HP',
   jabra: 'JABRA',
@@ -1091,6 +1094,13 @@ function showMoreDivisaRows(moneda){
   restoreScrollSnapshot('divisas', scrollState);
 }
 
+function showMoreMarcasBars(){
+  const scrollState = captureScrollSnapshot('marcas');
+  MARCAS_BAR_LIMIT = (MARCAS_BAR_LIMIT || MARCAS_BAR_INITIAL) + MARCAS_BAR_STEP;
+  renderMarcas();
+  restoreScrollSnapshot('marcas', scrollState);
+}
+
 function normalizeCategoryValue(value){
   return cleanDisplayText(value, '')
     .toString()
@@ -1461,10 +1471,6 @@ function buildLineValueData(rows){
     .sort((a,b)=>b.val-a.val);
 }
 
-function getUniqueLineNames(rows){
-  return [...new Set((rows || []).map(getRowLineName).filter(Boolean))];
-}
-
 function buildBrandValueData(rows){
   const totals = new Map();
   (rows || []).forEach(row => {
@@ -1477,15 +1483,12 @@ function buildBrandValueData(rows){
     .sort((a,b)=>b.val-a.val);
 }
 
-function getUniqueBrandNames(rows){
-  return [...new Set((rows || []).map(getRowBrandName).filter(Boolean))];
-}
-
 function renderBars(containerId, items, color, fmtFn, opts){
   const el=document.getElementById(containerId);
   if(!el) return;
   const options = opts || {};
   const max=Math.max(...items.map(i=>i.val),1);
+  const nameClass = options.nameClass || 'w100';
   el.innerHTML=items.map((it,idx)=>{
     const pct=Math.round((it.val/max)*100);
     const c=Array.isArray(color)?color[idx%color.length]:color;
@@ -1494,7 +1497,7 @@ function renderBars(containerId, items, color, fmtFn, opts){
       ? ` class="bar-row bar-row-action" role="button" tabindex="0" onclick="${escAttr(onClick)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${onClick}}`)}" title="${escAttr(options.clickTitle || 'Abrir detalle')}" data-tooltip="${escAttr(options.tooltipPrefix ? options.tooltipPrefix + it.name : 'Abrir detalle de ' + it.name)}"`
       : ` class="bar-row"`;
     return `<div${rowAttrs}>
-      <div class="bar-name w100" title="${escAttr(it.name)}">${escHtml(it.name)}</div>
+      <div class="bar-name ${escAttr(nameClass)}" title="${escAttr(it.name)}">${escHtml(it.name)}</div>
       <div class="bar-track">
         <div class="bar-fill" style="width:${pct}%;background:${c}20;border:1px solid ${c}40">
           <span class="bar-val" style="color:${c}">${fmtFn?fmtFn(it.val):abr(it.val)}</span>
@@ -2466,15 +2469,15 @@ function renderMarcas(){
   if(!ALL_DATA.length){
     const empty = `<div style="padding:24px 16px;text-align:center;color:var(--text2);font-family:var(--font-body)">Sin registros disponibles para esta vista.</div>`;
     const barMarcas = document.getElementById('bar-marcas');
+    const barMarcasMore = document.getElementById('bar-marcas-more');
     const barLineas = document.getElementById('bar-lineas');
     const tblMarcaEj = document.getElementById('tbl-marca-ej');
-    const tblProductos = document.getElementById('tbl-productos');
     const legMarca = document.getElementById('leg-marca');
     const legLinea = document.getElementById('leg-linea2');
     if(barMarcas) barMarcas.innerHTML = empty;
+    if(barMarcasMore) barMarcasMore.innerHTML = '';
     if(barLineas) barLineas.innerHTML = empty;
     if(tblMarcaEj) tblMarcaEj.innerHTML = empty;
-    if(tblProductos) tblProductos.innerHTML = empty;
     if(legMarca) legMarca.innerHTML = '';
     if(legLinea) legLinea.innerHTML = '';
     return;
@@ -2482,16 +2485,26 @@ function renderMarcas(){
   
   const marcaData=buildBrandValueData(ALL_DATA);
   const marcas=marcaData.map(item => item.name);
-  renderBars('bar-marcas',marcaData,COLORS,null,{
+  const visibleMarcaData = marcaData.slice(0, Math.max(MARCAS_BAR_LIMIT || MARCAS_BAR_INITIAL, MARCAS_BAR_INITIAL));
+  renderBars('bar-marcas',visibleMarcaData,COLORS,null,{
     getOnClick: item => jsCall('openMarcaLineaDetail', 'marca', item.name, 'marcas'),
-    clickTitle: 'Abrir detalle de marca'
+    clickTitle: 'Abrir detalle de marca',
+    nameClass: 'w160'
   });
+  const barMarcasMore = document.getElementById('bar-marcas-more');
+  const marcasRemaining = Math.max(marcaData.length - visibleMarcaData.length, 0);
+  if(barMarcasMore) {
+    barMarcasMore.innerHTML = marcasRemaining > 0
+      ? `<button type="button" class="table-more-btn" onclick="showMoreMarcasBars()">Ver mas (${marcasRemaining})</button>`
+      : '';
+  }
   renderDonut('donut-marca','leg-marca',marcaData);
   
   const linData=buildLineValueData(ALL_DATA);
   renderBars('bar-lineas',linData,COLORS,null,{
     getOnClick: item => jsCall('openMarcaLineaDetail', 'linea', item.name, 'marcas'),
-    clickTitle: 'Abrir detalle de linea'
+    clickTitle: 'Abrir detalle de linea',
+    nameClass: 'w160'
   });
   renderDonut('donut-linea2','leg-linea2',linData);
   
@@ -2532,23 +2545,6 @@ function renderMarcas(){
         <td style="font-family:var(--font-display);font-weight:700;color:${COLORS[topIdx%COLORS.length]}">${escHtml(marcas[topIdx]||'—')}</td>
       </tr>`;
     }).join('') : `<tr><td colspan="${marcas.length+2}" style="text-align:center;color:var(--text2);padding:20px 14px">Sin ejecutivos con datos para este grupo.</td></tr>`}</tbody>
-  </table>`;
-  
-  // Todas las marcas registradas
-  document.getElementById('tbl-productos').innerHTML=`<table>
-    <thead><tr><th>Marca</th><th>Lineas</th><th>Productos</th><th>Negocios</th><th>Valor Total COP</th></tr></thead>
-    <tbody>${marcaData.map(item=>{
-      const marcaRows=ALL_DATA.filter(r=>getRowBrandName(r)===item.name);
-      const lineasMarca=getUniqueLineNames(marcaRows);
-      const productosMarca=[...new Set(marcaRows.map(r=>r['PRODUCTO']||'').filter(Boolean))];
-      return `<tr class="table-row-action" onclick="${escAttr(jsCall('openMarcaLineaDetail', 'marca', item.name, 'marcas'))}" title="Abrir detalle de marca">
-        <td style="color:var(--text)">${escHtml(item.name)}</td>
-        <td class="td-mono">${lineasMarca.length}</td>
-        <td class="td-mono">${productosMarca.length}</td>
-        <td class="td-mono">${marcaRows.length}</td>
-        <td class="td-mono td-cop">${fmtCOP(item.val)}</td>
-      </tr>`;
-    }).join('')}</tbody>
   </table>`;
 }
 
@@ -3079,6 +3075,7 @@ window.showPage = showPage;
 window.renderDivisas = renderDivisas;
 window.setDivisaEstadoFilter = setDivisaEstadoFilter;
 window.showMoreDivisaRows = showMoreDivisaRows;
+window.showMoreMarcasBars = showMoreMarcasBars;
 window.renderDirector = renderDirector;
 window.renderEjecutivo = renderEjecutivo;
 window.renderSales = renderSales;
