@@ -9,6 +9,7 @@ let SELECTED_EXEC_BY_DIR = {};
 let RECORD_SEQ = 0;
 let NEGOCIO_DETAIL_STATE = null;
 let MARCA_LINEA_DETAIL_STATE = null;
+let EJECUTIVO_BRAND_FOCUS = null;
 let LOADED_SALES_BY_SUPPORT = {};
 
 const GERENCIA_ESTADO_STEP = 20;
@@ -2018,7 +2019,7 @@ function setDirectorEstadoFilter(value){
 function initials(name){return name.split(' ').slice(0,2).map(w=>w[0]).join('');}
 
 function renderEjecutivo(){
-  const ALL_DATA = getVisibleData();
+  const ALL_DATA = EJECUTIVO_BRAND_FOCUS ? getVisibleMarcasData() : getVisibleData();
   if(!ALL_DATA.length) return;
   const role = CURRENT_USER ? CURRENT_USER.role : null;
   const targetName = role === 'ejecutivo' ? getExecTargetName() : '';
@@ -2046,6 +2047,11 @@ function renderEjecutivo(){
   }
   const ej = (role === 'ejecutivo' && targetName) ? targetName : (selEj ? selEj.value : '');
   const execs = (role === 'ejecutivo' && targetName) ? [targetName] : allExecs;
+  if(EJECUTIVO_BRAND_FOCUS && !namesMatch(EJECUTIVO_BRAND_FOCUS.execName, ej)) {
+    EJECUTIVO_BRAND_FOCUS = null;
+    renderEjecutivo();
+    return;
+  }
   document.getElementById('persona-grid').innerHTML=execs.map((e,i)=>{
     const ed=ALL_DATA.filter(r=>(r['COMERCIAL']||'').trim()===e);
     const cop=ed.reduce((s,r)=>s+toCOP(r),0);
@@ -2077,16 +2083,26 @@ function renderEjecutivo(){
   let data=ALL_DATA.filter(r=>r['COMERCIAL']===ej);
   if(mes) data=data.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===mes);
   if(est) data=data.filter(r=>r['ESTADO']===est);
+  const focusedBrand = EJECUTIVO_BRAND_FOCUS ? EJECUTIVO_BRAND_FOCUS.brandName : '';
+  if(focusedBrand) {
+    data = data.filter(r => getRowBrandName(r) === focusedBrand);
+  }
   
   const totalCOP=data.reduce((s,r)=>s+toCOP(r),0);
   const totalUSD=data.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   const ganadas=data.filter(r=>r['ESTADO']==='GANADA');
   const ejColor=COLORS[execs.indexOf(ej)%COLORS.length];
+  const focusBadge = focusedBrand
+    ? `<span class="section-tag" style="background:rgba(42,191,223,.16);color:var(--corp-cyan);border-color:rgba(42,191,223,.32)">MARCA · ${escHtml(focusedBrand)}</span>`
+    : '';
+  const focusClear = focusedBrand
+    ? `<button class="btn-clear" onclick="clearEjecutivoBrandFocus()">Ver todo el ejecutivo</button>`
+    : '';
   
   const linData=buildLineValueData(data);
   
   document.getElementById('ejecutivo-content').innerHTML=`
-    <div class="section-hd" style="margin-top:16px"><h2>${escHtml(ej)}</h2><span class="section-tag" style="background:${ejColor}20;color:${ejColor};border-color:${ejColor}40">EJECUTIVO</span></div>
+    <div class="section-hd" style="margin-top:16px"><h2>${escHtml(ej)}</h2><span class="section-tag" style="background:${ejColor}20;color:${ejColor};border-color:${ejColor}40">EJECUTIVO</span>${focusBadge}${focusClear}</div>
     
     <div class="kpi-grid kpi-grid-4" style="margin-bottom:16px">
       <div class="kpi" style="--ac:${ejColor}"><div class="kpi-accent"></div>
@@ -2126,7 +2142,7 @@ function renderEjecutivo(){
     </div>
     
     <div class="chart-card g1">
-      <div class="chart-hd">Detalle de Negocios — ${escHtml(ej)}</div>
+      <div class="chart-hd">Detalle de Negocios — ${escHtml(ej)}${focusedBrand ? ` <span>${escHtml(focusedBrand)}</span>` : ''}</div>
       ${buildTable(data, { clickable:true, sourcePage:'ejecutivo' })}
     </div>
   `;
@@ -2138,37 +2154,32 @@ function renderEjecutivo(){
 
 function selectEjecutivo(name){
   document.getElementById('sel-ejecutivo').value=name;
+  if(EJECUTIVO_BRAND_FOCUS && !namesMatch(EJECUTIVO_BRAND_FOCUS.execName, name)) {
+    EJECUTIVO_BRAND_FOCUS = null;
+  }
   renderEjecutivo();
 }
 
-function openExecNegociosFromMarcas(execName, directorName){
+function clearEjecutivoBrandFocus(){
+  EJECUTIVO_BRAND_FOCUS = null;
+  renderEjecutivo();
+}
+
+function openExecNegociosFromMarcas(execName, directorName, brandName){
   const targetExec = cleanDisplayText(execName, '').trim();
+  const targetBrand = cleanDisplayText(brandName, '').trim();
   if(!targetExec) return;
-  const role = CURRENT_USER ? CURRENT_USER.role : '';
-
-  if(role === 'director'){
-    const dirSelect = document.getElementById('sel-director');
-    const dirMonth = document.getElementById('sel-dir-mes');
-    const dirEstado = document.getElementById('sel-dir-estado');
-    const targetDirector = cleanDisplayText(
-      directorName || (CURRENT_USER && CURRENT_USER.directorGroup) || '',
-      ''
-    ).trim();
-    if(dirSelect && targetDirector) dirSelect.value = targetDirector;
-    if(dirMonth) dirMonth.value = '';
-    if(dirEstado) dirEstado.value = '';
-    if(targetDirector) SELECTED_EXEC_BY_DIR[targetDirector] = targetExec;
-    renderDirector();
-    showPage('director', getNavButtonForPage('director'));
-    return;
-  }
-
   const ejSelect = document.getElementById('sel-ejecutivo');
   const ejMonth = document.getElementById('sel-ej-mes');
   const ejEstado = document.getElementById('sel-ej-estado');
   if(ejSelect) ejSelect.value = targetExec;
   if(ejMonth) ejMonth.value = '';
   if(ejEstado) ejEstado.value = '';
+  EJECUTIVO_BRAND_FOCUS = targetBrand ? {
+    execName: targetExec,
+    directorName: cleanDisplayText(directorName, '').trim(),
+    brandName: targetBrand
+  } : null;
   renderEjecutivo();
   showPage('ejecutivo', getNavButtonForPage('ejecutivo'));
 }
@@ -2554,9 +2565,10 @@ function renderMarcas(){
       ? [optionHtml('', 'Todos los directores', false), buildOptionList(directorOptions)]
       : [buildOptionList(directorOptions)];
     directorSelect.innerHTML = opts.join('');
-    if(prev && directorOptions.includes(prev)) directorSelect.value = prev;
+    if(prev === '' && directorOptions.length > 1) directorSelect.value = '';
+    else if(prev && directorOptions.includes(prev)) directorSelect.value = prev;
     else if(directorOptions.length === 1) directorSelect.value = directorOptions[0];
-    else if(directorOptions.length > 1) directorSelect.value = directorOptions[0];
+    else if(directorOptions.length > 1) directorSelect.value = '';
     selectedDirector = directorSelect.value || '';
   }
   if(directorFilterWrap) directorFilterWrap.style.display = directorOptions.length > 1 ? '' : 'none';
@@ -2573,7 +2585,7 @@ function renderMarcas(){
       const topIdx=marcaCounts.indexOf(Math.max(...marcaCounts));
       const execDirector = cleanDisplayText((ed[0]||{})['DIRECTOR'], selectedDirector || '');
       const topMarca = marcas[topIdx] || '—';
-      return `<tr class="table-row-action" onclick="${escAttr(jsCall('openExecNegociosFromMarcas', e, execDirector))}" title="Abrir negocios del ejecutivo">
+      return `<tr class="table-row-action" onclick="${escAttr(jsCall('openExecNegociosFromMarcas', e, execDirector, topMarca))}" title="Abrir negocios del ejecutivo">
         <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${escHtml(e)}</td>
         <td style="font-family:var(--font-display);font-weight:700;color:${COLORS[topIdx%COLORS.length]}">${escHtml(topMarca)}</td>
       </tr>`;
@@ -3114,6 +3126,7 @@ window.renderEjecutivo = renderEjecutivo;
 window.renderSales = renderSales;
 window.renderMarcas = renderMarcas;
 window.selectEjecutivo = selectEjecutivo;
+window.clearEjecutivoBrandFocus = clearEjecutivoBrandFocus;
 window.openExecNegociosFromMarcas = openExecNegociosFromMarcas;
 window.selectSalesSupport = selectSalesSupport;
 window.openMarcaLineaDetail = openMarcaLineaDetail;
