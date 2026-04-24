@@ -1389,34 +1389,6 @@ function renderMarcaLineaDetail(){
         </div>
       </div>
 
-      <div class="detail-kpi-grid">
-        <div class="detail-stat">
-          <span>Total negocios</span>
-          <strong>${fmtNum(totalNegocios)}</strong>
-          <small>Relacionados con ${escHtml(state.value)}</small>
-        </div>
-        <div class="detail-stat">
-          <span>Ganadas</span>
-          <strong>${fmtNum(estados[0].count)}</strong>
-          <small>${fmtCOP(estados[0].total)}</small>
-        </div>
-        <div class="detail-stat">
-          <span>Pendientes</span>
-          <strong>${fmtNum(estados[1].count)}</strong>
-          <small>${fmtCOP(estados[1].total)}</small>
-        </div>
-        <div class="detail-stat">
-          <span>Perdidas</span>
-          <strong>${fmtNum(estados[2].count)}</strong>
-          <small>${fmtCOP(estados[2].total)}</small>
-        </div>
-        <div class="detail-stat">
-          <span>Aplazadas</span>
-          <strong>${fmtNum(estados[3].count)}</strong>
-          <small>${fmtCOP(estados[3].total)}</small>
-        </div>
-      </div>
-
       <div class="category-state-grid">
         <button type="button" class="category-state-card${!estadoFilter ? ' active' : ''}" onclick="setMarcaLineaDetailEstado('')">
           <span>Todos</span>
@@ -1435,8 +1407,8 @@ function renderMarcaLineaDetail(){
       <div class="chart-card g1">
         <div class="director-table-toolbar">
           <div>
-            <div class="chart-hd">Negocios asociados</div>
-            <div style="font-size:11px;color:var(--text2)">Filtrados por ${escHtml(typeLabel.toLowerCase())} y estado del negocio.</div>
+            <div class="chart-hd">Partes y clientes asociados</div>
+            <div style="font-size:11px;color:var(--text2)">Agrupado por numero de parte, cliente y estado. La cantidad sale del conteo automatico de registros y el valor se consolida en COP.</div>
           </div>
           <div class="director-table-filter">
             <div class="filter-label">Estado</div>
@@ -1450,11 +1422,67 @@ function renderMarcaLineaDetail(){
           </div>
         </div>
         <div class="tbl-wrap">
-          ${buildTable(filteredRows, { clickable:true, sourcePage:'marca-linea-detail' })}
+          ${buildMarcaLineaDetailTable(filteredRows)}
         </div>
       </div>
     </div>
   `;
+}
+
+function buildMarcaLineaDetailTable(data){
+  const grouped = new Map();
+
+  (data || []).forEach(row => {
+    const partNumber = cleanDisplayText(getRowPartNumber(row), '');
+    const productName = cleanDisplayText(getRowProductName(row), '');
+    const productKey = normalizeCategoryValue(partNumber || productName || 'sin numero de parte');
+    const productLabel = partNumber || 'Sin numero de parte';
+    const clientLabel = cleanDisplayText(getRowClientName(row), 'Sin cliente');
+    const clientKey = normalizeCategoryValue(clientLabel);
+    const estado = cleanDisplayText(row['ESTADO'], 'Sin estado').toUpperCase();
+    const key = [productKey, clientKey, estado].join('||');
+    const current = grouped.get(key) || {
+      producto: productLabel,
+      productoHint: productName,
+      cliente: clientLabel,
+      estado,
+      cantidad: 0,
+      totalCOP: 0,
+      rows: []
+    };
+
+    current.cantidad += 1;
+    current.totalCOP += toCOP(row);
+    current.rows.push(row);
+    if(!current.productoHint && productName) current.productoHint = productName;
+    grouped.set(key, current);
+  });
+
+  const items = Array.from(grouped.values()).sort((a, b) =>
+    (b.totalCOP - a.totalCOP) ||
+    (b.cantidad - a.cantidad) ||
+    a.cliente.localeCompare(b.cliente, 'es', { sensitivity: 'base' }) ||
+    a.producto.localeCompare(b.producto, 'es', { sensitivity: 'base' })
+  );
+
+  return `<table class="responsive-table">
+    <thead><tr><th>Producto</th><th>Cliente</th><th>Cantidad</th><th>Estado</th><th>Valor Total COP</th></tr></thead>
+    <tbody>${items.length ? items.map(item => {
+      const estadoClass = getEstadoBadgeClass(item.estado);
+      const singleRow = item.rows.length === 1 ? item.rows[0] : null;
+      const rowAttrs = singleRow && singleRow.__RID
+        ? ` class="table-row-action" onclick="${escAttr(jsCall('openNegocioDetailById', singleRow.__RID, 'marca-linea-detail'))}" title="Abrir detalle del negocio"`
+        : '';
+      const productTitle = cleanDisplayText(item.productoHint, '') || item.producto;
+      return `<tr${rowAttrs}>
+        <td style="color:var(--text);font-weight:600;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(productTitle)}" data-label="Producto">${escHtml(item.producto)}</td>
+        <td style="color:var(--text)" data-label="Cliente">${escHtml(item.cliente)}</td>
+        <td class="td-mono" data-label="Cantidad">${fmtNum(item.cantidad)}</td>
+        <td data-label="Estado"><span class="badge badge-${estadoClass}">${escHtml(item.estado)}</span></td>
+        <td class="td-mono td-cop" data-label="Valor Total COP">${fmtCOP(item.totalCOP)}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--text2)">Sin registros para este filtro.</td></tr>`}</tbody>
+  </table>`;
 }
 
 /* ══════════════════════════════════════
