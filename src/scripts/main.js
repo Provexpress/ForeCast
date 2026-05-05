@@ -11,6 +11,8 @@ let NEGOCIO_DETAIL_STATE = null;
 let MARCA_LINEA_DETAIL_STATE = null;
 let EJECUTIVO_BRAND_FOCUS = null;
 let LOADED_SALES_BY_SUPPORT = {};
+let FORECAST_CONNECTIONS_LIST_ID = null;
+let FORECAST_CONNECTIONS = { byEmail: {}, byName: {} };
 
 const GERENCIA_ESTADO_STEP = 20;
 const GERENCIA_ESTADO_LIMITS = {
@@ -27,6 +29,7 @@ const MARCAS_BAR_INITIAL = 10;
 let MARCAS_BAR_LIMIT = MARCAS_BAR_INITIAL;
 
 const TRM_CACHE_KEY = 'trm_last';
+const FORECAST_CONNECTIONS_LIST_NAME = 'ForecastConexiones';
 
 function loadCachedTRM(){
   try {
@@ -122,6 +125,45 @@ function fmtTRM(v){
 }
 function fmtTRMDisplay(v){
   return TRM_READY ? fmtTRM(v) : '—';
+}
+function graphJsonHeaders(token, extra = {}) {
+  return {
+    Authorization: 'Bearer ' + token,
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    ...extra
+  };
+}
+function getRoleLabel(role) {
+  return ({
+    gerencia: 'Gerencia',
+    gerencia_director: 'Gerencia · Director',
+    director: 'Director',
+    ejecutivo: 'Ejecutivo',
+    sales_support: 'Sales Support'
+  })[role] || role || '';
+}
+function formatLastConnection(value) {
+  if(!value) return '';
+  const date = new Date(value);
+  if(Number.isNaN(date.getTime())) return '';
+  const localDate = new Date(date.toLocaleString('en-US', { timeZone: 'America/Bogota' }));
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const target = new Date(localDate.getFullYear(), localDate.getMonth(), localDate.getDate()).getTime();
+  const time = localDate.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  const diffDays = Math.round((today - target) / 86400000);
+  if(diffDays === 0) return 'Hoy ' + time;
+  if(diffDays === 1) return 'Ayer ' + time;
+  return localDate.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }) + ' ' + time;
+}
+function renderLastConnection(name) {
+  const key = normalizePersonName(name || '');
+  const connection = FORECAST_CONNECTIONS.byName[key];
+  const text = connection ? formatLastConnection(connection.UltimaConexion) : '';
+  return `<div class="last-connection ${text ? '' : 'empty'}">
+    <span></span>${text ? 'Ult. conexion: ' + escHtml(text) : 'Sin conexion registrada'}
+  </div>`;
 }
 function fmtNum(v){return Math.round(v).toLocaleString('es-CO')}
 function fmtPct(v){return (v*100).toFixed(1)+'%'}
@@ -1895,6 +1937,7 @@ function renderDirector(){
           <div style="font-size:9px;color:var(--text3)">${hasD?ejData.length+' negocios':'Sin datos aún'}</div>
         </div>
       </div>
+      ${renderLastConnection(e)}
       <div class="kpi-val">${hasD?abr(ejCOP):'—'}</div>
       <div class="kpi-sub">${hasD?ejGan+' ganadas':'Pendiente'}</div>
     </div>`;
@@ -2095,6 +2138,7 @@ function renderEjecutivo(){
       <div class="persona-avatar" style="background:${c}${hasData?'25':'10'};border:2px solid ${c}${hasData?'50':'20'};color:${hasData?c:'var(--text2)'}">${escHtml(initials(e))}</div>
       <div class="persona-name" style="color:${hasData?'var(--text)':'var(--text2)'}">${escHtml(e)}</div>
       <div class="persona-role">${escHtml(dir)}</div>
+      ${renderLastConnection(e)}
       ${hasData
         ?`<div class="persona-stats">
         <div class="p-stat"><div class="p-stat-label">Total</div><div class="p-stat-val" style="color:${c};font-size:11px">${abr(cop)}</div></div>
@@ -2806,6 +2850,12 @@ async function loadFolderFromSharePoint() {
   updateLoadingStatus('Cargando archivos de SharePoint...');
   try {
     const siteId = await getSiteId();
+    try {
+      updateLoadingStatus('Sincronizando ultimas conexiones...');
+      await syncForecastConnections(siteId);
+    } catch(connectionError) {
+      console.warn('[FORECAST CONNECTIONS]', connectionError);
+    }
     const { role, directorGroup } = CURRENT_USER;
     ALL_DATA = [];
     SALES_DATA = [];
@@ -2852,6 +2902,90 @@ function buildGraphRootUrl(siteId, path, suffix){
   return _driveId
     ? 'https://graph.microsoft.com/v1.0/drives/' + _driveId + '/root:/' + encodedPath + ':/' + tail
     : 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodedPath + ':/' + tail;
+}
+
+async function getForecastConnectionsListId(siteId, token) {
+  if(FORECAST_CONNECTIONS_LIST_ID) return FORECAST_CONNECTIONS_LIST_ID;
+  const url = 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/lists?$select=id,displayName,name&$top=200';
+  const r = await fetch(url, { headers: graphJsonHeaders(token) });
+  const d = await r.json();
+  if(!r.ok) throw new Error((d.error && d.error.message) || 'No se pudo consultar listas de SharePoint');
+  const list = (d.value || []).find(item =>
+    item.displayName === FORECAST_CONNECTIONS_LIST_NAME || item.name === FORECAST_CONNECTIONS_LIST_NAME
+  );
+  if(!list) throw new Error('No se encontro la lista ' + FORECAST_CONNECTIONS_LIST_NAME);
+  FORECAST_CONNECTIONS_LIST_ID = list.id;
+  return FORECAST_CONNECTIONS_LIST_ID;
+}
+
+function buildConnectionMaps(items) {
+  const byEmail = {};
+  const byName = {};
+  const execMap = window.EXECUTIVO_BY_EMAIL || {};
+  (items || []).forEach(item => {
+    const f = item.fields || {};
+    const email = String(f.Title || '').toLowerCase().trim();
+    const record = {
+      email,
+      Nombre: f.Nombre || execMap[email] || '',
+      Rol: f.Rol || '',
+      Director: f.Director || '',
+      UltimaConexion: f.UltimaConexion || '',
+      ConteoConexiones: Number(f.ConteoConexiones || 0)
+    };
+    if(email) byEmail[email] = record;
+    const names = [record.Nombre, execMap[email]].filter(Boolean);
+    names.forEach(name => { byName[normalizePersonName(name)] = record; });
+  });
+  FORECAST_CONNECTIONS = { byEmail, byName };
+}
+
+async function getForecastConnectionItems(siteId, token, listId) {
+  const url = 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/lists/' + listId
+    + '/items?$expand=fields($select=Title,Nombre,Rol,Director,UltimaConexion,ConteoConexiones)&$top=500';
+  const r = await fetch(url, {
+    headers: graphJsonHeaders(token, { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' })
+  });
+  const d = await r.json();
+  if(!r.ok) throw new Error((d.error && d.error.message) || 'No se pudieron leer conexiones');
+  return d.value || [];
+}
+
+async function syncForecastConnections(siteId) {
+  if(!CURRENT_USER || !CURRENT_USER.email) return;
+  const token = await getToken(['Sites.ReadWrite.All']);
+  const listId = await getForecastConnectionsListId(siteId, token);
+  const items = await getForecastConnectionItems(siteId, token, listId);
+  const email = String(CURRENT_USER.email || '').toLowerCase().trim();
+  const existing = items.find(item => String(item.fields && item.fields.Title || '').toLowerCase().trim() === email);
+  const now = new Date().toISOString();
+  const fields = {
+    Title: email,
+    Nombre: CURRENT_USER.name || '',
+    Rol: getRoleLabel(CURRENT_USER.role),
+    Director: CURRENT_USER.directorGroup || '',
+    UltimaConexion: now,
+    ConteoConexiones: Number(existing && existing.fields && existing.fields.ConteoConexiones || 0) + 1
+  };
+
+  if(existing) {
+    const url = 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/lists/' + listId + '/items/' + existing.id + '/fields';
+    const r = await fetch(url, { method: 'PATCH', headers: graphJsonHeaders(token), body: JSON.stringify(fields) });
+    if(!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error((d.error && d.error.message) || 'No se pudo actualizar conexion');
+    }
+    existing.fields = { ...existing.fields, ...fields };
+  } else {
+    const url = 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/lists/' + listId + '/items';
+    const r = await fetch(url, { method: 'POST', headers: graphJsonHeaders(token), body: JSON.stringify({ fields }) });
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok) throw new Error((d.error && d.error.message) || 'No se pudo registrar conexion');
+    items.push({ ...d, fields });
+  }
+
+  buildConnectionMaps(items);
+  console.log('[FORECAST CONNECTIONS]', Object.keys(FORECAST_CONNECTIONS.byEmail).length);
 }
 
 function normalizeFolderName(value){

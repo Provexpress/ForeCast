@@ -395,6 +395,21 @@ tr:hover td{background:rgba(255,255,255,.025);color:var(--text)}
 .persona-avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:14px;font-weight:800;color:#fff;margin-bottom:14px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
 .persona-name{font-family:var(--font-display);font-size:12px;font-weight:600;color:#D0DCFF;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .persona-role{font-size:9px;color:var(--text-soft);font-weight:400;letter-spacing:.5px;text-transform:uppercase;margin-bottom:14px}
+.last-connection{
+  display:inline-flex;align-items:center;gap:6px;margin:-6px 0 12px;
+  padding:4px 8px;border-radius:999px;background:rgba(42,191,223,.08);
+  border:1px solid rgba(42,191,223,.18);
+  color:#BFEFFF;font-family:var(--font-display);font-size:8.5px;font-weight:700;
+  letter-spacing:.45px;text-transform:uppercase;
+}
+.last-connection span{
+  width:6px;height:6px;border-radius:50%;background:var(--corp-cyan);
+  box-shadow:0 0 8px rgba(42,191,223,.75);flex-shrink:0;
+}
+.last-connection.empty{
+  background:rgba(255,255,255,.035);border-color:rgba(255,255,255,.07);color:var(--text2);
+}
+.last-connection.empty span{background:var(--text2);box-shadow:none;opacity:.65}
 .persona-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .p-stat{background:rgba(255,255,255,.03);border-radius:7px;padding:7px 9px;transition:var(--transition)}
 .persona-card:hover .p-stat{background:rgba(255,255,255,.05)}
