@@ -142,7 +142,7 @@ const EXECUTIVO_BY_EMAIL = {
 };
 
 const SALES_SUPPORT_BY_EMAIL = {
-  'soporte.comercial5@provexpress.com.co': 'Isleni Yasmin Vasquez Pastrana',
+  'soporte.comercial5@provexpress.com.co': 'Johana Edith Alcocer Palomino',
   'soporte.comercial4@provexpress.com.co': 'Erika Gabriela Mieles Ortiz',
   'soporte.comercial6@provexpress.com.co': 'Nury Marcela Vargas Suarez',
   'soporte.comercial3@provexpress.com.co': 'Janira Alejandra Maldonado Prieto',
