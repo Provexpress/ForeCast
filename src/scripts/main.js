@@ -787,6 +787,29 @@ function isMeaningfulDataRow(row){
   return Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '');
 }
 
+function hasMeaningfulRecordContent(rec){
+  if(!rec || typeof rec !== 'object') return false;
+
+  const textKeys = [
+    'CLIENTE','NOMBRE CLIENTE','EMPRESA','RAZON SOCIAL',
+    'PRODUCTO','PROYECTO','SOLUCION','SERVICIO',
+    'NUMERO DE PARTE','NUMERO PARTE','NRO PARTE','NO PARTE','PART NUMBER',
+    'NUMERO DE COTIZACION','NUMERO COTIZACION','NRO COTIZACION','NO COTIZACION','COTIZACION',
+    'MARCA','FABRICANTE','LINEA DE PRODUCTO','LINEA',
+    'OBSERVACIONES','OBSERVACION','COMENTARIOS','COMENTARIO'
+  ];
+
+  if(textKeys.some(key => cleanDisplayText(rec[key], '') !== '')) return true;
+
+  const numericKeys = ['MONTO VENTA CLIENTE','VALOR VENTA','MONTO VENTA','COSTO NEGOCIO','COSTO','UTILIDAD'];
+  if(numericKeys.some(key => (parseMonto(rec[key]) || 0) !== 0)) return true;
+
+  const dateKeys = ['FECHA DIA/MES/AÑO','FECHA','FECHA NEGOCIO','FECHA VENTA'];
+  if(dateKeys.some(key => cleanDisplayText(rec[key], '') !== '')) return true;
+
+  return false;
+}
+
 function parseSalesSupportFileName(name){
   const base = String(name || '').replace(/\.(xlsx|xls)$/i,'').trim();
   if(!/^sales support\b/i.test(base)) return null;
@@ -3212,6 +3235,7 @@ async function loadSpFile(item, dirName) {
       const row=raw[i]; if(!isMeaningfulDataRow(row)) continue;
       const rec={};
       hdrs.forEach((h,j)=>{ if(h) rec[h]=row[j]!==undefined?row[j]:null; });
+      if(!hasMeaningfulRecordContent(rec)) continue;
       decorateRecordFromFile(rec, item.name, dirName);
       registerRecord(rec, item.name, wsName, datasetType);
       recs.push(rec);
