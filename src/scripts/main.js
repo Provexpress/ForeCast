@@ -58,7 +58,7 @@ async function fetchTRM() {
     TRM_READY = true;
     const inp = document.getElementById('trm-input');
     if(inp) inp.value = Number(TRM).toFixed(2);
-    if(ALL_DATA.length || SALES_DATA.length) renderAll();
+    if(ALL_DATA.length || SALES_DATA.length) renderVisiblePage();
     cacheTRM(TRM);
     console.log('[TRM]', TRM);
   };
@@ -932,7 +932,7 @@ let LOADED_FILES_BY_DIR = {};
 document.getElementById('trm-input').addEventListener('input',function(){
   TRM_READY = true;
   TRM=getTRM();
-  if(ALL_DATA.length || SALES_DATA.length) renderAll();
+  if(ALL_DATA.length || SALES_DATA.length) renderVisiblePage();
 });
 
 function finalizeLoad(){
@@ -984,10 +984,6 @@ function finalizeLoad(){
     const lbl=document.getElementById('btn-reload-txt');
     if(lbl) lbl.textContent='🔄 Recargar';
   }
-  // Aplicar pestañas y badge según rol
-  applyRoleTabs();
-  showUserBadge();
-
   // Populate selects
   const selDir=document.getElementById('sel-director');
   const dirsForSel=[...new Set([
@@ -1003,7 +999,9 @@ function finalizeLoad(){
   const selEj=document.getElementById('sel-ejecutivo');
   selEj.innerHTML=buildOptionList(allExecsForSel);
 
-  renderAll();
+  // Aplicar pestañas y badge según rol una vez que los selects ya están listos
+  applyRoleTabs();
+  showUserBadge();
 }
 
 function getVisibleData() {
@@ -1075,6 +1073,51 @@ function renderAll(){
   }
 }
 
+function renderPage(pageId){
+  const page = pageId || getActivePageId();
+  if(page === 'gerencia') {
+    renderGerencia();
+    return;
+  }
+  if(page === 'director') {
+    renderDirector();
+    return;
+  }
+  if(page === 'ejecutivo') {
+    renderEjecutivo();
+    return;
+  }
+  if(page === 'sales') {
+    renderSales();
+    return;
+  }
+  if(page === 'divisas') {
+    renderDivisas();
+    return;
+  }
+  if(page === 'marcas') {
+    renderMarcas();
+    return;
+  }
+  if(page === 'resumen') {
+    renderResumen();
+    return;
+  }
+  if(page === 'marca-linea-detail' && MARCA_LINEA_DETAIL_STATE) {
+    renderMarcaLineaDetail();
+    return;
+  }
+  if(page === 'negocio' && NEGOCIO_DETAIL_STATE) {
+    const row = getRecordById(NEGOCIO_DETAIL_STATE.rowId);
+    if(row) renderNegocioDetail(row);
+  }
+}
+
+function renderVisiblePage(){
+  refreshForecastMonthFilters();
+  renderPage(getActivePageId());
+}
+
 /* ══════════════════════════════════════
    NAV
 ══════════════════════════════════════ */
@@ -1086,6 +1129,10 @@ function showPage(id,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   if(btn) btn.classList.add('active');
+  const hasLoadedData = ALL_DATA.length || SALES_DATA.length;
+  if(hasLoadedData || id === 'negocio' || id === 'marca-linea-detail') {
+    renderPage(id);
+  }
 }
 
 function getActivePageId(){
@@ -1204,7 +1251,6 @@ function openMarcaLineaDetail(type, value, sourcePage){
     backPage,
     backScroll: captureScrollSnapshot(backPage)
   };
-  renderMarcaLineaDetail();
   showPage('marca-linea-detail');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1232,7 +1278,6 @@ function openNegocioDetailById(id, sourcePage){
     backPage,
     backScroll: captureScrollSnapshot(backPage)
   };
-  renderNegocioDetail(row);
   showPage('negocio');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -2873,12 +2918,7 @@ async function loadFolderFromSharePoint() {
   updateLoadingStatus('Cargando archivos de SharePoint...');
   try {
     const siteId = await getSiteId();
-    try {
-      updateLoadingStatus('Sincronizando ultimas conexiones...');
-      await syncForecastConnections(siteId);
-    } catch(connectionError) {
-      console.warn('[FORECAST CONNECTIONS]', connectionError);
-    }
+    const filesToken = await getToken(['Files.Read.All']);
     const { role, directorGroup } = CURRENT_USER;
     ALL_DATA = [];
     SALES_DATA = [];
@@ -2887,19 +2927,26 @@ async function loadFolderFromSharePoint() {
     LOADED_SALES_BY_SUPPORT = {};
 
     if(role === 'sales_support') {
-      await loadSalesSupportFiles(siteId);
+      await loadSalesSupportFiles(siteId, filesToken);
     } else if(role === 'ejecutivo') {
-      await loadEjecutivoFile(siteId);
+      await loadEjecutivoFile(siteId, filesToken);
     } else if(role === 'director') {
-      const folder = await getDirectorFolderName(siteId, directorGroup);
-      await loadDirectorFolder(siteId, folder);
+      const folder = await getDirectorFolderName(siteId, directorGroup, filesToken);
+      await loadDirectorFolder(siteId, folder, filesToken);
     } else {
       // Gerencia — todas las carpetas
-      const folders = await getForecastFolders(siteId);
-      for(const f of folders) await loadDirectorFolder(siteId, f);
+      const folders = await getForecastFolders(siteId, filesToken);
+      await runWithConcurrencyLimit(folders, FOLDER_LOAD_CONCURRENCY, folderName =>
+        loadDirectorFolder(siteId, folderName, filesToken)
+      );
     }
     finalizeLoad();
     hideLoadingOverlay();
+    setTimeout(() => {
+      syncForecastConnections(siteId).catch(connectionError => {
+        console.warn('[FORECAST CONNECTIONS]', connectionError);
+      });
+    }, 0);
   } catch(e) {
     hideLoadingOverlay();
     console.error(e);
@@ -2910,6 +2957,8 @@ async function loadFolderFromSharePoint() {
 let _siteId = null;
 let _driveId = null;
 let _forecastFolders = null;
+const FOLDER_LOAD_CONCURRENCY = 2;
+const FILE_LOAD_CONCURRENCY = 3;
 
 function encodeGraphPath(path){
   return String(path || '')
@@ -2925,6 +2974,26 @@ function buildGraphRootUrl(siteId, path, suffix){
   return _driveId
     ? 'https://graph.microsoft.com/v1.0/drives/' + _driveId + '/root:/' + encodedPath + ':/' + tail
     : 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodedPath + ':/' + tail;
+}
+
+async function runWithConcurrencyLimit(items, limit, worker){
+  const list = Array.isArray(items) ? items : [];
+  const max = Math.max(1, Number(limit) || 1);
+  if(!list.length) return [];
+
+  const results = new Array(list.length);
+  let cursor = 0;
+
+  async function consume(){
+    while(cursor < list.length) {
+      const index = cursor++;
+      results[index] = await worker(list[index], index);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(max, list.length) }, consume);
+  await Promise.all(workers);
+  return results;
 }
 
 async function getForecastConnectionsListId(siteId, token) {
@@ -3020,11 +3089,11 @@ function normalizeFolderName(value){
     .trim();
 }
 
-async function getForecastFolders(siteId){
+async function getForecastFolders(siteId, token){
   if(_forecastFolders && _forecastFolders.length) return _forecastFolders;
-  const token = await getToken(['Files.Read.All']);
+  const authToken = token || await getToken(['Files.Read.All']);
   const url = buildGraphRootUrl(siteId, 'COMERCIAL/FORECAST 2026', 'children?$top=100');
-  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + authToken } });
   const d = await r.json();
   const folders = (d.value || [])
     .filter(item => item && item.folder)
@@ -3041,8 +3110,8 @@ async function getForecastFolders(siteId){
   return fallback;
 }
 
-async function getDirectorFolderName(siteId, directorGroup){
-  const folders = await getForecastFolders(siteId);
+async function getDirectorFolderName(siteId, directorGroup, token){
+  const folders = await getForecastFolders(siteId, token);
   const target = normalizeFolderName(directorGroup);
   return folders.find(name => normalizeFolderName(name) === target) || (directorGroup.includes('Miller') ? 'Gupo Miller Romero' : 'Grupo ' + directorGroup);
 }
@@ -3071,21 +3140,25 @@ async function getSiteId() {
   return _siteId;
 }
 
-async function loadDirectorFolder(siteId, folderName) {
-  const token = await getToken(['Files.Read.All']);
+async function loadDirectorFolder(siteId, folderName, token) {
+  const authToken = token || await getToken(['Files.Read.All']);
   updateLoadingStatus('Cargando: ' + folderName + '...');
   const folderPath = 'COMERCIAL/FORECAST 2026/' + folderName;
   const driveBase = buildGraphRootUrl(siteId, folderPath, 'children?$top=50');
   console.log('[FOLDER]', driveBase);
-  const r = await fetch(driveBase, { headers: { Authorization: 'Bearer ' + token } });
+  const r = await fetch(driveBase, { headers: { Authorization: 'Bearer ' + authToken } });
   const d = await r.json();
   if(!d.value) { console.warn('Sin archivos en', folderName, d); return; }
   const dirName = normalizeDirectorName(folderName.replace(/^(Grupo|Gupo)\s+/i,'').trim());
   if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
-  for(const item of d.value) {
-    if(!item.name.match(/\.xlsx?$/i)) continue;
-    if(item.name.startsWith('~$')) continue;
-    if(item.name.toLowerCase().includes('base de datos')) continue;
+  const files = (d.value || []).filter(item =>
+    item &&
+    item.name &&
+    item.name.match(/\.xlsx?$/i) &&
+    !item.name.startsWith('~$') &&
+    !item.name.toLowerCase().includes('base de datos')
+  );
+  await runWithConcurrencyLimit(files, FILE_LOAD_CONCURRENCY, async item => {
     updateLoadingStatus('Leyendo: ' + item.name);
     const recs = await loadSpFile(item, dirName);
     if(isSalesSupportFile(item.name)) {
@@ -3098,7 +3171,7 @@ async function loadDirectorFolder(siteId, folderName) {
       ALL_DATA.push(...recs);
       LOADED_FILES_BY_DIR[dirName].push({ name: item.name });
     }
-  }
+  });
 }
 
 function getExecTargetName() {
@@ -3131,16 +3204,16 @@ function findBestExecFile(items, targetName) {
   return file || null;
 }
 
-async function loadSalesSupportFiles(siteId) {
-  const folders = await getForecastFolders(siteId);
+async function loadSalesSupportFiles(siteId, token) {
+  const filesToken = token || await getToken(['Files.Read.All']);
+  const folders = await getForecastFolders(siteId, filesToken);
   const targetName = getSalesSupportTargetName();
   let found = false;
   for(const folder of folders) {
     const folderPath = 'COMERCIAL/FORECAST 2026/' + folder;
-    const token = await getToken(['Files.Read.All']);
     try {
       const url = buildGraphRootUrl(siteId, folderPath, 'children?$top=100');
-      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + filesToken } });
       const d = await r.json();
       if(!d.value) continue;
       const dirName = normalizeDirectorName(folder.replace(/^(Grupo|Gupo)\s+/i,'').trim());
@@ -3164,15 +3237,15 @@ async function loadSalesSupportFiles(siteId) {
   }
 }
 
-async function searchExecFileInForecast(siteId, targetName) {
+async function searchExecFileInForecast(siteId, targetName, token) {
   const email = (CURRENT_USER && CURRENT_USER.email || '').toLowerCase().trim();
   const queries = buildExecSearchQueries(targetName, email);
   if(!queries.length) return null;
-  const token = await getToken(['Files.Read.All']);
+  const authToken = token || await getToken(['Files.Read.All']);
   const folderPath = 'COMERCIAL/FORECAST 2026';
   for(const q of queries) {
     const url = buildGraphRootUrl(siteId, folderPath, 'search(q=\'' + encodeURIComponent(q) + '\')?$top=50');
-    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + authToken } });
     const d = await r.json();
     const file = findBestExecFile(d.value || [], targetName);
     if(file) return file;
@@ -3180,14 +3253,14 @@ async function searchExecFileInForecast(siteId, targetName) {
   return null;
 }
 
-async function loadEjecutivoFile(siteId) {
-  const folders = await getForecastFolders(siteId);
+async function loadEjecutivoFile(siteId, token) {
+  const filesToken = token || await getToken(['Files.Read.All']);
+  const folders = await getForecastFolders(siteId, filesToken);
   const targetName = getExecTargetName();
   let found = false;
   for(const folder of folders) {
-    const token = await getToken(['Files.Read.All']);
     try {
-      const r = await fetch(buildGraphRootUrl(siteId, 'COMERCIAL/FORECAST 2026/' + folder, 'children?$top=50'), { headers: { Authorization: 'Bearer ' + token } });
+      const r = await fetch(buildGraphRootUrl(siteId, 'COMERCIAL/FORECAST 2026/' + folder, 'children?$top=50'), { headers: { Authorization: 'Bearer ' + filesToken } });
       const d = await r.json();
       if(!d.value) continue;
       const file = findBestExecFile(d.value, targetName);
@@ -3203,7 +3276,7 @@ async function loadEjecutivoFile(siteId) {
     } catch(e) { continue; }
   }
   // Fallback: search in FORECAST 2026 if file is nested or renamed
-  const fallback = await searchExecFileInForecast(siteId, targetName);
+  const fallback = await searchExecFileInForecast(siteId, targetName, filesToken);
   if(fallback) {
     const dirName = normalizeDirectorName(directorFromPath((fallback.parentReference && fallback.parentReference.path) || '') || '');
     if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];

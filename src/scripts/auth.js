@@ -276,7 +276,6 @@ function switchView(buttonEl, role, directorGroup, nameOverride) {
     _realEmail: realEmail
   };
   applyRoleTabs();
-  renderAll();
   // Update role badge
   const rb = document.getElementById('user-role-badge');
   const roleLabels = {gerencia:'Gerencia',director:'Director',ejecutivo:'Ejecutivo',sales_support:'Sales Support'};
