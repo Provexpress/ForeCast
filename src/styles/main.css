@@ -122,6 +122,112 @@ nav{
   scroll-snap-type:x proximity;
   scrollbar-width:none;
 }
+
+/* Corporate Microsoft 365 access overlay */
+.auth-loading-overlay{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(107,63,160,.16), transparent 28rem),
+    radial-gradient(circle at 82% 18%, rgba(42,191,223,.16), transparent 30rem),
+    linear-gradient(180deg,#eef3ff 0%,#f4f7ff 42%,#f5f7fd 100%);
+  color:#1a2b6b;
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+}
+.auth-loading-overlay::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-top:4px solid transparent;
+  border-image:linear-gradient(90deg,#1a2b6b,#1565c0,#6b3fa0,#2abfdf) 1;
+  pointer-events:none;
+}
+.auth-loading-card{
+  position:relative;
+  width:min(560px,100%);
+  padding:32px;
+  border:1px solid rgba(26,43,107,.12);
+  border-radius:16px;
+  background:rgba(255,255,255,.96);
+  box-shadow:0 24px 54px rgba(26,43,107,.12);
+  font-family:var(--font-body);
+}
+.auth-loading-brand{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  margin-bottom:24px;
+}
+.auth-loading-brand img{
+  height:36px;
+  width:auto;
+  max-width:220px;
+  object-fit:contain;
+}
+.auth-loading-brand span{
+  color:#677592;
+  font-family:var(--font-display);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+.auth-loading-pill{
+  display:inline-flex;
+  margin-bottom:12px;
+  padding:6px 12px;
+  border:1px solid rgba(21,101,192,.16);
+  border-radius:999px;
+  background:rgba(21,101,192,.08);
+  color:#1565c0;
+  font-family:var(--font-display);
+  font-size:11px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.8px;
+}
+.auth-loading-card h2{
+  margin:0;
+  color:#1a2b6b;
+  font-family:var(--font-display);
+  font-size:clamp(28px,4vw,40px);
+  line-height:1.08;
+}
+.auth-loading-card p{
+  margin:12px 0 18px;
+  color:#677592;
+  line-height:1.6;
+}
+.auth-loading-status{
+  min-height:20px;
+  margin-bottom:12px;
+  color:#2f437f;
+  font-size:13px;
+  text-align:left;
+}
+.auth-loading-track{
+  height:6px;
+  overflow:hidden;
+  border-radius:999px;
+  background:rgba(26,43,107,.10);
+}
+.auth-loading-bar{
+  height:100%;
+  width:46%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#1a2b6b,#1565c0,#2abfdf);
+  animation:authLoading 1.15s ease-in-out infinite alternate;
+}
+@keyframes authLoading{
+  from{transform:translateX(0)}
+  to{transform:translateX(118%)}
+}
 nav::-webkit-scrollbar{height:0}
 nav::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
 .nav-btn{

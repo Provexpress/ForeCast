@@ -298,13 +298,21 @@ function showLoadingOverlay(msg) {
   if(!ov){
     ov = document.createElement('div');
     ov.id = 'load-overlay';
-    ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(3,5,14,.92);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px';
+    ov.className = 'auth-loading-overlay';
     ov.innerHTML=`
-      <div style="font-family:var(--font-display);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--corp-cyan)">Conectando...</div>
-      <div id="load-status" style="font-size:12px;color:var(--text3);font-family:var(--font-body);min-width:320px;text-align:center"></div>
-      <div style="background:var(--border);border-radius:6px;height:4px;overflow:hidden;width:320px">
-        <div id="load-bar" style="height:100%;background:linear-gradient(90deg,var(--corp-blue),var(--corp-cyan));width:100%;animation:pulse 1.5s ease-in-out infinite;border-radius:6px"></div>
-      </div>`;
+      <section class="auth-loading-card" aria-label="Validando acceso">
+        <div class="auth-loading-brand">
+          <img src="src/Logo.webp" alt="Provexpress">
+          <span>Forecast 2026</span>
+        </div>
+        <div class="auth-loading-pill">Acceso corporativo</div>
+        <h2>Validando acceso</h2>
+        <p>Estamos conectando con Microsoft 365 y preparando la informacion comercial.</p>
+        <div id="load-status" class="auth-loading-status"></div>
+        <div class="auth-loading-track">
+          <div id="load-bar" class="auth-loading-bar"></div>
+        </div>
+      </section>`;
     document.body.appendChild(ov);
   }
   ov.style.display='flex';
