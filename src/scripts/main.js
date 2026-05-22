@@ -461,7 +461,7 @@ function getRowObservation(row){
 }
 
 function getSalesSupportName(row){
-  return firstFilled(row, ['SALES SUPPORT','COMERCIAL']) || '';
+  return canonicalizeSalesSupportName(firstFilled(row, ['SALES SUPPORT','COMERCIAL']) || '');
 }
 
 function splitSalesTargets(value){
@@ -562,6 +562,33 @@ function namesMatch(a,b){
   if(common.length === 1 && (ta.length === 1 || tb.length === 1) && common[0].length >= 5) return true;
 
   return false;
+}
+
+function getSalesSupportAliasMap(){
+  return window.SALES_SUPPORT_NAME_ALIASES || {};
+}
+
+function canonicalizeSalesSupportName(name){
+  const cleanName = cleanNameSegment(name);
+  if(!cleanName) return '';
+  const aliasMap = getSalesSupportAliasMap();
+  for(const [canonicalName, aliases] of Object.entries(aliasMap)) {
+    if(namesMatch(cleanName, canonicalName)) return canonicalName;
+    if((aliases || []).some(alias => namesMatch(cleanName, alias))) return canonicalName;
+  }
+  return cleanName;
+}
+
+function getSalesSupportTargetNames(){
+  const targetName = getSalesSupportTargetName();
+  const aliasMap = getSalesSupportAliasMap();
+  const aliases = aliasMap[targetName] || [];
+  return [...new Set([targetName, ...aliases].map(cleanNameSegment).filter(Boolean))];
+}
+
+function matchesAnySalesSupportName(name, candidates){
+  const list = Array.isArray(candidates) ? candidates : [];
+  return list.some(candidate => namesMatch(name, candidate));
 }
 
 /* Get TRM */
@@ -837,7 +864,7 @@ function decorateRecordFromFile(rec, fileName, directorHint){
   rec['DIRECTOR'] = normalizeDirectorName(directorHint || rec['DIRECTOR'] || rec['DIRECTOR '] || '');
   rec['ESTADO'] = normalizeEstado(firstFilled(rec, ['ESTADO']));
   if(salesMeta){
-    const supportName = cleanNameSegment(salesMeta.supportName);
+    const supportName = canonicalizeSalesSupportName(firstFilled(rec, ['SALES SUPPORT']) || salesMeta.supportName);
     const soportaName = formatSalesTargets(firstFilled(rec, ['SOPORTA']) || salesMeta.soportaNames);
     rec['SALES SUPPORT'] = supportName;
     rec['COMERCIAL'] = supportName || cleanNameSegment(rec['COMERCIAL']);
@@ -1037,7 +1064,7 @@ function getVisibleMarcasData(){
 function getSalesSupportTargetName() {
   const email = (CURRENT_USER && CURRENT_USER.email || '').toLowerCase().trim();
   const map = window.SALES_SUPPORT_BY_EMAIL || {};
-  return (map[email] || CURRENT_USER && CURRENT_USER.name || '').trim();
+  return canonicalizeSalesSupportName((map[email] || CURRENT_USER && CURRENT_USER.name || '').trim());
 }
 
 function getVisibleSalesData() {
@@ -3208,6 +3235,7 @@ async function loadSalesSupportFiles(siteId, token) {
   const filesToken = token || await getToken(['Files.Read.All']);
   const folders = await getForecastFolders(siteId, filesToken);
   const targetName = getSalesSupportTargetName();
+  const targetNames = getSalesSupportTargetNames();
   let found = false;
   for(const folder of folders) {
     const folderPath = 'COMERCIAL/FORECAST 2026/' + folder;
@@ -3221,10 +3249,10 @@ async function loadSalesSupportFiles(siteId, token) {
         if(!item.name.match(/\.xlsx?$/i)) continue;
         if(!isSalesSupportFile(item.name)) continue;
         const meta = parseSalesSupportFileName(item.name);
-        if(!meta || !namesMatch(meta.supportName, targetName)) continue;
+        if(!meta || !matchesAnySalesSupportName(meta.supportName, targetNames)) continue;
         updateLoadingStatus('Leyendo: ' + item.name);
         const recs = await loadSpFile(item, dirName);
-        const supportName = cleanNameSegment(meta.supportName || targetName);
+        const supportName = canonicalizeSalesSupportName(meta.supportName || targetName);
         if(!LOADED_SALES_BY_SUPPORT[supportName]) LOADED_SALES_BY_SUPPORT[supportName] = [];
         LOADED_SALES_BY_SUPPORT[supportName].push({ name: item.name, dir: dirName, soporta: cleanNameSegment(meta.soportaName) });
         SALES_DATA.push(...recs);

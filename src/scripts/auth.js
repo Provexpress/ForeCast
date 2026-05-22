@@ -150,8 +150,13 @@ const SALES_SUPPORT_BY_EMAIL = {
   'soporte.comercial2@provexpress.com.co': 'Alexandra Julieth Vargas Charris',
 };
 
+const SALES_SUPPORT_NAME_ALIASES = {
+  'Johana Edith Alcocer Palomino': ['Isleni Yasmin Vasquez Pastrana']
+};
+
 window.EXECUTIVO_BY_EMAIL = EXECUTIVO_BY_EMAIL;
 window.SALES_SUPPORT_BY_EMAIL = SALES_SUPPORT_BY_EMAIL;
+window.SALES_SUPPORT_NAME_ALIASES = SALES_SUPPORT_NAME_ALIASES;
 
 const SPECIAL_ROLE_IDENTITIES = [
   { email:'juannovoa@provexpress.com.co', name:'Juan David Novoa', role:'gerencia_director', directorGroup:'Juan David Novoa' },
