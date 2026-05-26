@@ -2751,8 +2751,17 @@ function renderSales(){
     const supportedCount = mode === 'pendientes'
       ? [...new Set(supportRows.map(getSalesPendingCommercial).filter(Boolean))].length
       : [...new Set(supportRows.map(r=>getSalesSoportaName(r)).filter(Boolean))].length;
-    const facturaCount = mode === 'pendientes'
-      ? supportRows.filter(row => getSalesPendingInvoiceValue(row) > 0).length
+    const supportPedidoCount = mode === 'pendientes'
+      ? supportRows.filter(row => normalizeCategoryValue(getSalesPendingType(row)).includes('pedido')).length
+      : 0;
+    const supportGlpiCount = mode === 'pendientes'
+      ? supportRows.filter(row => normalizeCategoryValue(getSalesPendingType(row)).includes('glpi')).length
+      : 0;
+    const supportFacturaCount = mode === 'pendientes'
+      ? supportRows.filter(row =>
+          normalizeCategoryValue(getSalesPendingCategory(row)).includes('factura')
+          || normalizeCategoryValue(getSalesPendingType(row)).includes('remision')
+        ).length
       : 0;
     const c = COLORS[idx % COLORS.length];
     const hasData = supportRows.length > 0;
@@ -2762,12 +2771,18 @@ function renderSales(){
       <div class="persona-name" style="color:${hasData?'var(--text)':'var(--text2)'}">${escHtml(supportName)}</div>
       <div class="persona-role">Sales Support</div>
       ${hasData
-        ? `<div class="persona-stats">
-            <div class="p-stat"><div class="p-stat-label">${mode === 'pendientes' ? 'Facturas' : 'Total'}</div><div class="p-stat-val" style="color:${c};font-size:11px">${abr(totalCOP)}</div></div>
-            <div class="p-stat"><div class="p-stat-label">${mode === 'pendientes' ? 'Pendientes' : 'Registros'}</div><div class="p-stat-val">${supportRows.length}</div></div>
-            <div class="p-stat"><div class="p-stat-label">${mode === 'pendientes' ? 'Con valor' : 'Ganadas'}</div><div class="p-stat-val" style="color:var(--corp-green)">${mode === 'pendientes' ? facturaCount : totalGanadas}</div></div>
-            <div class="p-stat"><div class="p-stat-label">${mode === 'pendientes' ? 'Comerciales' : 'Soporta'}</div><div class="p-stat-val">${supportedCount}</div></div>
-          </div>`
+        ? (mode === 'pendientes'
+          ? `<div class="persona-stats persona-stats-3">
+              <div class="p-stat"><div class="p-stat-label">Facturas</div><div class="p-stat-val" style="color:var(--corp-green)">${supportFacturaCount}</div></div>
+              <div class="p-stat"><div class="p-stat-label">GLPI</div><div class="p-stat-val" style="color:var(--corp-amber)">${supportGlpiCount}</div></div>
+              <div class="p-stat"><div class="p-stat-label">Pedidos</div><div class="p-stat-val" style="color:${c}">${supportPedidoCount}</div></div>
+            </div>`
+          : `<div class="persona-stats">
+              <div class="p-stat"><div class="p-stat-label">Total</div><div class="p-stat-val" style="color:${c};font-size:11px">${abr(totalCOP)}</div></div>
+              <div class="p-stat"><div class="p-stat-label">Registros</div><div class="p-stat-val">${supportRows.length}</div></div>
+              <div class="p-stat"><div class="p-stat-label">Ganadas</div><div class="p-stat-val" style="color:var(--corp-green)">${totalGanadas}</div></div>
+              <div class="p-stat"><div class="p-stat-label">Soporta</div><div class="p-stat-val">${supportedCount}</div></div>
+            </div>`)
         : `<div style="font-size:9px;color:var(--text3);font-family:var(--font-display);margin-top:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;letter-spacing:.5px">Sin registros aun</div>`}
     </div>`;
   }).join('');
@@ -2791,41 +2806,29 @@ function renderSales(){
     const totalPedidos = summaryData.filter(r=>normalizeCategoryValue(getSalesPendingType(r)).includes('pedido')).length;
     const totalGlpi = summaryData.filter(r=>normalizeCategoryValue(getSalesPendingType(r)).includes('glpi')).length;
     const totalRemisiones = summaryData.filter(r=>normalizeCategoryValue(getSalesPendingType(r)).includes('remision')).length;
-    const totalConValor = summaryData.filter(r=>getSalesPendingInvoiceValue(r)>0).length;
     const categoryNames = [...new Set(['Compra','Garantias','Factura', ...data.map(getSalesPendingCategory).filter(Boolean)])];
     const categoryData = categoryNames.map(name=>({
       name,
       val: data.filter(r=>getSalesPendingCategory(r)===name).length
     })).filter(item=>item.val>0);
-    const noExtraFilter = !pendingType && !pendingCategory && !SALES_PENDING_VALUE_ONLY;
 
     host.innerHTML = `
       <div class="section-hd" style="margin-top:16px"><h2>${escHtml(selectedSupport)}</h2><span class="section-tag">PENDIENTES</span></div>
-      <div class="kpi-grid kpi-grid-5" style="margin-bottom:16px">
-        <div class="kpi exec-card ${noExtraFilter ? 'selected' : ''}" style="--ac:var(--corp-purple2)" onclick="${escAttr(jsCall('setSalesPendingFilter', 'all'))}"><div class="kpi-accent"></div>
-          <div class="kpi-label">Pendientes</div>
-          <div class="kpi-val">${totalRecords}</div>
-          <div class="kpi-sub">Ver todos</div>
-        </div>
+      <div class="kpi-grid kpi-grid-3" style="margin-bottom:16px">
         <div class="kpi exec-card ${pendingType === 'Pedido' ? 'selected' : ''}" style="--ac:var(--corp-cyan)" onclick="${escAttr(jsCall('setSalesPendingFilter', 'pendiente', 'Pedido'))}"><div class="kpi-accent"></div>
-          <div class="kpi-label">Pedidos</div>
+          <div class="kpi-label">Pedidos / Compras</div>
           <div class="kpi-val">${totalPedidos}</div>
-          <div class="kpi-sub">Categoria Compra</div>
+          <div class="kpi-sub">De ${totalRecords} pendientes</div>
         </div>
         <div class="kpi exec-card ${pendingType === 'GLPI' ? 'selected' : ''}" style="--ac:var(--corp-amber)" onclick="${escAttr(jsCall('setSalesPendingFilter', 'pendiente', 'GLPI'))}"><div class="kpi-accent"></div>
-          <div class="kpi-label">GLPI</div>
+          <div class="kpi-label">GLPI / Garantias</div>
           <div class="kpi-val">${totalGlpi}</div>
-          <div class="kpi-sub">Categoria Garantias</div>
+          <div class="kpi-sub">De ${totalRecords} pendientes</div>
         </div>
         <div class="kpi exec-card ${pendingType === 'Remision' ? 'selected' : ''}" style="--ac:var(--corp-green)" onclick="${escAttr(jsCall('setSalesPendingFilter', 'pendiente', 'Remision'))}"><div class="kpi-accent"></div>
-          <div class="kpi-label">Remisiones</div>
+          <div class="kpi-label">Remisiones / Facturacion</div>
           <div class="kpi-val">${totalRemisiones}</div>
-          <div class="kpi-sub">Categoria Factura</div>
-        </div>
-        <div class="kpi exec-card ${SALES_PENDING_VALUE_ONLY ? 'selected' : ''}" style="--ac:var(--corp-red)" onclick="${escAttr(jsCall('setSalesPendingFilter', 'valor'))}"><div class="kpi-accent"></div>
-          <div class="kpi-label">Con valor</div>
-          <div class="kpi-val">${totalConValor}</div>
-          <div class="kpi-sub">Filtrar facturas</div>
+          <div class="kpi-sub">De ${totalRecords} pendientes</div>
         </div>
       </div>
 

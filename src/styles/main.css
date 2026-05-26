@@ -536,6 +536,7 @@ tr:hover td{background:rgba(255,255,255,.025);color:var(--text)}
 }
 .last-connection.empty span{background:var(--text2);box-shadow:none;opacity:.65}
 .persona-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.persona-stats.persona-stats-3{grid-template-columns:repeat(3,1fr)}
 .p-stat{background:rgba(255,255,255,.03);border-radius:7px;padding:7px 9px;transition:var(--transition)}
 .persona-card:hover .p-stat{background:rgba(255,255,255,.05)}
 .p-stat-label{font-size:8px;font-family:var(--font-display);font-weight:500;letter-spacing:.8px;text-transform:uppercase;color:var(--text-soft);margin-bottom:3px}
