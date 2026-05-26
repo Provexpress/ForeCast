@@ -234,6 +234,9 @@ function normalizeHeaderKey(v){
 
 const HEADER_KEY_MAP = {
   'CLIENTE':'CLIENTE',
+  'COMERCIAL':'COMERCIAL',
+  'SALES SUPPORT':'SALES SUPPORT',
+  'SALESSUPPORT':'SALES SUPPORT',
   'VENTA CLIENTE':'MONTO VENTA CLIENTE',
   'MONTO VENTA':'MONTO VENTA CLIENTE',
   'VALOR VENTA':'MONTO VENTA CLIENTE',
@@ -281,6 +284,8 @@ const HEADER_KEY_MAP = {
   'COMENTARIO':'OBSERVACIONES',
   'COMENTARIOS':'OBSERVACIONES',
   'NOTAS':'OBSERVACIONES',
+  'PENDIENTE':'PENDIENTE',
+  'PENDIENTES':'PENDIENTE',
   'TIPO PENDIENTE':'PENDIENTE',
   'TIPO DE PENDIENTE':'PENDIENTE',
   'NUMERO PENDIENTE':'NUMERO PENDIENTE',
@@ -1008,7 +1013,7 @@ function normalizeSalesPendingType(value){
   if(!key) return '';
   if(key.includes('pedido')) return 'Pedido';
   if(key.includes('glpi')) return 'GLPI';
-  if(key.includes('remision')) return 'Remision';
+  if(key.includes('remision') || key.includes('remicion') || key.includes('reminsion')) return 'Remision';
   return toTitleName(raw);
 }
 
@@ -1022,7 +1027,7 @@ function normalizeSalesPendingCategory(value, pendingType){
   const typeKey = normalizeCategoryValue(pendingType);
   if(typeKey.includes('pedido')) return 'Compra';
   if(typeKey.includes('glpi')) return 'Garantias';
-  if(typeKey.includes('remision')) return 'Factura';
+  if(typeKey.includes('remision') || typeKey.includes('remicion') || typeKey.includes('reminsion')) return 'Factura';
 
   return raw ? toTitleName(raw) : '';
 }
