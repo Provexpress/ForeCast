@@ -3015,8 +3015,10 @@ function renderDivisas(){
   const estadoDetalleEl = document.getElementById('sel-divisa-estado');
   const estadoDetalle = estadoDetalleEl ? estadoDetalleEl.value : 'GANADA';
   
-  const usdData=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='USD');
-  const copData=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='COP');
+  const getDivisaMoneda = row => cleanDisplayText(row['MONEDA 2'], '').trim().toUpperCase();
+  const usdData=ALL_DATA.filter(r=>getDivisaMoneda(r)==='USD');
+  const copData=ALL_DATA.filter(r=>getDivisaMoneda(r)==='COP');
+  const totalDivisaData=[...copData, ...usdData];
   const usdDetailData=(estadoDetalle ? usdData.filter(r=>r['ESTADO']===estadoDetalle) : usdData).sort((a,b)=>toCOP(b)-toCOP(a));
   const copDetailData=(estadoDetalle ? copData.filter(r=>r['ESTADO']===estadoDetalle) : copData).sort((a,b)=>toCOP(b)-toCOP(a));
   const usdVisible = DIVISAS_DETAIL_LIMITS.USD || 10;
@@ -3038,7 +3040,7 @@ function renderDivisas(){
   const usdGanadasPct = usdData.length ? usdGanadas / usdData.length : 0;
   const usdLiqCOP=totalUSD*trm;
   const granTotal=totalCOP+usdLiqCOP;
-  const totalStatusRows = (estado) => ALL_DATA.filter(r=>cleanDisplayText(r['ESTADO'], '').toUpperCase() === estado);
+  const totalStatusRows = (estado) => totalDivisaData.filter(r=>normalizeEstado(r['ESTADO']) === estado);
   const totalStatusValue = (rows) => rows.reduce((sum,row)=>sum+toCOP(row),0);
   const totalGanadasRows = totalStatusRows('GANADA');
   const totalPendientesRows = totalStatusRows('PENDIENTE');
@@ -3050,7 +3052,7 @@ function renderDivisas(){
     divisasTotalCards.innerHTML = `
       <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
         <div class="kpi-label">Total negocios</div>
-        <div class="kpi-val">${fmtNum(ALL_DATA.length)}</div>
+        <div class="kpi-val">${fmtNum(totalDivisaData.length)}</div>
         <div class="kpi-sub">${fmtCOP(granTotal)}</div>
       </div>
       <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
