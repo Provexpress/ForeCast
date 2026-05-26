@@ -7,7 +7,7 @@
 <link rel="icon" type="image/png" href="src/icono-provexpress.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="src/styles/main.css?v=20260505-connections1">
+<link rel="stylesheet" href="src/styles/main.css?v=20260526-pendientes1">
 
 <!-- Microsoft Authentication Library -->
 <script src="src/scripts/auth.js?v=20260522a"></script>
@@ -238,6 +238,10 @@
 ══════════════════════════════════ -->
 <div class="page" id="page-sales">
   <div class="section-hd"><h2>Sales Support</h2><span class="section-tag">REPORTE OPERATIVO</span></div>
+  <div class="sales-subnav" role="tablist" aria-label="Vista Sales Support">
+    <button id="btn-sales-reporte" class="sales-subnav-btn active" type="button" onclick="setSalesView('reporte')">Sales Support</button>
+    <button id="btn-sales-pendientes" class="sales-subnav-btn" type="button" onclick="setSalesView('pendientes')">Pendientes</button>
+  </div>
   <div class="persona-grid" id="sales-support-grid"></div>
 
   <div class="filters" style="margin-top:8px">
@@ -245,13 +249,13 @@
       <div class="filter-label">Sales Support</div>
       <select id="sel-sales-support" onchange="renderSales()"></select>
     </div>
-    <div class="filter-group">
+    <div class="filter-group" id="sales-month-filter">
       <div class="filter-label">Mes</div>
       <select id="sel-sales-mes" onchange="renderSales()">
         <option value="">Todos</option>
       </select>
     </div>
-    <div class="filter-group">
+    <div class="filter-group" id="sales-state-filter">
       <div class="filter-label">Estado</div>
       <select id="sel-sales-estado" onchange="renderSales()">
         <option value="">Todos</option>
@@ -259,6 +263,18 @@
         <option value="PENDIENTE">PENDIENTE</option>
         <option value="PERDIDA">PERDIDA</option>
         <option value="APLAZADO">APLAZADO</option>
+      </select>
+    </div>
+    <div class="filter-group" id="sales-pending-type-filter" style="display:none">
+      <div class="filter-label">Pendiente</div>
+      <select id="sel-sales-pendiente" onchange="renderSales()">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <div class="filter-group" id="sales-pending-category-filter" style="display:none">
+      <div class="filter-label">Categoria</div>
+      <select id="sel-sales-categoria" onchange="renderSales()">
+        <option value="">Todas</option>
       </select>
     </div>
   </div>
@@ -391,7 +407,7 @@
 
 </main>
 
-<script src="src/scripts/main.js?v=20260522a"></script>
+<script src="src/scripts/main.js?v=20260526-pendientes1"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->

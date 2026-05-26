@@ -3,6 +3,7 @@
 ══════════════════════════════════════ */
 let ALL_DATA = [];
 let SALES_DATA = [];
+let SALES_PENDING_DATA = [];
 let TRM = 4150;
 let TRM_READY = false;
 let SELECTED_EXEC_BY_DIR = {};
@@ -11,6 +12,7 @@ let NEGOCIO_DETAIL_STATE = null;
 let MARCA_LINEA_DETAIL_STATE = null;
 let EJECUTIVO_BRAND_FOCUS = null;
 let LOADED_SALES_BY_SUPPORT = {};
+let SALES_VIEW_MODE = 'reporte';
 let FORECAST_CONNECTIONS_LIST_ID = null;
 let FORECAST_CONNECTIONS = { byEmail: {}, byName: {} };
 
@@ -58,7 +60,7 @@ async function fetchTRM() {
     TRM_READY = true;
     const inp = document.getElementById('trm-input');
     if(inp) inp.value = Number(TRM).toFixed(2);
-    if(ALL_DATA.length || SALES_DATA.length) renderVisiblePage();
+    if(ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length) renderVisiblePage();
     cacheTRM(TRM);
     console.log('[TRM]', TRM);
   };
@@ -276,7 +278,22 @@ const HEADER_KEY_MAP = {
   'OBSERVACIONES COMERCIALES':'OBSERVACIONES',
   'COMENTARIO':'OBSERVACIONES',
   'COMENTARIOS':'OBSERVACIONES',
-  'NOTAS':'OBSERVACIONES'
+  'NOTAS':'OBSERVACIONES',
+  'TIPO PENDIENTE':'PENDIENTE',
+  'TIPO DE PENDIENTE':'PENDIENTE',
+  'NUMERO PENDIENTE':'NUMERO PENDIENTE',
+  'NUMERO DE PENDIENTE':'NUMERO PENDIENTE',
+  'NRO PENDIENTE':'NUMERO PENDIENTE',
+  'NO PENDIENTE':'NUMERO PENDIENTE',
+  'NUM PENDIENTE':'NUMERO PENDIENTE',
+  'CATEGORIA':'CATEGORIA',
+  'VALOR FACTURAS':'VALOR FACTURAS',
+  'VALOR FACTURA':'VALOR FACTURAS',
+  'VALOR DE FACTURAS':'VALOR FACTURAS',
+  'VALOR DE FACTURA':'VALOR FACTURAS',
+  'VALOR FACTURADO':'VALOR FACTURAS',
+  'VALOR FACTURACION':'VALOR FACTURAS',
+  'FACTURA':'VALOR FACTURAS'
 };
 
 const DETAIL_FIELD_LABELS = {
@@ -306,7 +323,11 @@ const DETAIL_FIELD_LABELS = {
   'TRM REFERENCIA': 'TRM del dia',
   MARGEN: 'Margen',
   'MODIFICACION O UPGRADE': 'Modificacion o upgrade',
-  OBSERVACIONES: 'Observaciones'
+  OBSERVACIONES: 'Observaciones',
+  PENDIENTE: 'Pendiente',
+  'NUMERO PENDIENTE': 'Numero pendiente',
+  CATEGORIA: 'Categoria',
+  'VALOR FACTURAS': 'Valor facturas'
 };
 
 function mapHeaderName(h){
@@ -316,8 +337,16 @@ function mapHeaderName(h){
 }
 
 function registerRecord(rec, sourceFile, sourceSheet, dataset){
-  const ds = dataset === 'sales' ? 'sales' : 'forecast';
-  rec.__RID = (ds === 'sales' ? 'sales-' : 'neg-') + (++RECORD_SEQ);
+  const ds = dataset === 'sales'
+    ? 'sales'
+    : dataset === 'sales_pending'
+      ? 'sales_pending'
+      : 'forecast';
+  rec.__RID = (ds === 'sales'
+    ? 'sales-'
+    : ds === 'sales_pending'
+      ? 'sales-pending-'
+      : 'neg-') + (++RECORD_SEQ);
   rec.__DATASET = ds;
   rec.__SOURCE_FILE = sourceFile || '';
   rec.__SOURCE_SHEET = sourceSheet || '';
@@ -489,6 +518,30 @@ function getSalesQuoteNumber(row){
   return firstFilled(row, ['NUMERO DE COTIZACION','NUMERO COTIZACION','NRO COTIZACION','COTIZACION']) || '';
 }
 
+function getSalesPendingSupportName(row){
+  return canonicalizeSalesSupportName(firstFilled(row, ['SALES SUPPORT']) || '');
+}
+
+function getSalesPendingType(row){
+  return cleanDisplayText(firstFilled(row, ['PENDIENTE']), 'Sin pendiente');
+}
+
+function getSalesPendingNumber(row){
+  return firstFilled(row, ['NUMERO PENDIENTE']) || '';
+}
+
+function getSalesPendingCategory(row){
+  return cleanDisplayText(firstFilled(row, ['CATEGORIA']), 'Sin categoria');
+}
+
+function getSalesPendingCommercial(row){
+  return cleanNameSegment(firstFilled(row, ['COMERCIAL','SOPORTA']) || '');
+}
+
+function getSalesPendingInvoiceValue(row){
+  return parseMonto(firstFilled(row, ['VALOR FACTURAS'])) || 0;
+}
+
 function getSalesCostValue(row){
   return parseMonto(firstFilled(row, ['COSTO NEGOCIO','COSTO'])) || 0;
 }
@@ -523,7 +576,10 @@ function formatDateValue(v){
 }
 
 function getRecordById(id){
-  return ALL_DATA.find(r => r.__RID === id) || SALES_DATA.find(r => r.__RID === id) || null;
+  return ALL_DATA.find(r => r.__RID === id)
+    || SALES_DATA.find(r => r.__RID === id)
+    || SALES_PENDING_DATA.find(r => r.__RID === id)
+    || null;
 }
 
 function formatFieldLabel(key){
@@ -792,6 +848,14 @@ function pickWorksheetName(sheetNames, datasetType){
   return names[0];
 }
 
+function pickSalesPendingWorksheetName(sheetNames){
+  const names = Array.isArray(sheetNames) ? sheetNames : [];
+  if(!names.length) return '';
+  const exact = names.find(name => normalizeSheetName(name) === 'pendientes');
+  if(exact) return exact;
+  return names.find(name => normalizeSheetName(name).includes('pendiente')) || '';
+}
+
 function isLikelyHeaderRow(row){
   if(!Array.isArray(row) || !row.length) return false;
   const headers = row.map(cell => normalizeHeaderKey(cell)).filter(Boolean);
@@ -803,9 +867,29 @@ function isLikelyHeaderRow(row){
   return hasCliente && (hasEstado || hasMoneda || hasValor);
 }
 
+function isLikelySalesPendingHeaderRow(row){
+  if(!Array.isArray(row) || !row.length) return false;
+  const headers = row.map(cell => normalizeHeaderKey(mapHeaderName(cell))).filter(Boolean);
+  if(!headers.length) return false;
+  const hasPendiente = headers.includes('PENDIENTE');
+  const hasCliente = headers.includes('CLIENTE');
+  const hasNumero = headers.includes('NUMERO PENDIENTE');
+  const hasComercial = headers.includes('COMERCIAL');
+  const hasCategoria = headers.includes('CATEGORIA');
+  const hasValor = headers.includes('VALOR FACTURAS');
+  return hasPendiente && (hasCliente || hasNumero || hasComercial || hasCategoria || hasValor);
+}
+
 function findHeaderRowIndex(rows){
   for(let i = 0; i < rows.length; i++) {
     if(isLikelyHeaderRow(rows[i])) return i;
+  }
+  return -1;
+}
+
+function findSalesPendingHeaderRowIndex(rows){
+  for(let i = 0; i < rows.length; i++) {
+    if(isLikelySalesPendingHeaderRow(rows[i])) return i;
   }
   return -1;
 }
@@ -835,6 +919,13 @@ function hasMeaningfulRecordContent(rec){
   if(dateKeys.some(key => cleanDisplayText(rec[key], '') !== '')) return true;
 
   return false;
+}
+
+function hasMeaningfulSalesPendingRecordContent(rec){
+  if(!rec || typeof rec !== 'object') return false;
+  const textKeys = ['PENDIENTE','NUMERO PENDIENTE','CLIENTE','COMERCIAL','CATEGORIA'];
+  if(textKeys.some(key => cleanDisplayText(rec[key], '') !== '')) return true;
+  return (parseMonto(rec['VALOR FACTURAS']) || 0) !== 0;
 }
 
 function parseSalesSupportFileName(name){
@@ -873,6 +964,57 @@ function decorateRecordFromFile(rec, fileName, directorHint){
     const fileNameExec = toTitleName(fileName.replace(/\.(xlsx|xls)$/i,'').trim());
     rec['COMERCIAL'] = fileNameExec || toTitleName(rec['COMERCIAL'] || '');
   }
+  return rec;
+}
+
+function normalizeSalesPendingType(value){
+  const raw = cleanDisplayText(value, '');
+  const key = normalizeCategoryValue(raw);
+  if(!key) return '';
+  if(key.includes('pedido')) return 'Pedido';
+  if(key.includes('glpi')) return 'GLPI';
+  if(key.includes('remision')) return 'Remision';
+  return toTitleName(raw);
+}
+
+function normalizeSalesPendingCategory(value, pendingType){
+  const raw = cleanDisplayText(value, '');
+  const key = normalizeCategoryValue(raw);
+  if(key.includes('compra')) return 'Compra';
+  if(key.includes('garantia')) return 'Garantias';
+  if(key.includes('factura') || key.includes('facturado')) return 'Factura';
+
+  const typeKey = normalizeCategoryValue(pendingType);
+  if(typeKey.includes('pedido')) return 'Compra';
+  if(typeKey.includes('glpi')) return 'Garantias';
+  if(typeKey.includes('remision')) return 'Factura';
+
+  return raw ? toTitleName(raw) : '';
+}
+
+function decorateSalesPendingRecordFromFile(rec, fileName, directorHint){
+  const salesMeta = parseSalesSupportFileName(fileName);
+  const pendingType = normalizeSalesPendingType(firstFilled(rec, ['PENDIENTE']));
+  const commercial = cleanNameSegment(
+    firstFilled(rec, ['COMERCIAL','SOPORTA'])
+    || (salesMeta && salesMeta.soportaName)
+    || ''
+  );
+  const supportName = canonicalizeSalesSupportName(
+    firstFilled(rec, ['SALES SUPPORT'])
+    || (salesMeta && salesMeta.supportName)
+    || ''
+  );
+
+  rec['PENDIENTE'] = pendingType;
+  rec['NUMERO PENDIENTE'] = firstFilled(rec, ['NUMERO PENDIENTE']) || rec['NUMERO PENDIENTE'] || '';
+  rec['CLIENTE'] = firstFilled(rec, ['CLIENTE']) || rec['CLIENTE'] || '';
+  rec['COMERCIAL'] = commercial;
+  rec['SOPORTA'] = commercial;
+  rec['CATEGORIA'] = normalizeSalesPendingCategory(firstFilled(rec, ['CATEGORIA']), pendingType);
+  rec['VALOR FACTURAS'] = firstFilled(rec, ['VALOR FACTURAS']) || rec['VALOR FACTURAS'] || '';
+  rec['SALES SUPPORT'] = supportName;
+  rec['DIRECTOR'] = normalizeDirectorName(directorHint || rec['DIRECTOR'] || rec['DIRECTOR '] || '');
   return rec;
 }
 
@@ -959,7 +1101,7 @@ let LOADED_FILES_BY_DIR = {};
 document.getElementById('trm-input').addEventListener('input',function(){
   TRM_READY = true;
   TRM=getTRM();
-  if(ALL_DATA.length || SALES_DATA.length) renderVisiblePage();
+  if(ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length) renderVisiblePage();
 });
 
 function finalizeLoad(){
@@ -988,15 +1130,19 @@ function finalizeLoad(){
   // Status header
   const visibleData = getVisibleData();
   const visibleSales = getVisibleSalesData();
+  const visibleSalesPending = getVisibleSalesPendingData();
   const dirs = [...new Set(visibleData.map(r=>(r['DIRECTOR']||'').trim()).filter(Boolean))].sort();
   const execs = [...new Set(visibleData.map(r=>r['COMERCIAL']||'').filter(Boolean))].sort();
   const execsWithData = [...new Set(visibleData.map(r=>(r['COMERCIAL']||'').trim()).filter(Boolean))];
-  const salesSupports = [...new Set(visibleSales.map(r=>getSalesSupportName(r)).filter(Boolean))];
+  const salesSupports = [...new Set([
+    ...visibleSales.map(r=>getSalesSupportName(r)).filter(Boolean),
+    ...visibleSalesPending.map(r=>getSalesPendingSupportName(r)).filter(Boolean)
+  ])];
   const salesTargets = [...new Set(visibleSales.map(r=>getSalesSoportaName(r)).filter(Boolean))];
   document.getElementById('file-count-hd').textContent =
     CURRENT_USER && CURRENT_USER.role === 'sales_support'
-      ? `${visibleSales.length} registros sales · ${salesSupports.length} support · ${salesTargets.length} apoyos`
-      : `${visibleData.length} negocios · ${dirs.length} dir · ${execsWithData.length} ejecutivos${visibleSales.length ? ' · '+visibleSales.length+' sales' : ''}`;
+      ? `${visibleSales.length} registros sales · ${visibleSalesPending.length} pendientes · ${salesSupports.length} support · ${salesTargets.length} apoyos`
+      : `${visibleData.length} negocios · ${dirs.length} dir · ${execsWithData.length} ejecutivos${visibleSales.length ? ' · '+visibleSales.length+' sales' : ''}${visibleSalesPending.length ? ' · '+visibleSalesPending.length+' pendientes' : ''}`;
   const now = new Date();
   document.getElementById('last-update-hd').textContent=
     'Actualizado: '+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})+' · '+
@@ -1082,6 +1228,21 @@ function getVisibleSalesData() {
   return SALES_DATA;
 }
 
+function getVisibleSalesPendingData() {
+  if(!CURRENT_USER) return SALES_PENDING_DATA;
+  const { role, directorGroup } = CURRENT_USER;
+  if(role === 'sales_support') {
+    const targetName = getSalesSupportTargetName();
+    return SALES_PENDING_DATA.filter(r => namesMatch(getSalesPendingSupportName(r), targetName));
+  }
+  if(role === 'director') {
+    const targetDirector = normalizePersonName(directorGroup);
+    return SALES_PENDING_DATA.filter(r => normalizePersonName(r['DIRECTOR']) === targetDirector);
+  }
+  if(role === 'ejecutivo') return [];
+  return SALES_PENDING_DATA;
+}
+
 function renderAll(){
   refreshForecastMonthFilters();
   renderGerencia();
@@ -1156,7 +1317,7 @@ function showPage(id,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   if(btn) btn.classList.add('active');
-  const hasLoadedData = ALL_DATA.length || SALES_DATA.length;
+  const hasLoadedData = ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length;
   if(hasLoadedData || id === 'negocio' || id === 'marca-linea-detail') {
     renderPage(id);
   }
@@ -1321,10 +1482,10 @@ function formatFieldValue(key, value, row){
   const mapped = normalizeHeaderKey(mapHeaderName(key));
   if(value === null || value === undefined || String(value).trim() === '') return 'Sin dato';
   if(mapped.startsWith('FECHA')) return escHtml(cleanDisplayText(formatDateValue(value), 'Sin fecha'));
-  if(mapped === 'MONTO VENTA CLIENTE' || mapped === 'COSTO NEGOCIO' || mapped === 'COSTO' || mapped === 'UTILIDAD'){
+  if(mapped === 'MONTO VENTA CLIENTE' || mapped === 'COSTO NEGOCIO' || mapped === 'COSTO' || mapped === 'UTILIDAD' || mapped === 'VALOR FACTURAS'){
     const mon = cleanDisplayText(row['MONEDA 2'], 'COP').toUpperCase();
     const monto = parseMonto(value);
-    return mon === 'USD' ? fmtUSD(monto) : fmtCOP(monto);
+    return mapped !== 'VALOR FACTURAS' && mon === 'USD' ? fmtUSD(monto) : fmtCOP(monto);
   }
   if(mapped === 'TRM REFERENCIA') return fmtTRM(getTRM());
   if(mapped === 'MARGEN') return escHtml(formatMarginDisplay(value));
@@ -2394,8 +2555,69 @@ function buildSalesTable(data, opts){
   </table>`;
 }
 
+function getSalesViewMode(){
+  return SALES_VIEW_MODE === 'pendientes' ? 'pendientes' : 'reporte';
+}
+
+function syncSalesViewButtons(){
+  const mode = getSalesViewMode();
+  const btnReporte = document.getElementById('btn-sales-reporte');
+  const btnPendientes = document.getElementById('btn-sales-pendientes');
+  if(btnReporte) btnReporte.classList.toggle('active', mode === 'reporte');
+  if(btnPendientes) btnPendientes.classList.toggle('active', mode === 'pendientes');
+}
+
+function setSalesFilterVisibility(mode){
+  const showReporte = mode === 'reporte';
+  [
+    ['sales-month-filter', showReporte],
+    ['sales-state-filter', showReporte],
+    ['sales-pending-type-filter', !showReporte],
+    ['sales-pending-category-filter', !showReporte]
+  ].forEach(([id, visible]) => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = visible ? '' : 'none';
+  });
+}
+
+function setSalesView(mode){
+  SALES_VIEW_MODE = mode === 'pendientes' ? 'pendientes' : 'reporte';
+  renderSales();
+}
+
+function getSalesPendingBadgeClass(value){
+  const key = normalizeCategoryValue(value);
+  if(key.includes('pedido') || key.includes('compra')) return 'PEDIDA';
+  if(key.includes('remision') || key.includes('factura')) return 'GANADA';
+  return 'PENDIENTE';
+}
+
+function buildSalesPendingTable(data){
+  return `<table class="responsive-table">
+    <thead><tr><th>Pendiente</th><th>Numero pendiente</th><th>Cliente</th><th>Comercial</th><th>Categoria</th><th>Valor facturas</th></tr></thead>
+    <tbody>${data.length ? data.map(r=>{
+      const pendiente = getSalesPendingType(r);
+      const numero = cleanDisplayText(getSalesPendingNumber(r), 'Sin numero');
+      const cliente = cleanDisplayText(getRowClientName(r), 'Sin cliente');
+      const comercial = cleanDisplayText(getSalesPendingCommercial(r), 'Sin comercial');
+      const categoria = getSalesPendingCategory(r);
+      const valor = getSalesPendingInvoiceValue(r);
+      return `<tr>
+        <td data-label="Pendiente"><span class="badge badge-${getSalesPendingBadgeClass(pendiente)}">${escHtml(pendiente)}</span></td>
+        <td class="td-mono" data-label="Numero pendiente">${escHtml(numero)}</td>
+        <td data-label="Cliente">${escHtml(cliente)}</td>
+        <td data-label="Comercial">${escHtml(comercial)}</td>
+        <td data-label="Categoria"><span class="badge badge-${getSalesPendingBadgeClass(categoria)}">${escHtml(categoria)}</span></td>
+        <td class="td-mono td-cop" data-label="Valor facturas">${valor ? fmtCOP(valor) : '—'}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--text2)">Sin pendientes para este filtro.</td></tr>`}</tbody>
+  </table>`;
+}
+
 function renderSales(){
   const allSales = getVisibleSalesData();
+  const allPending = getVisibleSalesPendingData();
+  const mode = getSalesViewMode();
   const role = CURRENT_USER ? CURRENT_USER.role : null;
   const targetName = role === 'sales_support' ? getSalesSupportTargetName() : '';
   const host = document.getElementById('sales-content');
@@ -2403,10 +2625,17 @@ function renderSales(){
   const selSupport = document.getElementById('sel-sales-support');
   const selMes = document.getElementById('sel-sales-mes');
   const selEstado = document.getElementById('sel-sales-estado');
+  const selPendiente = document.getElementById('sel-sales-pendiente');
+  const selCategoria = document.getElementById('sel-sales-categoria');
   if(!host || !grid || !selSupport || !selMes || !selEstado) return;
 
-  const supportsFromData = [...new Set(allSales.map(r=>getSalesSupportName(r)).filter(Boolean))];
-  const supportsFromFiles = Object.keys(LOADED_SALES_BY_SUPPORT || {}).filter(Boolean);
+  syncSalesViewButtons();
+  setSalesFilterVisibility(mode);
+
+  const supportsFromData = mode === 'pendientes'
+    ? [...new Set(allPending.map(r=>getSalesPendingSupportName(r)).filter(Boolean))]
+    : [...new Set(allSales.map(r=>getSalesSupportName(r)).filter(Boolean))];
+  const supportsFromFiles = Object.keys(LOADED_SALES_BY_SUPPORT || {}).map(canonicalizeSalesSupportName).filter(Boolean);
   const allSupports = [...new Set([...supportsFromData, ...supportsFromFiles])].sort((a,b)=>a.localeCompare(b,'es'));
 
   if(role === 'sales_support' && targetName) {
@@ -2419,13 +2648,6 @@ function renderSales(){
     else if(allSupports[0]) selSupport.value = allSupports[0];
   }
 
-  const monthValues = [...new Set(allSales.map(r=>getMonth(getRowDateValue(r))).filter(Boolean))].sort();
-  const currentMonth = selMes.value;
-  selMes.innerHTML = optionHtml('', 'Todos', false) + buildOptionList(monthValues, {
-    getLabel: getMonthLabel
-  });
-  if(currentMonth && monthValues.includes(currentMonth)) selMes.value = currentMonth;
-
   if(!allSupports.length){
     grid.innerHTML = '';
     host.innerHTML = `<div class="chart-card g1"><div style="font-size:12px;color:var(--text2)">No hay archivos Sales Support cargados para este usuario o grupo.</div></div>`;
@@ -2433,14 +2655,43 @@ function renderSales(){
   }
 
   const selectedSupport = role === 'sales_support' && targetName ? targetName : selSupport.value;
-  const mes = selMes.value;
-  const estado = selEstado.value;
+
+  if(mode === 'reporte') {
+    const monthValues = [...new Set(allSales.map(r=>getMonth(getRowDateValue(r))).filter(Boolean))].sort();
+    const currentMonth = selMes.value;
+    selMes.innerHTML = optionHtml('', 'Todos', false) + buildOptionList(monthValues, {
+      getLabel: getMonthLabel
+    });
+    if(currentMonth && monthValues.includes(currentMonth)) selMes.value = currentMonth;
+    else selMes.value = '';
+  } else if(selPendiente && selCategoria) {
+    const supportPendingRows = allPending.filter(r => namesMatch(getSalesPendingSupportName(r), selectedSupport));
+    const pendingTypes = [...new Set(supportPendingRows.map(getSalesPendingType).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+    const pendingCategories = [...new Set(supportPendingRows.map(getSalesPendingCategory).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+    const currentType = selPendiente.value;
+    const currentCategory = selCategoria.value;
+    selPendiente.innerHTML = optionHtml('', 'Todos', false) + buildOptionList(pendingTypes);
+    selCategoria.innerHTML = optionHtml('', 'Todas', false) + buildOptionList(pendingCategories);
+    if(currentType && pendingTypes.includes(currentType)) selPendiente.value = currentType;
+    else selPendiente.value = '';
+    if(currentCategory && pendingCategories.includes(currentCategory)) selCategoria.value = currentCategory;
+    else selCategoria.value = '';
+  }
 
   grid.innerHTML = allSupports.map((supportName, idx)=>{
-    const supportRows = allSales.filter(r => namesMatch(getSalesSupportName(r), supportName));
-    const totalCOP = supportRows.reduce((sum,row)=>sum+toCOP(row),0);
+    const supportRows = mode === 'pendientes'
+      ? allPending.filter(r => namesMatch(getSalesPendingSupportName(r), supportName))
+      : allSales.filter(r => namesMatch(getSalesSupportName(r), supportName));
+    const totalCOP = mode === 'pendientes'
+      ? supportRows.reduce((sum,row)=>sum+getSalesPendingInvoiceValue(row),0)
+      : supportRows.reduce((sum,row)=>sum+toCOP(row),0);
     const totalGanadas = supportRows.filter(r=>cleanDisplayText(r['ESTADO'],'').toUpperCase()==='GANADA').length;
-    const supportedCount = [...new Set(supportRows.map(r=>getSalesSoportaName(r)).filter(Boolean))].length;
+    const supportedCount = mode === 'pendientes'
+      ? [...new Set(supportRows.map(getSalesPendingCommercial).filter(Boolean))].length
+      : [...new Set(supportRows.map(r=>getSalesSoportaName(r)).filter(Boolean))].length;
+    const facturaCount = mode === 'pendientes'
+      ? supportRows.filter(row => getSalesPendingInvoiceValue(row) > 0).length
+      : 0;
     const c = COLORS[idx % COLORS.length];
     const hasData = supportRows.length > 0;
     const selected = namesMatch(selectedSupport, supportName) ? 'selected' : '';
@@ -2450,15 +2701,139 @@ function renderSales(){
       <div class="persona-role">Sales Support</div>
       ${hasData
         ? `<div class="persona-stats">
-            <div class="p-stat"><div class="p-stat-label">Total</div><div class="p-stat-val" style="color:${c};font-size:11px">${abr(totalCOP)}</div></div>
-            <div class="p-stat"><div class="p-stat-label">Registros</div><div class="p-stat-val">${supportRows.length}</div></div>
-            <div class="p-stat"><div class="p-stat-label">Ganadas</div><div class="p-stat-val" style="color:var(--corp-green)">${totalGanadas}</div></div>
-            <div class="p-stat"><div class="p-stat-label">Soporta</div><div class="p-stat-val">${supportedCount}</div></div>
+            <div class="p-stat"><div class="p-stat-label">${mode === 'pendientes' ? 'Facturas' : 'Total'}</div><div class="p-stat-val" style="color:${c};font-size:11px">${abr(totalCOP)}</div></div>
+            <div class="p-stat"><div class="p-stat-label">${mode === 'pendientes' ? 'Pendientes' : 'Registros'}</div><div class="p-stat-val">${supportRows.length}</div></div>
+            <div class="p-stat"><div class="p-stat-label">${mode === 'pendientes' ? 'Con valor' : 'Ganadas'}</div><div class="p-stat-val" style="color:var(--corp-green)">${mode === 'pendientes' ? facturaCount : totalGanadas}</div></div>
+            <div class="p-stat"><div class="p-stat-label">${mode === 'pendientes' ? 'Comerciales' : 'Soporta'}</div><div class="p-stat-val">${supportedCount}</div></div>
           </div>`
         : `<div style="font-size:9px;color:var(--text3);font-family:var(--font-display);margin-top:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;letter-spacing:.5px">Sin registros aun</div>`}
     </div>`;
   }).join('');
 
+  if(mode === 'pendientes') {
+    const pendingType = selPendiente ? selPendiente.value : '';
+    const pendingCategory = selCategoria ? selCategoria.value : '';
+    let data = allPending.filter(r => namesMatch(getSalesPendingSupportName(r), selectedSupport));
+    if(pendingType) data = data.filter(r => getSalesPendingType(r) === pendingType);
+    if(pendingCategory) data = data.filter(r => getSalesPendingCategory(r) === pendingCategory);
+    data = data.sort((a,b)=>{
+      const byValue = getSalesPendingInvoiceValue(b) - getSalesPendingInvoiceValue(a);
+      if(byValue !== 0) return byValue;
+      return getRowClientName(a).localeCompare(getRowClientName(b), 'es');
+    });
+
+    const totalFacturas = data.reduce((sum,row)=>sum+getSalesPendingInvoiceValue(row),0);
+    const totalRecords = data.length;
+    const totalPedidos = data.filter(r=>normalizeCategoryValue(getSalesPendingType(r)).includes('pedido')).length;
+    const totalGlpi = data.filter(r=>normalizeCategoryValue(getSalesPendingType(r)).includes('glpi')).length;
+    const totalRemisiones = data.filter(r=>normalizeCategoryValue(getSalesPendingType(r)).includes('remision')).length;
+    const totalConValor = data.filter(r=>getSalesPendingInvoiceValue(r)>0).length;
+    const comerciales = [...new Set(data.map(getSalesPendingCommercial).filter(Boolean))];
+    const typeNames = [...new Set(['Pedido','GLPI','Remision', ...data.map(getSalesPendingType).filter(Boolean)])];
+    const categoryNames = [...new Set(['Compra','Garantias','Factura', ...data.map(getSalesPendingCategory).filter(Boolean)])];
+    const typeData = typeNames.map(name=>({
+      name,
+      val: data.filter(r=>getSalesPendingType(r)===name).length
+    })).filter(item=>item.val>0);
+    const categoryData = categoryNames.map(name=>({
+      name,
+      val: data.filter(r=>getSalesPendingCategory(r)===name).length
+    })).filter(item=>item.val>0);
+    const topComercialCount = comerciales.map(name=>({
+      name,
+      val: data.filter(r=>getSalesPendingCommercial(r)===name).length
+    })).sort((a,b)=>b.val-a.val).slice(0, TOP_BAR_LIMIT);
+    const topComercialValue = comerciales.map(name=>({
+      name,
+      val: data.filter(r=>getSalesPendingCommercial(r)===name).reduce((sum,row)=>sum+getSalesPendingInvoiceValue(row),0)
+    })).sort((a,b)=>b.val-a.val).slice(0, TOP_BAR_LIMIT);
+
+    host.innerHTML = `
+      <div class="section-hd" style="margin-top:16px"><h2>${escHtml(selectedSupport)}</h2><span class="section-tag">PENDIENTES</span></div>
+      <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
+        <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
+          <div class="kpi-label">Valor facturas</div>
+          <div class="kpi-val">${abr(totalFacturas)}</div>
+          <div class="kpi-sub">${fmtCOP(totalFacturas)}</div>
+        </div>
+        <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
+          <div class="kpi-label">Pendientes</div>
+          <div class="kpi-val">${totalRecords}</div>
+          <div class="kpi-sub">Registros hoja PENDIENTES</div>
+        </div>
+        <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
+          <div class="kpi-label">Pedidos</div>
+          <div class="kpi-val">${totalPedidos}</div>
+          <div class="kpi-sub">Categoria Compra</div>
+        </div>
+        <div class="kpi" style="--ac:var(--corp-amber)"><div class="kpi-accent"></div>
+          <div class="kpi-label">GLPI</div>
+          <div class="kpi-val">${totalGlpi}</div>
+          <div class="kpi-sub">Categoria Garantias</div>
+        </div>
+        <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
+          <div class="kpi-label">Remisiones</div>
+          <div class="kpi-val">${totalRemisiones}</div>
+          <div class="kpi-sub">Categoria Factura</div>
+        </div>
+        <div class="kpi" style="--ac:var(--corp-red)"><div class="kpi-accent"></div>
+          <div class="kpi-label">Con valor</div>
+          <div class="kpi-val">${totalConValor}</div>
+          <div class="kpi-sub">Facturas con monto</div>
+        </div>
+      </div>
+
+      <div class="g2">
+        <div class="chart-card">
+          <div class="chart-hd">Pendientes por comercial</div>
+          <div class="bar-list" id="bar-sales-pending-comercial-count"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-hd">Valor facturas por comercial</div>
+          <div class="bar-list" id="bar-sales-pending-comercial-value"></div>
+        </div>
+      </div>
+
+      <div class="g2">
+        <div class="chart-card">
+          <div class="chart-hd">Tipo pendiente</div>
+          <div class="donut-wrap">
+            <svg id="donut-sales-pending-type" viewBox="0 0 100 100" style="width:130px;height:130px;flex-shrink:0"></svg>
+            <div class="donut-leg" id="leg-sales-pending-type"></div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-hd">Categoria</div>
+          <div class="donut-wrap">
+            <svg id="donut-sales-pending-category" viewBox="0 0 100 100" style="width:130px;height:130px;flex-shrink:0"></svg>
+            <div class="donut-leg" id="leg-sales-pending-category"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card g1">
+        <div class="chart-hd">Detalle pendientes</div>
+        <div class="director-table-toolbar">
+          <div>
+            <div class="director-table-toolbar-label">Hoja PENDIENTES</div>
+            <div class="director-table-toolbar-meta">Estos registros se leen desde la hoja PENDIENTES del Excel Sales Support y se mantienen separados del reporte normal.</div>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          ${buildSalesPendingTable(data)}
+        </div>
+      </div>
+    `;
+
+    renderBars('bar-sales-pending-comercial-count', topComercialCount, COLORS, fmtNum, { nameClass:'w160' });
+    renderBars('bar-sales-pending-comercial-value', topComercialValue, COLORS, null, { nameClass:'w160' });
+    renderDonut('donut-sales-pending-type', 'leg-sales-pending-type', typeData);
+    renderDonut('donut-sales-pending-category', 'leg-sales-pending-category', categoryData);
+    return;
+  }
+
+  const mes = selMes.value;
+  const estado = selEstado.value;
   let data = allSales.filter(r => namesMatch(getSalesSupportName(r), selectedSupport));
   if(mes) data = data.filter(r => getMonth(getRowDateValue(r)) === mes);
   if(estado) data = data.filter(r => cleanDisplayText(r['ESTADO'],'').toUpperCase() === estado);
@@ -2949,6 +3324,7 @@ async function loadFolderFromSharePoint() {
     const { role, directorGroup } = CURRENT_USER;
     ALL_DATA = [];
     SALES_DATA = [];
+    SALES_PENDING_DATA = [];
     RECORD_SEQ = 0;
     LOADED_FILES_BY_DIR = {};
     LOADED_SALES_BY_SUPPORT = {};
@@ -3187,13 +3563,15 @@ async function loadDirectorFolder(siteId, folderName, token) {
   );
   await runWithConcurrencyLimit(files, FILE_LOAD_CONCURRENCY, async item => {
     updateLoadingStatus('Leyendo: ' + item.name);
-    const recs = await loadSpFile(item, dirName);
+    const bundle = await loadSpFileBundle(item, dirName);
+    const recs = bundle.records || [];
     if(isSalesSupportFile(item.name)) {
       const meta = parseSalesSupportFileName(item.name) || {};
       const supportName = cleanNameSegment(meta.supportName || 'Sales Support');
       if(!LOADED_SALES_BY_SUPPORT[supportName]) LOADED_SALES_BY_SUPPORT[supportName] = [];
       LOADED_SALES_BY_SUPPORT[supportName].push({ name: item.name, dir: dirName, soporta: cleanNameSegment(meta.soportaName) });
       SALES_DATA.push(...recs);
+      SALES_PENDING_DATA.push(...(bundle.pendingRecords || []));
     } else {
       ALL_DATA.push(...recs);
       LOADED_FILES_BY_DIR[dirName].push({ name: item.name });
@@ -3251,11 +3629,13 @@ async function loadSalesSupportFiles(siteId, token) {
         const meta = parseSalesSupportFileName(item.name);
         if(!meta || !matchesAnySalesSupportName(meta.supportName, targetNames)) continue;
         updateLoadingStatus('Leyendo: ' + item.name);
-        const recs = await loadSpFile(item, dirName);
+        const bundle = await loadSpFileBundle(item, dirName);
+        const recs = bundle.records || [];
         const supportName = canonicalizeSalesSupportName(meta.supportName || targetName);
         if(!LOADED_SALES_BY_SUPPORT[supportName]) LOADED_SALES_BY_SUPPORT[supportName] = [];
         LOADED_SALES_BY_SUPPORT[supportName].push({ name: item.name, dir: dirName, soporta: cleanNameSegment(meta.soportaName) });
         SALES_DATA.push(...recs);
+        SALES_PENDING_DATA.push(...(bundle.pendingRecords || []));
         found = true;
       }
     } catch(e) { console.warn('Error leyendo folder sales', folder, e); }
@@ -3318,32 +3698,69 @@ async function loadEjecutivoFile(siteId, token) {
   }
 }
 
-async function loadSpFile(item, dirName) {
+function parseWorkbookMainRecords(wb, item, dirName, datasetType){
+  const wsName = pickWorksheetName(wb.SheetNames, datasetType);
+  const ws = wb.Sheets[wsName];
+  if(!ws) return [];
+  const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
+  const hdrIdx = findHeaderRowIndex(raw);
+  if(hdrIdx<0) return [];
+  const hdrs = raw[hdrIdx].map(h=>h ? mapHeaderName(String(h).trim()) : '');
+  const recs = [];
+  for(let i=hdrIdx+1;i<raw.length;i++) {
+    const row=raw[i]; if(!isMeaningfulDataRow(row)) continue;
+    const rec={};
+    hdrs.forEach((h,j)=>{ if(h) rec[h]=row[j]!==undefined?row[j]:null; });
+    if(!hasMeaningfulRecordContent(rec)) continue;
+    decorateRecordFromFile(rec, item.name, dirName);
+    registerRecord(rec, item.name, wsName, datasetType);
+    recs.push(rec);
+  }
+  if(datasetType === 'sales') console.log('[SALES PARSE SP]', item.name, wsName, 'rows:', recs.length, 'headerRow:', hdrIdx);
+  return recs;
+}
+
+function parseWorkbookSalesPendingRecords(wb, item, dirName){
+  if(!isSalesSupportFile(item.name)) return [];
+  const wsName = pickSalesPendingWorksheetName(wb.SheetNames);
+  if(!wsName) return [];
+  const ws = wb.Sheets[wsName];
+  if(!ws) return [];
+  const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
+  const hdrIdx = findSalesPendingHeaderRowIndex(raw);
+  if(hdrIdx<0) return [];
+  const hdrs = raw[hdrIdx].map(h=>h ? mapHeaderName(String(h).trim()) : '');
+  const recs = [];
+  for(let i=hdrIdx+1;i<raw.length;i++) {
+    const row=raw[i]; if(!isMeaningfulDataRow(row)) continue;
+    const rec={};
+    hdrs.forEach((h,j)=>{ if(h) rec[h]=row[j]!==undefined?row[j]:null; });
+    if(!hasMeaningfulSalesPendingRecordContent(rec)) continue;
+    decorateSalesPendingRecordFromFile(rec, item.name, dirName);
+    registerRecord(rec, item.name, wsName, 'sales_pending');
+    recs.push(rec);
+  }
+  console.log('[SALES PENDIENTES PARSE SP]', item.name, wsName, 'rows:', recs.length, 'headerRow:', hdrIdx);
+  return recs;
+}
+
+async function loadSpFileBundle(item, dirName) {
   const url = item['@microsoft.graph.downloadUrl'];
-  if(!url) return [];
+  if(!url) return { records: [], pendingRecords: [] };
   try {
     const buf = await (await fetch(url)).arrayBuffer();
     const wb  = XLSX.read(buf, { type:'array', cellDates:true });
     const datasetType = isSalesSupportFile(item.name) ? 'sales' : 'forecast';
-    const wsName = pickWorksheetName(wb.SheetNames, datasetType);
-    const ws  = wb.Sheets[wsName];
-    const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
-    const hdrIdx = findHeaderRowIndex(raw);
-    if(hdrIdx<0) return [];
-    const hdrs = raw[hdrIdx].map(h=>h ? mapHeaderName(String(h).trim()) : '');
-    const recs = [];
-    for(let i=hdrIdx+1;i<raw.length;i++) {
-      const row=raw[i]; if(!isMeaningfulDataRow(row)) continue;
-      const rec={};
-      hdrs.forEach((h,j)=>{ if(h) rec[h]=row[j]!==undefined?row[j]:null; });
-      if(!hasMeaningfulRecordContent(rec)) continue;
-      decorateRecordFromFile(rec, item.name, dirName);
-      registerRecord(rec, item.name, wsName, datasetType);
-      recs.push(rec);
-    }
-    if(datasetType === 'sales') console.log('[SALES PARSE SP]', item.name, wsName, 'rows:', recs.length, 'headerRow:', hdrIdx);
-    return recs;
-  } catch(e) { console.warn('Error leyendo', item.name, e); return []; }
+    return {
+      records: parseWorkbookMainRecords(wb, item, dirName, datasetType),
+      pendingRecords: datasetType === 'sales' ? parseWorkbookSalesPendingRecords(wb, item, dirName) : []
+    };
+  } catch(e) { console.warn('Error leyendo', item.name, e); return { records: [], pendingRecords: [] }; }
+}
+
+async function loadSpFile(item, dirName) {
+  const bundle = await loadSpFileBundle(item, dirName);
+  return bundle.records;
 }
 
 // ── Tabs por rol ─────────────────────────────
@@ -3411,6 +3828,7 @@ window.showMoreMarcasBars = showMoreMarcasBars;
 window.renderDirector = renderDirector;
 window.renderEjecutivo = renderEjecutivo;
 window.renderSales = renderSales;
+window.setSalesView = setSalesView;
 window.renderMarcas = renderMarcas;
 window.selectEjecutivo = selectEjecutivo;
 window.clearEjecutivoBrandFocus = clearEjecutivoBrandFocus;
