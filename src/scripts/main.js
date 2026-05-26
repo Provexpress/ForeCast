@@ -2979,6 +2979,10 @@ function renderDivisas(){
   
   const totalUSD=usdData.reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   const totalCOP=copData.reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
+  const copGanadas = copData.filter(r=>r['ESTADO']==='GANADA').length;
+  const usdGanadas = usdData.filter(r=>r['ESTADO']==='GANADA').length;
+  const copGanadasPct = copData.length ? copGanadas / copData.length : 0;
+  const usdGanadasPct = usdData.length ? usdGanadas / usdData.length : 0;
   const usdLiqCOP=totalUSD*trm;
   const granTotal=totalCOP+usdLiqCOP;
   
@@ -2989,8 +2993,8 @@ function renderDivisas(){
       <div class="divisa-sub">${fmtCOP(totalCOP)}</div>
       <div class="divisa-stats">
         <div><div class="d-stat-label">Negocios</div><div class="d-stat-val" style="color:var(--cop-color)">${copData.length}</div></div>
-        <div><div class="d-stat-label">Ganadas</div><div class="d-stat-val" style="color:var(--corp-green)">${copData.filter(r=>r['ESTADO']==='GANADA').length}</div></div>
-        <div><div class="d-stat-label">Prom. Negocio</div><div class="d-stat-val" style="color:var(--cop-color)">${abr(totalCOP/(copData.length||1))}</div></div>
+        <div><div class="d-stat-label">Ganadas</div><div class="d-stat-val" style="color:var(--corp-green)">${copGanadas}</div></div>
+        <div><div class="d-stat-label">% Ganadas</div><div class="d-stat-val" style="color:var(--cop-color)">${fmtPct(copGanadasPct)}</div></div>
       </div>
     </div>
     <div class="divisa-card usd">
@@ -2999,8 +3003,8 @@ function renderDivisas(){
       <div class="divisa-sub">TRM ${fmtTRMDisplay(trm)} → Liquidado ${abr(usdLiqCOP)}</div>
       <div class="divisa-stats">
         <div><div class="d-stat-label">Negocios</div><div class="d-stat-val" style="color:var(--usd-color)">${usdData.length}</div></div>
-        <div><div class="d-stat-label">Ganadas</div><div class="d-stat-val" style="color:var(--corp-green)">${usdData.filter(r=>r['ESTADO']==='GANADA').length}</div></div>
-        <div><div class="d-stat-label">En COP</div><div class="d-stat-val" style="color:var(--usd-color)">${abr(usdLiqCOP)}</div></div>
+        <div><div class="d-stat-label">Ganadas</div><div class="d-stat-val" style="color:var(--corp-green)">${usdGanadas}</div></div>
+        <div><div class="d-stat-label">% Ganadas</div><div class="d-stat-val" style="color:var(--usd-color)">${fmtPct(usdGanadasPct)}</div></div>
       </div>
     </div>
   `;
