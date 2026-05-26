@@ -3147,7 +3147,10 @@ function renderDivisas(){
       const liq=usd*trm;
       const estado = cleanDisplayText(r['ESTADO'],'—');
       const estadoClass = getEstadoBadgeClass(estado);
-      return `<tr>
+      const rowAttrs = r.__RID
+        ? ` class="table-row-action" onclick="${escAttr(jsCall('openNegocioDetailById', r.__RID, 'divisas'))}" title="Abrir detalle del negocio"`
+        : '';
+      return `<tr${rowAttrs}>
         <td>${escHtml((r['COMERCIAL']||'').split(' ')[0])}</td>
         <td>${escHtml(r['CLIENTE']||'—')}</td>
         <td style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r['PRODUCTO']||'—')}</td>
@@ -3165,7 +3168,10 @@ function renderDivisas(){
       const cop=parseMonto(r['MONTO VENTA CLIENTE'])||0;
       const estado = cleanDisplayText(r['ESTADO'],'—');
       const estadoClass = getEstadoBadgeClass(estado);
-      return `<tr>
+      const rowAttrs = r.__RID
+        ? ` class="table-row-action" onclick="${escAttr(jsCall('openNegocioDetailById', r.__RID, 'divisas'))}" title="Abrir detalle del negocio"`
+        : '';
+      return `<tr${rowAttrs}>
         <td>${escHtml((r['COMERCIAL']||'').split(' ')[0])}</td>
         <td>${escHtml(r['CLIENTE']||'—')}</td>
         <td style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r['PRODUCTO']||'—')}</td>
