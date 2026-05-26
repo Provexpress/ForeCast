@@ -2981,6 +2981,12 @@ function renderDivisas(){
   const totalCOP=copData.reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   const copGanadas = copData.filter(r=>r['ESTADO']==='GANADA').length;
   const usdGanadas = usdData.filter(r=>r['ESTADO']==='GANADA').length;
+  const copPendientes = copData.filter(r=>r['ESTADO']==='PENDIENTE').length;
+  const usdPendientes = usdData.filter(r=>r['ESTADO']==='PENDIENTE').length;
+  const copPerdidas = copData.filter(r=>r['ESTADO']==='PERDIDA').length;
+  const usdPerdidas = usdData.filter(r=>r['ESTADO']==='PERDIDA').length;
+  const copAplazadas = copData.filter(r=>r['ESTADO']==='APLAZADO').length;
+  const usdAplazadas = usdData.filter(r=>r['ESTADO']==='APLAZADO').length;
   const copGanadasPct = copData.length ? copGanadas / copData.length : 0;
   const usdGanadasPct = usdData.length ? usdGanadas / usdData.length : 0;
   const usdLiqCOP=totalUSD*trm;
@@ -2994,6 +3000,9 @@ function renderDivisas(){
       <div class="divisa-stats">
         <div><div class="d-stat-label">Negocios</div><div class="d-stat-val" style="color:var(--cop-color)">${copData.length}</div></div>
         <div><div class="d-stat-label">Ganadas</div><div class="d-stat-val" style="color:var(--corp-green)">${copGanadas}</div></div>
+        <div><div class="d-stat-label">Pendientes</div><div class="d-stat-val" style="color:var(--corp-amber)">${copPendientes}</div></div>
+        <div><div class="d-stat-label">Perdidas</div><div class="d-stat-val" style="color:var(--corp-blue2)">${copPerdidas}</div></div>
+        <div><div class="d-stat-label">Aplazadas</div><div class="d-stat-val" style="color:var(--corp-red)">${copAplazadas}</div></div>
         <div><div class="d-stat-label">% Ganadas</div><div class="d-stat-val" style="color:var(--cop-color)">${fmtPct(copGanadasPct)}</div></div>
       </div>
     </div>
@@ -3004,6 +3013,9 @@ function renderDivisas(){
       <div class="divisa-stats">
         <div><div class="d-stat-label">Negocios</div><div class="d-stat-val" style="color:var(--usd-color)">${usdData.length}</div></div>
         <div><div class="d-stat-label">Ganadas</div><div class="d-stat-val" style="color:var(--corp-green)">${usdGanadas}</div></div>
+        <div><div class="d-stat-label">Pendientes</div><div class="d-stat-val" style="color:var(--corp-amber)">${usdPendientes}</div></div>
+        <div><div class="d-stat-label">Perdidas</div><div class="d-stat-val" style="color:var(--corp-blue2)">${usdPerdidas}</div></div>
+        <div><div class="d-stat-label">Aplazadas</div><div class="d-stat-val" style="color:var(--corp-red)">${usdAplazadas}</div></div>
         <div><div class="d-stat-label">% Ganadas</div><div class="d-stat-val" style="color:var(--usd-color)">${fmtPct(usdGanadasPct)}</div></div>
       </div>
     </div>
