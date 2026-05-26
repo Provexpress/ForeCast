@@ -258,6 +258,8 @@ const HEADER_KEY_MAP = {
   'UTILIDAD':'UTILIDAD',
   'MARGEN':'MARGEN',
   'SOPORTA':'SOPORTA',
+  'SOPORTADO':'SOPORTA',
+  'COMERCIAL APOYADO':'SOPORTA',
   'FECHA':'FECHA DIA/MES/AÑO',
   'FECHA NEGOCIO':'FECHA DIA/MES/AÑO',
   'FECHA VENTA':'FECHA DIA/MES/AÑO',
@@ -284,15 +286,26 @@ const HEADER_KEY_MAP = {
   'NUMERO PENDIENTE':'NUMERO PENDIENTE',
   'NUMERO DE PENDIENTE':'NUMERO PENDIENTE',
   'NRO PENDIENTE':'NUMERO PENDIENTE',
+  'NRO. PENDIENTE':'NUMERO PENDIENTE',
   'NO PENDIENTE':'NUMERO PENDIENTE',
+  'NO. PENDIENTE':'NUMERO PENDIENTE',
   'NUM PENDIENTE':'NUMERO PENDIENTE',
+  'N PENDIENTE':'NUMERO PENDIENTE',
+  'N° PENDIENTE':'NUMERO PENDIENTE',
+  'ID PENDIENTE':'NUMERO PENDIENTE',
+  '# PENDIENTE':'NUMERO PENDIENTE',
   'CATEGORIA':'CATEGORIA',
+  'CATEGORÍA':'CATEGORIA',
   'VALOR FACTURAS':'VALOR FACTURAS',
   'VALOR FACTURA':'VALOR FACTURAS',
   'VALOR DE FACTURAS':'VALOR FACTURAS',
   'VALOR DE FACTURA':'VALOR FACTURAS',
   'VALOR FACTURADO':'VALOR FACTURAS',
   'VALOR FACTURACION':'VALOR FACTURAS',
+  'VALOR FACTURACIÓN':'VALOR FACTURAS',
+  'VALOR FACTURAS COP':'VALOR FACTURAS',
+  'VALOR FACTURA COP':'VALOR FACTURAS',
+  'VALOR FACTURAS $':'VALOR FACTURAS',
   'FACTURA':'VALOR FACTURAS'
 };
 
@@ -540,6 +553,15 @@ function getSalesPendingCommercial(row){
 
 function getSalesPendingInvoiceValue(row){
   return parseMonto(firstFilled(row, ['VALOR FACTURAS'])) || 0;
+}
+
+function ensureSalesPendingSupportName(rows, supportName){
+  const name = canonicalizeSalesSupportName(supportName || '');
+  if(!name) return rows || [];
+  (rows || []).forEach(row => {
+    if(!getSalesPendingSupportName(row)) row['SALES SUPPORT'] = name;
+  });
+  return rows || [];
 }
 
 function getSalesCostValue(row){
@@ -820,9 +842,19 @@ function normalizeDirectorName(value){
     .join(' ');
 }
 
+function normalizeFileBaseName(name){
+  return String(name || '')
+    .replace(/\.(xlsx|xls)$/i,'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/[_\-–—.]+/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
 function isSalesSupportFile(name){
-  const base = String(name || '').replace(/\.(xlsx|xls)$/i,'').trim();
-  return /^sales support\b/i.test(base);
+  const base = normalizeFileBaseName(name);
+  return /^sales\s*support(?:\s|$)/i.test(base);
 }
 
 function normalizeSheetName(name){
@@ -930,8 +962,11 @@ function hasMeaningfulSalesPendingRecordContent(rec){
 
 function parseSalesSupportFileName(name){
   const base = String(name || '').replace(/\.(xlsx|xls)$/i,'').trim();
-  if(!/^sales support\b/i.test(base)) return null;
-  const rest = base.replace(/^sales support\b/i,'').trim();
+  if(!isSalesSupportFile(base)) return null;
+  const rest = base
+    .replace(/^sales[\s._\-–—]*support/i,'')
+    .replace(/^[-–—_\s]+/,'')
+    .trim();
   const parts = rest.split(/\s+-\s+/).map(cleanNameSegment).filter(Boolean);
   const soportaNames = parts.slice(1);
   return {
@@ -3567,11 +3602,12 @@ async function loadDirectorFolder(siteId, folderName, token) {
     const recs = bundle.records || [];
     if(isSalesSupportFile(item.name)) {
       const meta = parseSalesSupportFileName(item.name) || {};
-      const supportName = cleanNameSegment(meta.supportName || 'Sales Support');
+      const supportName = canonicalizeSalesSupportName(cleanNameSegment(meta.supportName || 'Sales Support'));
+      const pendingRecords = ensureSalesPendingSupportName(bundle.pendingRecords || [], supportName);
       if(!LOADED_SALES_BY_SUPPORT[supportName]) LOADED_SALES_BY_SUPPORT[supportName] = [];
       LOADED_SALES_BY_SUPPORT[supportName].push({ name: item.name, dir: dirName, soporta: cleanNameSegment(meta.soportaName) });
       SALES_DATA.push(...recs);
-      SALES_PENDING_DATA.push(...(bundle.pendingRecords || []));
+      SALES_PENDING_DATA.push(...pendingRecords);
     } else {
       ALL_DATA.push(...recs);
       LOADED_FILES_BY_DIR[dirName].push({ name: item.name });
@@ -3632,10 +3668,11 @@ async function loadSalesSupportFiles(siteId, token) {
         const bundle = await loadSpFileBundle(item, dirName);
         const recs = bundle.records || [];
         const supportName = canonicalizeSalesSupportName(meta.supportName || targetName);
+        const pendingRecords = ensureSalesPendingSupportName(bundle.pendingRecords || [], supportName);
         if(!LOADED_SALES_BY_SUPPORT[supportName]) LOADED_SALES_BY_SUPPORT[supportName] = [];
         LOADED_SALES_BY_SUPPORT[supportName].push({ name: item.name, dir: dirName, soporta: cleanNameSegment(meta.soportaName) });
         SALES_DATA.push(...recs);
-        SALES_PENDING_DATA.push(...(bundle.pendingRecords || []));
+        SALES_PENDING_DATA.push(...pendingRecords);
         found = true;
       }
     } catch(e) { console.warn('Error leyendo folder sales', folder, e); }
@@ -3723,12 +3760,21 @@ function parseWorkbookMainRecords(wb, item, dirName, datasetType){
 function parseWorkbookSalesPendingRecords(wb, item, dirName){
   if(!isSalesSupportFile(item.name)) return [];
   const wsName = pickSalesPendingWorksheetName(wb.SheetNames);
-  if(!wsName) return [];
+  if(!wsName) {
+    console.warn('[SALES PENDIENTES] hoja no encontrada', item.name, wb.SheetNames);
+    return [];
+  }
   const ws = wb.Sheets[wsName];
   if(!ws) return [];
   const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
   const hdrIdx = findSalesPendingHeaderRowIndex(raw);
-  if(hdrIdx<0) return [];
+  if(hdrIdx<0) {
+    const preview = raw.slice(0, 8).map(row =>
+      (row || []).map(cell => normalizeHeaderKey(mapHeaderName(cell))).filter(Boolean)
+    );
+    console.warn('[SALES PENDIENTES] encabezado no encontrado', item.name, wsName, preview);
+    return [];
+  }
   const hdrs = raw[hdrIdx].map(h=>h ? mapHeaderName(String(h).trim()) : '');
   const recs = [];
   for(let i=hdrIdx+1;i<raw.length;i++) {
