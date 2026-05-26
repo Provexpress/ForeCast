@@ -280,6 +280,16 @@ const HEADER_KEY_MAP = {
   'NRO PARTE':'NUMERO DE PARTE',
   'NO PARTE':'NUMERO DE PARTE',
   'PART NUMBER':'NUMERO DE PARTE',
+  'CANT':'CANTIDAD',
+  'CANT.':'CANTIDAD',
+  'QTY':'CANTIDAD',
+  'CANTIDAD':'CANTIDAD',
+  'CANTIDADES':'CANTIDAD',
+  'UNIDADES':'CANTIDAD',
+  'UND':'CANTIDAD',
+  'UNIDAD':'CANTIDAD',
+  'CANTIDAD PRODUCTO':'CANTIDAD',
+  'CANTIDAD SOLICITADA':'CANTIDAD',
   'COSTO DEL NEGOCIO':'COSTO NEGOCIO',
   'COSTO TOTAL NEGOCIO':'COSTO NEGOCIO',
   'MONEDA':'MONEDA 2',
@@ -351,6 +361,7 @@ const DETAIL_FIELD_LABELS = {
   SOLUCION: 'Solucion',
   SERVICIO: 'Servicio',
   'NUMERO DE PARTE': 'Numero de parte',
+  CANTIDAD: 'Cantidad',
   'NUMERO DE COTIZACION': 'Numero de cotizacion',
   MARCA: 'Marca',
   FABRICANTE: 'Marca',
@@ -507,6 +518,17 @@ function getRowBrandName(row){
 
 function getRowPartNumber(row){
   return firstFilled(row, ['NUMERO DE PARTE','NUMERO PARTE','NRO PARTE','NO PARTE','PART NUMBER']) || '';
+}
+
+function getRowQuantityValue(row, fallback){
+  const defaultValue = fallback === undefined ? 1 : fallback;
+  const raw = firstFilled(row, [
+    'CANTIDAD','CANT','CANT.','QTY','UNIDADES','UND','UNIDAD',
+    'CANTIDAD PRODUCTO','CANTIDAD SOLICITADA'
+  ]);
+  if(raw === null || raw === undefined || String(raw).trim() === '') return defaultValue;
+  const parsed = parseMonto(raw);
+  return parsed > 0 ? parsed : defaultValue;
 }
 
 const LINE_NAME_ALIASES = {
@@ -1830,7 +1852,7 @@ function buildMarcaLineaDetailTable(data){
       rows: []
     };
 
-    current.cantidad += 1;
+    current.cantidad += getRowQuantityValue(row, 1);
     current.totalCOP += toCOP(row);
     current.rows.push(row);
     current.estados[estado] = (current.estados[estado] || 0) + 1;
@@ -2461,7 +2483,12 @@ function renderEjecutivo(){
     renderEjecutivo();
     return;
   }
-  const execMonthRows = ej ? ALL_DATA.filter(r=>namesMatch(r['COMERCIAL'], ej)) : ALL_DATA;
+  const focusedBrand = EJECUTIVO_BRAND_FOCUS ? EJECUTIVO_BRAND_FOCUS.brandName : '';
+  const focusedDirector = EJECUTIVO_BRAND_FOCUS ? EJECUTIVO_BRAND_FOCUS.directorName : '';
+  const brandKey = normalizeCategoryValue(focusedBrand);
+  let execMonthRows = ej ? ALL_DATA.filter(r=>namesMatch(r['COMERCIAL'], ej)) : ALL_DATA;
+  if(focusedDirector) execMonthRows = execMonthRows.filter(r => cleanDisplayText(r['DIRECTOR'], '') === focusedDirector);
+  if(focusedBrand) execMonthRows = execMonthRows.filter(r => normalizeCategoryValue(getRowBrandName(r)) === brandKey);
   const mes=syncMonthSelectOptions('sel-ej-mes', getForecastMonths(execMonthRows));
   document.getElementById('persona-grid').innerHTML=execs.map((e,i)=>{
     const ed=ALL_DATA.filter(r=>(r['COMERCIAL']||'').trim()===e);
@@ -2495,9 +2522,11 @@ function renderEjecutivo(){
   let data=ALL_DATA.filter(r=>r['COMERCIAL']===ej);
   if(mes) data=data.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===mes);
   if(est) data=data.filter(r=>r['ESTADO']===est);
-  const focusedBrand = EJECUTIVO_BRAND_FOCUS ? EJECUTIVO_BRAND_FOCUS.brandName : '';
+  if(focusedDirector) {
+    data = data.filter(r => cleanDisplayText(r['DIRECTOR'], '') === focusedDirector);
+  }
   if(focusedBrand) {
-    data = data.filter(r => getRowBrandName(r) === focusedBrand);
+    data = data.filter(r => normalizeCategoryValue(getRowBrandName(r)) === brandKey);
   }
   
   const totalCOP=data.reduce((s,r)=>s+toCOP(r),0);
@@ -2507,6 +2536,9 @@ function renderEjecutivo(){
   const focusBadge = focusedBrand
     ? `<span class="section-tag" style="background:rgba(42,191,223,.16);color:var(--corp-cyan);border-color:rgba(42,191,223,.32)">MARCA · ${escHtml(focusedBrand)}</span>`
     : '';
+  const directorFocusBadge = focusedDirector
+    ? `<span class="section-tag">DIRECTOR · ${escHtml(focusedDirector)}</span>`
+    : '';
   const focusClear = focusedBrand
     ? `<button class="btn-clear" onclick="clearEjecutivoBrandFocus()">Ver todo el ejecutivo</button>`
     : '';
@@ -2514,7 +2546,7 @@ function renderEjecutivo(){
   const linData=buildLineValueData(data);
   
   document.getElementById('ejecutivo-content').innerHTML=`
-    <div class="section-hd" style="margin-top:16px"><h2>${escHtml(ej)}</h2><span class="section-tag" style="background:${ejColor}20;color:${ejColor};border-color:${ejColor}40">EJECUTIVO</span>${focusBadge}${focusClear}</div>
+    <div class="section-hd" style="margin-top:16px"><h2>${escHtml(ej)}</h2><span class="section-tag" style="background:${ejColor}20;color:${ejColor};border-color:${ejColor}40">EJECUTIVO</span>${focusBadge}${directorFocusBadge}${focusClear}</div>
     
     <div class="kpi-grid kpi-grid-4" style="margin-bottom:16px">
       <div class="kpi" style="--ac:${ejColor}"><div class="kpi-accent"></div>
@@ -3252,18 +3284,21 @@ function renderMarcas(){
     : ALL_DATA;
   const execs=[...new Set(marcaExecData.map(r=>r['COMERCIAL']||'').filter(Boolean))];
   document.getElementById('tbl-marca-ej').innerHTML=`<table>
-    <thead><tr><th>Ejecutivo</th><th>Top Marca</th></tr></thead>
+    <thead><tr><th>Ejecutivo</th><th>Top Marca</th><th>Cantidad</th></tr></thead>
     <tbody>${execs.length ? execs.map(e=>{
       const ed=marcaExecData.filter(r=>r['COMERCIAL']===e);
       const marcaCounts=marcas.map(m=>ed.filter(r=>getRowBrandName(r)===m).length);
       const topIdx=marcaCounts.indexOf(Math.max(...marcaCounts));
-      const execDirector = cleanDisplayText((ed[0]||{})['DIRECTOR'], selectedDirector || '');
+      const execDirector = selectedDirector ? cleanDisplayText(selectedDirector, '') : '';
       const topMarca = marcas[topIdx] || '—';
+      const topMarcaCount = topIdx >= 0 ? marcaCounts[topIdx] || 0 : 0;
+      const topColor = topIdx >= 0 ? COLORS[topIdx%COLORS.length] : 'var(--text3)';
       return `<tr class="table-row-action" onclick="${escAttr(jsCall('openExecNegociosFromMarcas', e, execDirector, topMarca))}" title="Abrir negocios del ejecutivo">
         <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${escHtml(e)}</td>
-        <td style="font-family:var(--font-display);font-weight:700;color:${COLORS[topIdx%COLORS.length]}">${escHtml(topMarca)}</td>
+        <td style="font-family:var(--font-display);font-weight:700;color:${topColor}">${escHtml(topMarca)}</td>
+        <td class="td-mono">${fmtNum(topMarcaCount)}</td>
       </tr>`;
-    }).join('') : `<tr><td colspan="2" style="text-align:center;color:var(--text2);padding:20px 14px">Sin ejecutivos con datos para este grupo.</td></tr>`}</tbody>
+    }).join('') : `<tr><td colspan="3" style="text-align:center;color:var(--text2);padding:20px 14px">Sin ejecutivos con datos para este grupo.</td></tr>`}</tbody>
   </table>`;
 }
 
