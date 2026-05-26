@@ -55,6 +55,33 @@ function cacheTRM(val){
 
 loadCachedTRM();
 
+const APP_THEME_KEY = 'forecast_theme';
+
+function applyAppTheme(theme){
+  const selected = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', selected);
+  try { localStorage.setItem(APP_THEME_KEY, selected); } catch(_) {}
+  const btn = document.getElementById('theme-toggle-btn');
+  if(btn) {
+    btn.textContent = selected === 'light' ? '☀' : '☾';
+    btn.title = selected === 'light' ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro';
+    btn.setAttribute('aria-label', btn.title);
+  }
+}
+
+function toggleAppTheme(){
+  const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  applyAppTheme(current === 'light' ? 'dark' : 'light');
+}
+
+function initAppTheme(){
+  let saved = 'dark';
+  try { saved = localStorage.getItem(APP_THEME_KEY) || 'dark'; } catch(_) {}
+  applyAppTheme(saved);
+}
+
+initAppTheme();
+
 async function fetchTRM() {
   const setTRM = t => {
     TRM = t;
@@ -1096,13 +1123,14 @@ function getMonthLongLabel(monthKey){
 
 function syncMonthSelectOptions(selectId, months){
   const sel = document.getElementById(selectId);
-  if(!sel) return;
+  if(!sel) return '';
   const current = sel.value;
   sel.innerHTML = optionHtml('', 'Todos', false) + buildOptionList(months, {
     getLabel: getMonthLongLabel
   });
   if(current && months.includes(current)) sel.value = current;
   else sel.value = '';
+  return sel.value;
 }
 
 function refreshForecastMonthFilters(){
@@ -1212,6 +1240,7 @@ function finalizeLoad(){
   const allExecsForSel=[...new Set([...execs,...execsFromFiles2])].sort();
   const selEj=document.getElementById('sel-ejecutivo');
   selEj.innerHTML=buildOptionList(allExecsForSel);
+  refreshForecastMonthFilters();
 
   // Aplicar pestañas y badge según rol una vez que los selects ya están listos
   applyRoleTabs();
@@ -1674,6 +1703,17 @@ function renderNegocioDetail(row){
   `;
 }
 
+function scrollToElementAfterRender(id, offset){
+  const topOffset = Number(offset) || 112;
+  const apply = () => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    const top = el.getBoundingClientRect().top + (window.scrollY || window.pageYOffset || 0) - topOffset;
+    window.scrollTo({ top: Math.max(top, 0), left: 0, behavior: 'smooth' });
+  };
+  requestAnimationFrame(() => requestAnimationFrame(apply));
+}
+
 function renderMarcaLineaDetail(){
   const host = document.getElementById('marca-linea-detail');
   const state = MARCA_LINEA_DETAIL_STATE;
@@ -1747,7 +1787,7 @@ function renderMarcaLineaDetail(){
         <div class="director-table-toolbar">
           <div>
             <div class="chart-hd">Partes y clientes asociados</div>
-            <div style="font-size:11px;color:var(--text2)">Agrupado por numero de parte, cliente y estado. La cantidad sale del conteo automatico de registros y el valor se consolida en COP.</div>
+            <div style="font-size:11px;color:var(--text2)">Agrupado por producto o numero de parte y cliente. La cantidad muestra cuantos registros tiene ese producto o cliente dentro de la seleccion y el valor se consolida en COP.</div>
           </div>
           <div class="director-table-filter">
             <div class="filter-label">Estado</div>
@@ -1775,16 +1815,16 @@ function buildMarcaLineaDetailTable(data){
     const partNumber = cleanDisplayText(getRowPartNumber(row), '');
     const productName = cleanDisplayText(getRowProductName(row), '');
     const productKey = normalizeCategoryValue(partNumber || productName || 'sin numero de parte');
-    const productLabel = partNumber || 'Sin numero de parte';
+    const productLabel = partNumber || productName || 'Sin numero de parte';
     const clientLabel = cleanDisplayText(getRowClientName(row), 'Sin cliente');
     const clientKey = normalizeCategoryValue(clientLabel);
     const estado = cleanDisplayText(row['ESTADO'], 'Sin estado').toUpperCase();
-    const key = [productKey, clientKey, estado].join('||');
+    const key = [productKey, clientKey].join('||');
     const current = grouped.get(key) || {
       producto: productLabel,
       productoHint: productName,
       cliente: clientLabel,
-      estado,
+      estados: {},
       cantidad: 0,
       totalCOP: 0,
       rows: []
@@ -1793,6 +1833,7 @@ function buildMarcaLineaDetailTable(data){
     current.cantidad += 1;
     current.totalCOP += toCOP(row);
     current.rows.push(row);
+    current.estados[estado] = (current.estados[estado] || 0) + 1;
     if(!current.productoHint && productName) current.productoHint = productName;
     grouped.set(key, current);
   });
@@ -1807,7 +1848,7 @@ function buildMarcaLineaDetailTable(data){
   return `<table class="responsive-table">
     <thead><tr><th>Producto</th><th>Cliente</th><th>Cantidad</th><th>Estado</th><th>Valor Total COP</th></tr></thead>
     <tbody>${items.length ? items.map(item => {
-      const estadoClass = getEstadoBadgeClass(item.estado);
+      const estadoEntries = Object.entries(item.estados || {}).sort((a,b)=>b[1]-a[1]);
       const singleRow = item.rows.length === 1 ? item.rows[0] : null;
       const rowAttrs = singleRow && singleRow.__RID
         ? ` class="table-row-action" onclick="${escAttr(jsCall('openNegocioDetailById', singleRow.__RID, 'marca-linea-detail'))}" title="Abrir detalle del negocio"`
@@ -1817,7 +1858,7 @@ function buildMarcaLineaDetailTable(data){
         <td style="color:var(--text);font-weight:600;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escAttr(productTitle)}" data-label="Producto">${escHtml(item.producto)}</td>
         <td style="color:var(--text)" data-label="Cliente">${escHtml(item.cliente)}</td>
         <td class="td-mono" data-label="Cantidad">${fmtNum(item.cantidad)}</td>
-        <td data-label="Estado"><span class="badge badge-${estadoClass}">${escHtml(item.estado)}</span></td>
+        <td data-label="Estado">${estadoEntries.map(([estado,count]) => `<span class="badge badge-${getEstadoBadgeClass(estado)}" title="${escAttr(count + ' registros')}">${escHtml(estado)}${estadoEntries.length > 1 ? ' · ' + fmtNum(count) : ''}</span>`).join(' ')}</td>
         <td class="td-mono td-cop" data-label="Valor Total COP">${fmtCOP(item.totalCOP)}</td>
       </tr>`;
     }).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--text2)">Sin registros para este filtro.</td></tr>`}</tbody>
@@ -2143,7 +2184,8 @@ function renderDirector(){
   const ALL_DATA = getVisibleData();
   if(!ALL_DATA.length) return;
   const dir=document.getElementById('sel-director').value;
-  const mes=document.getElementById('sel-dir-mes').value;
+  const directorMonthRows = dir ? ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir) : ALL_DATA;
+  const mes=syncMonthSelectOptions('sel-dir-mes', getForecastMonths(directorMonthRows));
   const est=document.getElementById('sel-dir-estado').value;
   const trm=getTRM();
   const estadoOptions = [
@@ -2392,7 +2434,6 @@ function renderEjecutivo(){
   const role = CURRENT_USER ? CURRENT_USER.role : null;
   const targetName = role === 'ejecutivo' ? getExecTargetName() : '';
   const selEj = document.getElementById('sel-ejecutivo');
-  const mes=document.getElementById('sel-ej-mes').value;
   const est=document.getElementById('sel-ej-estado').value;
   const trm=getTRM();
   
@@ -2420,6 +2461,8 @@ function renderEjecutivo(){
     renderEjecutivo();
     return;
   }
+  const execMonthRows = ej ? ALL_DATA.filter(r=>namesMatch(r['COMERCIAL'], ej)) : ALL_DATA;
+  const mes=syncMonthSelectOptions('sel-ej-mes', getForecastMonths(execMonthRows));
   document.getElementById('persona-grid').innerHTML=execs.map((e,i)=>{
     const ed=ALL_DATA.filter(r=>(r['COMERCIAL']||'').trim()===e);
     const cop=ed.reduce((s,r)=>s+toCOP(r),0);
@@ -2551,6 +2594,7 @@ function openExecNegociosFromMarcas(execName, directorName, brandName){
   } : null;
   renderEjecutivo();
   showPage('ejecutivo', getNavButtonForPage('ejecutivo'));
+  scrollToElementAfterRender('ejecutivo-content', 118);
 }
 
 function getMonthLabel(monthKey){
@@ -2994,6 +3038,43 @@ function renderDivisas(){
   const usdGanadasPct = usdData.length ? usdGanadas / usdData.length : 0;
   const usdLiqCOP=totalUSD*trm;
   const granTotal=totalCOP+usdLiqCOP;
+  const totalStatusRows = (estado) => ALL_DATA.filter(r=>cleanDisplayText(r['ESTADO'], '').toUpperCase() === estado);
+  const totalStatusValue = (rows) => rows.reduce((sum,row)=>sum+toCOP(row),0);
+  const totalGanadasRows = totalStatusRows('GANADA');
+  const totalPendientesRows = totalStatusRows('PENDIENTE');
+  const totalAplazadasRows = totalStatusRows('APLAZADO');
+  const totalPerdidasRows = totalStatusRows('PERDIDA');
+
+  const divisasTotalCards = document.getElementById('divisas-total-cards');
+  if(divisasTotalCards) {
+    divisasTotalCards.innerHTML = `
+      <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Total negocios</div>
+        <div class="kpi-val">${fmtNum(ALL_DATA.length)}</div>
+        <div class="kpi-sub">${fmtCOP(granTotal)}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Total ganadas</div>
+        <div class="kpi-val">${fmtNum(totalGanadasRows.length)}</div>
+        <div class="kpi-sub">${fmtCOP(totalStatusValue(totalGanadasRows))}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-amber)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Total pendientes</div>
+        <div class="kpi-val">${fmtNum(totalPendientesRows.length)}</div>
+        <div class="kpi-sub">${fmtCOP(totalStatusValue(totalPendientesRows))}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-red)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Total aplazadas</div>
+        <div class="kpi-val">${fmtNum(totalAplazadasRows.length)}</div>
+        <div class="kpi-sub">${fmtCOP(totalStatusValue(totalAplazadasRows))}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Total perdidas</div>
+        <div class="kpi-val">${fmtNum(totalPerdidasRows.length)}</div>
+        <div class="kpi-sub">${fmtCOP(totalStatusValue(totalPerdidasRows))}</div>
+      </div>
+    `;
+  }
   
   document.getElementById('divisas-cards').innerHTML=`
     <div class="divisa-card cop">
@@ -3881,6 +3962,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // Exponer handlers usados por atributos inline (onclick/onchange) en index.html
 window.loadFolderFromSharePoint = loadFolderFromSharePoint;
 window.showPage = showPage;
+window.toggleAppTheme = toggleAppTheme;
 window.renderDivisas = renderDivisas;
 window.setDivisaEstadoFilter = setDivisaEstadoFilter;
 window.showMoreDivisaRows = showMoreDivisaRows;

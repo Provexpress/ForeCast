@@ -7,7 +7,7 @@
 <link rel="icon" type="image/png" href="src/icono-provexpress.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="src/styles/main.css?v=20260526-sales-pending-cards1">
+<link rel="stylesheet" href="src/styles/main.css?v=20260526-dashboard-updates1">
 
 <!-- Microsoft Authentication Library -->
 <script src="src/scripts/auth.js?v=20260522a"></script>
@@ -44,6 +44,7 @@
     </div>
     <div id="user-badge" style="display:none;align-items:center;gap:8px;padding:5px 12px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid var(--border);position:relative">
       <div id="user-avatar" style="width:26px;height:26px;border-radius:50%;background:var(--corp-blue2);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:10px;font-weight:700;color:#fff"></div>
+      <button id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleAppTheme()" type="button" title="Cambiar tema" aria-label="Cambiar tema">☾</button>
       <div>
         <div id="user-name" style="font-size:10px;font-family:var(--font-display);font-weight:700;color:var(--text)"></div>
         <div id="user-role-badge" style="font-size:9px;color:var(--text2)"></div>
@@ -295,6 +296,7 @@
 <div class="page" id="page-divisas">
   <div class="section-hd"><h2>Panel Divisas</h2><span class="section-tag">COP · USD · TRM</span></div>
   
+  <div class="kpi-grid kpi-grid-5" id="divisas-total-cards" style="margin-bottom:16px"></div>
   <div class="divisas-grid" id="divisas-cards"></div>
 
   <div class="filters" style="margin-top:4px">
@@ -407,7 +409,7 @@
 
 </main>
 
-<script src="src/scripts/main.js?v=20260526-sales-pending-cards1"></script>
+<script src="src/scripts/main.js?v=20260526-dashboard-updates1"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->
