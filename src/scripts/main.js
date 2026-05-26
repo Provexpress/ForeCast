@@ -13,6 +13,7 @@ let MARCA_LINEA_DETAIL_STATE = null;
 let EJECUTIVO_BRAND_FOCUS = null;
 let LOADED_SALES_BY_SUPPORT = {};
 let SALES_VIEW_MODE = 'reporte';
+let SALES_PENDING_VALUE_ONLY = false;
 let FORECAST_CONNECTIONS_LIST_ID = null;
 let FORECAST_CONNECTIONS = { byEmail: {}, byName: {} };
 
@@ -2625,6 +2626,27 @@ function setSalesView(mode){
   renderSales();
 }
 
+function setSalesPendingFilter(kind, value){
+  const selPendiente = document.getElementById('sel-sales-pendiente');
+  const selCategoria = document.getElementById('sel-sales-categoria');
+  const type = kind || 'all';
+  if(type === 'all') {
+    if(selPendiente) selPendiente.value = '';
+    if(selCategoria) selCategoria.value = '';
+    SALES_PENDING_VALUE_ONLY = false;
+  } else if(type === 'pendiente') {
+    if(selPendiente) selPendiente.value = value || '';
+    SALES_PENDING_VALUE_ONLY = false;
+  } else if(type === 'categoria') {
+    if(selCategoria) selCategoria.value = value || '';
+    SALES_PENDING_VALUE_ONLY = false;
+  } else if(type === 'valor') {
+    SALES_PENDING_VALUE_ONLY = true;
+  }
+  SALES_VIEW_MODE = 'pendientes';
+  renderSales();
+}
+
 function getSalesPendingBadgeClass(value){
   const key = normalizeCategoryValue(value);
   if(key.includes('pedido') || key.includes('compra')) return 'PEDIDA';
@@ -2753,9 +2775,11 @@ function renderSales(){
   if(mode === 'pendientes') {
     const pendingType = selPendiente ? selPendiente.value : '';
     const pendingCategory = selCategoria ? selCategoria.value : '';
-    let data = allPending.filter(r => namesMatch(getSalesPendingSupportName(r), selectedSupport));
+    const summaryData = allPending.filter(r => namesMatch(getSalesPendingSupportName(r), selectedSupport));
+    let data = summaryData.slice();
     if(pendingType) data = data.filter(r => getSalesPendingType(r) === pendingType);
     if(pendingCategory) data = data.filter(r => getSalesPendingCategory(r) === pendingCategory);
+    if(SALES_PENDING_VALUE_ONLY) data = data.filter(r => getSalesPendingInvoiceValue(r) > 0);
     data = data.sort((a,b)=>{
       const byValue = getSalesPendingInvoiceValue(b) - getSalesPendingInvoiceValue(a);
       if(byValue !== 0) return byValue;
@@ -2763,91 +2787,60 @@ function renderSales(){
     });
 
     const totalFacturas = data.reduce((sum,row)=>sum+getSalesPendingInvoiceValue(row),0);
-    const totalRecords = data.length;
-    const totalPedidos = data.filter(r=>normalizeCategoryValue(getSalesPendingType(r)).includes('pedido')).length;
-    const totalGlpi = data.filter(r=>normalizeCategoryValue(getSalesPendingType(r)).includes('glpi')).length;
-    const totalRemisiones = data.filter(r=>normalizeCategoryValue(getSalesPendingType(r)).includes('remision')).length;
-    const totalConValor = data.filter(r=>getSalesPendingInvoiceValue(r)>0).length;
-    const comerciales = [...new Set(data.map(getSalesPendingCommercial).filter(Boolean))];
-    const typeNames = [...new Set(['Pedido','GLPI','Remision', ...data.map(getSalesPendingType).filter(Boolean)])];
+    const totalRecords = summaryData.length;
+    const totalPedidos = summaryData.filter(r=>normalizeCategoryValue(getSalesPendingType(r)).includes('pedido')).length;
+    const totalGlpi = summaryData.filter(r=>normalizeCategoryValue(getSalesPendingType(r)).includes('glpi')).length;
+    const totalRemisiones = summaryData.filter(r=>normalizeCategoryValue(getSalesPendingType(r)).includes('remision')).length;
+    const totalConValor = summaryData.filter(r=>getSalesPendingInvoiceValue(r)>0).length;
     const categoryNames = [...new Set(['Compra','Garantias','Factura', ...data.map(getSalesPendingCategory).filter(Boolean)])];
-    const typeData = typeNames.map(name=>({
-      name,
-      val: data.filter(r=>getSalesPendingType(r)===name).length
-    })).filter(item=>item.val>0);
     const categoryData = categoryNames.map(name=>({
       name,
       val: data.filter(r=>getSalesPendingCategory(r)===name).length
     })).filter(item=>item.val>0);
-    const topComercialCount = comerciales.map(name=>({
-      name,
-      val: data.filter(r=>getSalesPendingCommercial(r)===name).length
-    })).sort((a,b)=>b.val-a.val).slice(0, TOP_BAR_LIMIT);
-    const topComercialValue = comerciales.map(name=>({
-      name,
-      val: data.filter(r=>getSalesPendingCommercial(r)===name).reduce((sum,row)=>sum+getSalesPendingInvoiceValue(row),0)
-    })).sort((a,b)=>b.val-a.val).slice(0, TOP_BAR_LIMIT);
+    const noExtraFilter = !pendingType && !pendingCategory && !SALES_PENDING_VALUE_ONLY;
 
     host.innerHTML = `
       <div class="section-hd" style="margin-top:16px"><h2>${escHtml(selectedSupport)}</h2><span class="section-tag">PENDIENTES</span></div>
-      <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
-        <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
-          <div class="kpi-label">Valor facturas</div>
-          <div class="kpi-val">${abr(totalFacturas)}</div>
-          <div class="kpi-sub">${fmtCOP(totalFacturas)}</div>
-        </div>
-        <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
+      <div class="kpi-grid kpi-grid-5" style="margin-bottom:16px">
+        <div class="kpi exec-card ${noExtraFilter ? 'selected' : ''}" style="--ac:var(--corp-purple2)" onclick="${escAttr(jsCall('setSalesPendingFilter', 'all'))}"><div class="kpi-accent"></div>
           <div class="kpi-label">Pendientes</div>
           <div class="kpi-val">${totalRecords}</div>
-          <div class="kpi-sub">Registros hoja PENDIENTES</div>
+          <div class="kpi-sub">Ver todos</div>
         </div>
-        <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
+        <div class="kpi exec-card ${pendingType === 'Pedido' ? 'selected' : ''}" style="--ac:var(--corp-cyan)" onclick="${escAttr(jsCall('setSalesPendingFilter', 'pendiente', 'Pedido'))}"><div class="kpi-accent"></div>
           <div class="kpi-label">Pedidos</div>
           <div class="kpi-val">${totalPedidos}</div>
           <div class="kpi-sub">Categoria Compra</div>
         </div>
-        <div class="kpi" style="--ac:var(--corp-amber)"><div class="kpi-accent"></div>
+        <div class="kpi exec-card ${pendingType === 'GLPI' ? 'selected' : ''}" style="--ac:var(--corp-amber)" onclick="${escAttr(jsCall('setSalesPendingFilter', 'pendiente', 'GLPI'))}"><div class="kpi-accent"></div>
           <div class="kpi-label">GLPI</div>
           <div class="kpi-val">${totalGlpi}</div>
           <div class="kpi-sub">Categoria Garantias</div>
         </div>
-        <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
+        <div class="kpi exec-card ${pendingType === 'Remision' ? 'selected' : ''}" style="--ac:var(--corp-green)" onclick="${escAttr(jsCall('setSalesPendingFilter', 'pendiente', 'Remision'))}"><div class="kpi-accent"></div>
           <div class="kpi-label">Remisiones</div>
           <div class="kpi-val">${totalRemisiones}</div>
           <div class="kpi-sub">Categoria Factura</div>
         </div>
-        <div class="kpi" style="--ac:var(--corp-red)"><div class="kpi-accent"></div>
+        <div class="kpi exec-card ${SALES_PENDING_VALUE_ONLY ? 'selected' : ''}" style="--ac:var(--corp-red)" onclick="${escAttr(jsCall('setSalesPendingFilter', 'valor'))}"><div class="kpi-accent"></div>
           <div class="kpi-label">Con valor</div>
           <div class="kpi-val">${totalConValor}</div>
-          <div class="kpi-sub">Facturas con monto</div>
+          <div class="kpi-sub">Filtrar facturas</div>
         </div>
       </div>
 
       <div class="g2">
-        <div class="chart-card">
-          <div class="chart-hd">Pendientes por comercial</div>
-          <div class="bar-list" id="bar-sales-pending-comercial-count"></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-hd">Valor facturas por comercial</div>
-          <div class="bar-list" id="bar-sales-pending-comercial-value"></div>
-        </div>
-      </div>
-
-      <div class="g2">
-        <div class="chart-card">
-          <div class="chart-hd">Tipo pendiente</div>
-          <div class="donut-wrap">
-            <svg id="donut-sales-pending-type" viewBox="0 0 100 100" style="width:130px;height:130px;flex-shrink:0"></svg>
-            <div class="donut-leg" id="leg-sales-pending-type"></div>
-          </div>
-        </div>
         <div class="chart-card">
           <div class="chart-hd">Categoria</div>
           <div class="donut-wrap">
             <svg id="donut-sales-pending-category" viewBox="0 0 100 100" style="width:130px;height:130px;flex-shrink:0"></svg>
             <div class="donut-leg" id="leg-sales-pending-category"></div>
           </div>
+        </div>
+        <div class="kpi sales-pending-total-card" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
+          <div class="kpi-label">Valor facturas</div>
+          <div class="kpi-val">${abr(totalFacturas)}</div>
+          <div class="kpi-sub">${fmtCOP(totalFacturas)}</div>
         </div>
       </div>
 
@@ -2865,9 +2858,6 @@ function renderSales(){
       </div>
     `;
 
-    renderBars('bar-sales-pending-comercial-count', topComercialCount, COLORS, fmtNum, { nameClass:'w160' });
-    renderBars('bar-sales-pending-comercial-value', topComercialValue, COLORS, null, { nameClass:'w160' });
-    renderDonut('donut-sales-pending-type', 'leg-sales-pending-type', typeData);
     renderDonut('donut-sales-pending-category', 'leg-sales-pending-category', categoryData);
     return;
   }
@@ -3880,6 +3870,7 @@ window.renderDirector = renderDirector;
 window.renderEjecutivo = renderEjecutivo;
 window.renderSales = renderSales;
 window.setSalesView = setSalesView;
+window.setSalesPendingFilter = setSalesPendingFilter;
 window.renderMarcas = renderMarcas;
 window.selectEjecutivo = selectEjecutivo;
 window.clearEjecutivoBrandFocus = clearEjecutivoBrandFocus;
