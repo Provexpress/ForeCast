@@ -1969,8 +1969,8 @@ function renderEvoChart(containerId, dataByDir, months){
   // Grid lines
   [0,.25,.5,.75,1].forEach(t=>{
     const y=padT+gH*(1-t);
-    svg+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#1A2240" stroke-width="${t===0?1.5:.7}"/>`;
-    if(t>0) svg+=`<text x="${padL-5}" y="${y+3.5}" text-anchor="end" font-size="8.5" font-weight="400" fill="#B8C8E8" font-family="IBM Plex Mono,monospace">${abr(maxVal*t)}</text>`;
+    svg+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--border)" stroke-width="${t===0?1.5:.7}"/>`;
+    if(t>0) svg+=`<text x="${padL-5}" y="${y+3.5}" text-anchor="end" font-size="8.5" font-weight="400" fill="var(--text3)" font-family="IBM Plex Mono,monospace">${abr(maxVal*t)}</text>`;
   });
 
   // Bars
@@ -1985,7 +1985,7 @@ function renderEvoChart(containerId, dataByDir, months){
       svg+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${bh.toFixed(1)}" rx="2" fill="url(#bg${di})" data-tooltip="${escAttr(dirs[di]+': '+abr(v))}"></rect>`;
     });
     // Month label
-    svg+=`<text x="${grpCenter.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="#B8C8E8" font-family="IBM Plex Sans,sans-serif" font-weight="400">${getMonthShortLabel(m)}</text>`;
+    svg+=`<text x="${grpCenter.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="IBM Plex Sans,sans-serif" font-weight="400">${getMonthShortLabel(m)}</text>`;
   });
 
   // Legend top
@@ -1994,7 +1994,7 @@ function renderEvoChart(containerId, dataByDir, months){
     const c=COLORS[di%COLORS.length];
     const short=d.split(' ').slice(0,2).join(' ');
     svg+=`<rect x="${lx}" y="4" width="9" height="9" rx="2" fill="${c}"/>`;
-    svg+=`<text x="${lx+12}" y="12" font-size="9" font-weight="400" fill="#B8C8E8" font-family="IBM Plex Sans,sans-serif">${escHtml(short)}</text>`;
+    svg+=`<text x="${lx+12}" y="12" font-size="9" font-weight="400" fill="var(--text3)" font-family="IBM Plex Sans,sans-serif">${escHtml(short)}</text>`;
     lx+=short.length*4.8+20;
   });
 
@@ -2133,8 +2133,8 @@ function renderGerenciaEstadoTables(data) {
       return `
         <tr class="table-row-action" style="border-top:1px solid var(--border)" onclick="${escAttr(jsCall('openNegocioDetailById', r.__RID, 'gerencia'))}" title="Abrir detalle del negocio">
           <td style="padding:5px 8px;font-size:10px;color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(cliente)}">${escHtml(cliente)}</td>
-          <td style="padding:5px 8px;font-size:10px;color:#B0BCDF;font-weight:600;white-space:nowrap">${escHtml(comercial)}</td>
-          <td style="padding:5px 8px;font-size:10px;color:#B0BCDF;font-weight:500;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis" title="${escAttr(linea)}">${escHtml(linea)}</td>
+          <td style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap">${escHtml(comercial)}</td>
+          <td style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:500;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis" title="${escAttr(linea)}">${escHtml(linea)}</td>
           <td style="padding:5px 8px;font-size:10px;color:${colores[estado]};text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap">${abr(valor)}</td>
         </tr>`;
     }).join('');
@@ -2150,7 +2150,7 @@ function renderGerenciaEstadoTables(data) {
         <div class="estado-card-head" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">
           <div>
             <span style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:${colores[estado]}">${estado}</span>
-            <span style="font-size:9px;color:#B0BCDF;margin-left:8px;font-family:var(--font-body)">${rows.length} negocio${rows.length!==1?'s':''}</span>
+            <span style="font-size:9px;color:var(--text3);margin-left:8px;font-family:var(--font-body)">${rows.length} negocio${rows.length!==1?'s':''}</span>
           </div>
           <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--text)">${abr(total)}</span>
         </div>
@@ -2158,16 +2158,16 @@ function renderGerenciaEstadoTables(data) {
           <table class="estado-mini-table" style="width:100%;border-collapse:collapse">
             <thead style="position:sticky;top:0;z-index:1;background:var(--bg2)">
               <tr>
-                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:left">EMPRESA</th>
-                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:left">EJECUTIVO</th>
-                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:left">LÍNEA</th>
-                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:#C8D4F0;text-align:right">VALOR</th>
+                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:var(--text3);text-align:left">EMPRESA</th>
+                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:var(--text3);text-align:left">EJECUTIVO</th>
+                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:var(--text3);text-align:left">LÍNEA</th>
+                <th style="padding:5px 8px;font-size:8.5px;font-family:var(--font-display);letter-spacing:.8px;color:var(--text3);text-align:right">VALOR</th>
               </tr>
             </thead>
             <tbody>${rows_html}</tbody>
             <tfoot style="background:var(--bg2);border-top:1px solid var(--border)">
               <tr>
-                <td colspan="3" style="padding:6px 8px;font-size:9px;font-family:var(--font-display);color:#C8D4F0;font-weight:700">TOTAL ${rows.length} NEGOCIOS</td>
+                <td colspan="3" style="padding:6px 8px;font-size:9px;font-family:var(--font-display);color:var(--text);font-weight:700">TOTAL ${rows.length} NEGOCIOS</td>
                 <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:var(--font-mono);color:${colores[estado]};font-weight:700">${abr(total)}</td>
               </tr>
             </tfoot>
@@ -2242,8 +2242,8 @@ function renderDirector(){
     // Grid
     [0,.5,1].forEach(t=>{
       const y=padT+gH*(1-t);
-      s+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#1A2240" stroke-width="${t===0?1.5:.6}"/>`;
-      if(t>0) s+=`<text x="${padL-4}" y="${y+3}" text-anchor="end" font-size="7.5" fill="#B8C8E8" font-weight="400" font-family="IBM Plex Mono,monospace">${abr(maxV*t)}</text>`;
+      s+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--border)" stroke-width="${t===0?1.5:.6}"/>`;
+      if(t>0) s+=`<text x="${padL-4}" y="${y+3}" text-anchor="end" font-size="7.5" fill="var(--text3)" font-weight="400" font-family="IBM Plex Mono,monospace">${abr(maxV*t)}</text>`;
     });
     months.forEach((m,i)=>{
       const v=vals[i]||0;
@@ -2252,7 +2252,7 @@ function renderDirector(){
       const x=cx-bW/2;
       const y=padT+gH-bh;
       s+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${bh.toFixed(1)}" rx="3" fill="url(#bg-dir)" data-tooltip="${escAttr(getMonthShortLabel(m)+': '+abr(v))}"></rect>`;
-      s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#B0BCDF" font-family="IBM Plex Sans,sans-serif" font-weight="400">${getMonthShortLabel(m)}</text>`;
+      s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--text3)" font-family="IBM Plex Sans,sans-serif" font-weight="400">${getMonthShortLabel(m)}</text>`;
     });
     s+='</svg>';
     return s;
@@ -3161,11 +3161,11 @@ function renderDivisas(){
         <td class="td-mono">${du.length}</td>
         <td class="td-mono td-usd">${fmtUSD(vUSD)}</td>
         <td class="td-mono td-usd">${fmtCOP(liq)}</td>
-        <td class="td-mono" style="color:#fff;font-weight:600">${fmtCOP(vCOP+liq)}</td>
+        <td class="td-mono" style="color:var(--text);font-weight:600">${fmtCOP(vCOP+liq)}</td>
       </tr>`;
     }).join('')}
     <tr style="border-top:1px solid var(--border2)">
-      <td style="font-family:var(--font-display);font-weight:800;color:#fff">TOTAL GENERAL</td>
+      <td style="font-family:var(--font-display);font-weight:800;color:var(--text)">TOTAL GENERAL</td>
       <td class="td-mono">${copData.length}</td>
       <td class="td-mono td-cop" style="font-weight:700">${fmtCOP(totalCOP)}</td>
       <td class="td-mono">${usdData.length}</td>
@@ -3375,7 +3375,7 @@ function renderResumen(){
           <td class="td-mono td-cop">${fmtCOP(eCOP)}</td>
           <td class="td-mono td-usd">${eUSD>0?fmtUSD(eUSD):'—'}</td>
           <td class="td-mono td-usd">${eUSD>0?fmtCOP(eUSD*trm):'—'}</td>
-          <td class="td-mono" style="color:#fff;font-weight:700">${fmtCOP(total)}</td>
+          <td class="td-mono" style="color:var(--text);font-weight:700">${fmtCOP(total)}</td>
         </tr>`;
       });
     }).join('')}
