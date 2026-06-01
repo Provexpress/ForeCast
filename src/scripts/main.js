@@ -3486,6 +3486,7 @@ async function loadFolderFromSharePoint() {
   try {
     await spLogin();
   } catch(e) {
+    if(typeof isAuthRedirectInProgress === 'function' && isAuthRedirectInProgress(e)) return;
     hideLoadingOverlay();
     alert('Error de autenticación: ' + e.message);
     return;
@@ -3524,6 +3525,7 @@ async function loadFolderFromSharePoint() {
       });
     }, 0);
   } catch(e) {
+    if(typeof isAuthRedirectInProgress === 'function' && isAuthRedirectInProgress(e)) return;
     hideLoadingOverlay();
     console.error(e);
     alert('Error cargando datos: ' + e.message);

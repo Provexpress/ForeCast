@@ -4,6 +4,9 @@
 
 var CURRENT_USER = null;
 var msalApp      = null;
+var msalRedirectPromise = null;
+const AUTH_REDIRECT_ERROR_CODE = 'auth_redirect_started';
+const AUTH_LOGIN_SCOPES = ['User.Read'];
 
 function getAuthRedirectUri() {
   const origin = window.location.origin || '';
@@ -30,8 +33,10 @@ function initMsalApp() {
       clientId:    AZURE_CONFIG.clientId,
       authority:   'https://login.microsoftonline.com/' + AZURE_CONFIG.tenantId,
       redirectUri: AZURE_CONFIG.redirectUri,
+      postLogoutRedirectUri: AZURE_CONFIG.redirectUri,
+      navigateToLoginRequestUrl: false,
     },
-    cache: { cacheLocation: 'sessionStorage' }
+    cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
   });
   return true;
 }
@@ -51,27 +56,71 @@ function loadMSAL(callback) {
   document.head.appendChild(s);
 }
 
+function getActiveMsalAccount() {
+  return (msalApp.getActiveAccount && msalApp.getActiveAccount()) || msalApp.getAllAccounts()[0] || null;
+}
+
+function setActiveMsalAccount(account) {
+  if(account && msalApp.setActiveAccount) msalApp.setActiveAccount(account);
+}
+
+async function handleMsalRedirectOnce() {
+  if(!msalRedirectPromise) {
+    msalRedirectPromise = msalApp.handleRedirectPromise().then(result => {
+      if(result && result.account) setActiveMsalAccount(result.account);
+      const account = getActiveMsalAccount();
+      if(account) setActiveMsalAccount(account);
+      return result;
+    }).catch(error => {
+      msalRedirectPromise = null;
+      throw error;
+    });
+  }
+  return msalRedirectPromise;
+}
+
+function createAuthRedirectError() {
+  const error = new Error('Redirigiendo a Microsoft 365...');
+  error.code = AUTH_REDIRECT_ERROR_CODE;
+  return error;
+}
+
+function isAuthRedirectInProgress(error) {
+  return error && error.code === AUTH_REDIRECT_ERROR_CODE;
+}
+
+async function startAuthRedirect(action, request) {
+  updateLoadingStatus('Redirigiendo a Microsoft 365...');
+  if(action === 'token') {
+    await msalApp.acquireTokenRedirect(request);
+  } else {
+    await msalApp.loginRedirect(request);
+  }
+  throw createAuthRedirectError();
+}
+
 async function getToken(scopes) {
-  const accounts = msalApp.getAllAccounts();
-  if(!accounts.length) throw new Error('No session');
+  await handleMsalRedirectOnce();
+  const account = getActiveMsalAccount();
+  if(!account) {
+    await startAuthRedirect('login', { scopes: AUTH_LOGIN_SCOPES, prompt: 'select_account' });
+  }
   try {
-    const r = await msalApp.acquireTokenSilent({ scopes, account: accounts[0] });
+    const r = await msalApp.acquireTokenSilent({ scopes, account });
     return r.accessToken;
-  } catch {
-    const r = await msalApp.acquireTokenPopup({ scopes });
-    return r.accessToken;
+  } catch(error) {
+    await startAuthRedirect('token', { scopes, account });
   }
 }
 
 async function spLogin() {
   if(!initMsalApp()) throw new Error('MSAL no disponible');
-  await msalApp.handleRedirectPromise();
-  let account = msalApp.getAllAccounts()[0];
+  await handleMsalRedirectOnce();
+  let account = getActiveMsalAccount();
   if(!account) {
-    await msalApp.loginPopup({ scopes: ['User.Read'] });
-    account = msalApp.getAllAccounts()[0];
+    await startAuthRedirect('login', { scopes: AUTH_LOGIN_SCOPES, prompt: 'select_account' });
   }
-  const token = await getToken(['User.Read']);
+  const token = await getToken(AUTH_LOGIN_SCOPES);
   const res   = await fetch('https://graph.microsoft.com/v1.0/me?$select=displayName,mail,userPrincipalName,otherMails', {
     headers: { Authorization: 'Bearer ' + token }
   });
