@@ -4,6 +4,7 @@
 let ALL_DATA = [];
 let SALES_DATA = [];
 let SALES_PENDING_DATA = [];
+let PREVENTA_DATA = [];
 let TRM = 4150;
 let TRM_READY = false;
 let SELECTED_EXEC_BY_DIR = {};
@@ -12,6 +13,7 @@ let NEGOCIO_DETAIL_STATE = null;
 let MARCA_LINEA_DETAIL_STATE = null;
 let EJECUTIVO_BRAND_FOCUS = null;
 let LOADED_SALES_BY_SUPPORT = {};
+let LOADED_PREVENTA_FILES = [];
 let SALES_VIEW_MODE = 'reporte';
 let SALES_PENDING_VALUE_ONLY = false;
 let FORECAST_CONNECTIONS_LIST_ID = null;
@@ -33,6 +35,7 @@ let MARCAS_BAR_LIMIT = MARCAS_BAR_INITIAL;
 
 const TRM_CACHE_KEY = 'trm_last';
 const FORECAST_CONNECTIONS_LIST_NAME = 'ForecastConexiones';
+const PREVENTA_FOLDER_NAME = 'Grupo preventa';
 
 function loadCachedTRM(){
   try {
@@ -88,7 +91,7 @@ async function fetchTRM() {
     TRM_READY = true;
     const inp = document.getElementById('trm-input');
     if(inp) inp.value = Number(TRM).toFixed(2);
-    if(ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length) renderVisiblePage();
+    if(ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length || PREVENTA_DATA.length) renderVisiblePage();
     cacheTRM(TRM);
     console.log('[TRM]', TRM);
   };
@@ -398,12 +401,16 @@ function registerRecord(rec, sourceFile, sourceSheet, dataset){
     ? 'sales'
     : dataset === 'sales_pending'
       ? 'sales_pending'
-      : 'forecast';
+      : dataset === 'preventa'
+        ? 'preventa'
+        : 'forecast';
   rec.__RID = (ds === 'sales'
     ? 'sales-'
     : ds === 'sales_pending'
       ? 'sales-pending-'
-      : 'neg-') + (++RECORD_SEQ);
+      : ds === 'preventa'
+        ? 'preventa-'
+        : 'neg-') + (++RECORD_SEQ);
   rec.__DATASET = ds;
   rec.__SOURCE_FILE = sourceFile || '';
   rec.__SOURCE_SHEET = sourceSheet || '';
@@ -656,6 +663,7 @@ function getRecordById(id){
   return ALL_DATA.find(r => r.__RID === id)
     || SALES_DATA.find(r => r.__RID === id)
     || SALES_PENDING_DATA.find(r => r.__RID === id)
+    || PREVENTA_DATA.find(r => r.__RID === id)
     || null;
 }
 
@@ -1192,7 +1200,7 @@ let LOADED_FILES_BY_DIR = {};
 document.getElementById('trm-input').addEventListener('input',function(){
   TRM_READY = true;
   TRM=getTRM();
-  if(ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length) renderVisiblePage();
+  if(ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length || PREVENTA_DATA.length) renderVisiblePage();
 });
 
 function finalizeLoad(){
@@ -1205,10 +1213,11 @@ function finalizeLoad(){
   if(reloadInfo) {
     const nFiles = Object.values(LOADED_FILES_BY_DIR).reduce((s,a)=>s+a.length,0);
     const nSalesFiles = Object.values(LOADED_SALES_BY_SUPPORT).reduce((s,a)=>s+a.length,0);
+    const nPreventaFiles = LOADED_PREVENTA_FILES.length;
     const nDirs = Object.keys(LOADED_FILES_BY_DIR).length;
     reloadInfo.textContent = CURRENT_USER && CURRENT_USER.role === 'sales_support'
       ? nSalesFiles + ' archivos sales · Última carga: ' + new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})
-      : nFiles + ' archivos cargados · ' + nDirs + ' equipos' + (nSalesFiles ? ' · '+nSalesFiles+' sales' : '') + ' · Última carga: ' + new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+      : nFiles + ' archivos cargados · ' + nDirs + ' equipos' + (nSalesFiles ? ' · '+nSalesFiles+' sales' : '') + (nPreventaFiles ? ' · '+nPreventaFiles+' preventa' : '') + ' · Última carga: ' + new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
   }
   // TRM se mantiene desde Banrep (no se sobrescribe con Excel)
   TRM=getTRM();
@@ -1222,6 +1231,7 @@ function finalizeLoad(){
   const visibleData = getVisibleData();
   const visibleSales = getVisibleSalesData();
   const visibleSalesPending = getVisibleSalesPendingData();
+  const visiblePreventa = getVisiblePreventaData();
   const dirs = [...new Set(visibleData.map(r=>(r['DIRECTOR']||'').trim()).filter(Boolean))].sort();
   const execs = [...new Set(visibleData.map(r=>r['COMERCIAL']||'').filter(Boolean))].sort();
   const execsWithData = [...new Set(visibleData.map(r=>(r['COMERCIAL']||'').trim()).filter(Boolean))];
@@ -1233,7 +1243,7 @@ function finalizeLoad(){
   document.getElementById('file-count-hd').textContent =
     CURRENT_USER && CURRENT_USER.role === 'sales_support'
       ? `${visibleSales.length} registros sales · ${visibleSalesPending.length} pendientes · ${salesSupports.length} support · ${salesTargets.length} apoyos`
-      : `${visibleData.length} negocios · ${dirs.length} dir · ${execsWithData.length} ejecutivos${visibleSales.length ? ' · '+visibleSales.length+' sales' : ''}${visibleSalesPending.length ? ' · '+visibleSalesPending.length+' pendientes' : ''}`;
+      : `${visibleData.length} negocios · ${dirs.length} dir · ${execsWithData.length} ejecutivos${visibleSales.length ? ' · '+visibleSales.length+' sales' : ''}${visibleSalesPending.length ? ' · '+visibleSalesPending.length+' pendientes' : ''}${visiblePreventa.length ? ' · '+visiblePreventa.length+' preventa' : ''}`;
   const now = new Date();
   document.getElementById('last-update-hd').textContent=
     'Actualizado: '+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})+' · '+
@@ -1335,12 +1345,23 @@ function getVisibleSalesPendingData() {
   return SALES_PENDING_DATA;
 }
 
+function getPreventaName(row){
+  return firstFilled(row, ['PREVENTA','COMERCIAL']) || '';
+}
+
+function getVisiblePreventaData() {
+  if(!CURRENT_USER) return PREVENTA_DATA;
+  if(CURRENT_USER.role === 'sales_support' || CURRENT_USER.role === 'ejecutivo' || CURRENT_USER.role === 'director') return [];
+  return PREVENTA_DATA;
+}
+
 function renderAll(){
   refreshForecastMonthFilters();
   renderGerencia();
   renderDirector();
   renderEjecutivo();
   renderSales();
+  renderPreventa();
   renderDivisas();
   renderMarcas();
   renderResumen();
@@ -1369,6 +1390,10 @@ function renderPage(pageId){
   }
   if(page === 'sales') {
     renderSales();
+    return;
+  }
+  if(page === 'preventa') {
+    renderPreventa();
     return;
   }
   if(page === 'divisas') {
@@ -1409,7 +1434,7 @@ function showPage(id,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   if(btn) btn.classList.add('active');
-  const hasLoadedData = ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length;
+  const hasLoadedData = ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length || PREVENTA_DATA.length;
   if(hasLoadedData || id === 'negocio' || id === 'marca-linea-detail') {
     renderPage(id);
   }
@@ -2105,7 +2130,7 @@ function renderGerencia(){
   dirsForEvo.forEach(d=>{
     evoByDir[d]={};
     monthsForEvo.forEach(m=>{
-      evoByDir[d][m]=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===d&&getMonth(r['FECHA DIA/MES/AÑO'])===m).reduce((s,r)=>s+toCOP(r),0);
+      evoByDir[d][m]=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===d&&getMonth(getRowDateValue(r))===m).reduce((s,r)=>s+toCOP(r),0);
     });
   });
   renderEvoChart('evo-dir-chart',evoByDir, monthsForEvo);
@@ -2232,7 +2257,7 @@ function renderDirector(){
     </div>`;
 
   let data=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir);
-  if(mes) data=data.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===mes);
+  if(mes) data=data.filter(r=>getMonth(getRowDateValue(r))===mes);
   if(est) data=data.filter(r=>r['ESTADO']===est);
   
   const totalCOP=data.reduce((s,r)=>s+toCOP(r),0);
@@ -2249,7 +2274,7 @@ function renderDirector(){
   const evoMonthKeys = getForecastMonths(data.length ? data : ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir));
   const evoMonths = {};
   evoMonthKeys.forEach(m => { evoMonths[m] = 0; });
-  data.forEach(r=>{const m=getMonth(r['FECHA DIA/MES/AÑO']);if(evoMonths[m]!==undefined)evoMonths[m]+=toCOP(r);});
+  data.forEach(r=>{const m=getMonth(getRowDateValue(r));if(evoMonths[m]!==undefined)evoMonths[m]+=toCOP(r);});
   
   const evoSVG=()=>{
     const months=Object.keys(evoMonths);
@@ -2421,7 +2446,7 @@ function renderDirector(){
   attachChartTooltips(document.getElementById('director-content'));
   
   // Donut estado director — usar datos sin filtro de estado para mostrar distribución real
-  const dataForDonut=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir && (!mes||getMonth(r['FECHA DIA/MES/AÑO'])===mes));
+  const dataForDonut=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir && (!mes||getMonth(getRowDateValue(r))===mes));
   const estD=['GANADA','PENDIENTE','PERDIDA','APLAZADO'].map(e=>({name:e,val:dataForDonut.filter(r=>r['ESTADO']===e).reduce((s,r)=>s+toCOP(r),0)}));
   renderDonut('donut-dir-est','leg-dir-est',estD);
 }
@@ -2520,7 +2545,7 @@ function renderEjecutivo(){
   if(!ej) return;
   
   let data=ALL_DATA.filter(r=>r['COMERCIAL']===ej);
-  if(mes) data=data.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===mes);
+  if(mes) data=data.filter(r=>getMonth(getRowDateValue(r))===mes);
   if(est) data=data.filter(r=>r['ESTADO']===est);
   if(focusedDirector) {
     data = data.filter(r => cleanDisplayText(r['DIRECTOR'], '') === focusedDirector);
@@ -3038,6 +3063,150 @@ function selectSalesSupport(name){
 }
 
 /* ══════════════════════════════════════
+   PREVENTA
+══════════════════════════════════════ */
+function renderPreventa(){
+  const allPreventa = getVisiblePreventaData();
+  const host = document.getElementById('preventa-content');
+  const grid = document.getElementById('preventa-grid');
+  const selPreventa = document.getElementById('sel-preventa');
+  const selMes = document.getElementById('sel-preventa-mes');
+  const selEstado = document.getElementById('sel-preventa-estado');
+  if(!host || !grid || !selPreventa || !selMes || !selEstado) return;
+
+  const namesFromData = [...new Set(allPreventa.map(r=>getPreventaName(r)).filter(Boolean))];
+  const namesFromFiles = (LOADED_PREVENTA_FILES || []).map(f=>f.name).filter(Boolean);
+  const allNames = [...new Set([...namesFromData, ...namesFromFiles])].sort((a,b)=>a.localeCompare(b,'es'));
+
+  const current = selPreventa.value;
+  selPreventa.innerHTML = buildOptionList(allNames);
+  if(current && allNames.includes(current)) selPreventa.value = current;
+  else if(allNames[0]) selPreventa.value = allNames[0];
+
+  if(!allNames.length){
+    grid.innerHTML = '';
+    host.innerHTML = `<div class="chart-card g1"><div style="font-size:12px;color:var(--text2)">No hay archivos cargados en Grupo preventa.</div></div>`;
+    return;
+  }
+
+  const selected = selPreventa.value;
+  const selectedBaseRows = selected ? allPreventa.filter(r => namesMatch(getPreventaName(r), selected)) : allPreventa;
+  const mes = syncMonthSelectOptions('sel-preventa-mes', getForecastMonths(selectedBaseRows));
+  const estado = selEstado.value;
+
+  grid.innerHTML = allNames.map((name, idx)=>{
+    const rows = allPreventa.filter(r => namesMatch(getPreventaName(r), name));
+    const totalCOP = rows.reduce((sum,row)=>sum+toCOP(row),0);
+    const ganadas = rows.filter(r=>cleanDisplayText(r['ESTADO'],'').toUpperCase()==='GANADA').length;
+    const pendientes = rows.filter(r=>cleanDisplayText(r['ESTADO'],'').toUpperCase()==='PENDIENTE').length;
+    const c = COLORS[idx % COLORS.length];
+    const hasData = rows.length > 0;
+    const active = namesMatch(selected, name) ? 'selected' : '';
+    return `<div class="persona-card ${active} ${hasData?'':'no-data'}" onclick="${escAttr(jsCall('selectPreventa', name))}">
+      <div class="persona-avatar" style="background:${c}${hasData?'25':'10'};border:2px solid ${c}${hasData?'50':'20'};color:${hasData?c:'var(--text2)'}">${escHtml(initials(name))}</div>
+      <div class="persona-name" style="color:${hasData?'var(--text)':'var(--text2)'}">${escHtml(name)}</div>
+      <div class="persona-role">Preventa</div>
+      ${hasData
+        ? `<div class="persona-stats">
+            <div class="p-stat"><div class="p-stat-label">Total</div><div class="p-stat-val" style="color:${c};font-size:11px">${abr(totalCOP)}</div></div>
+            <div class="p-stat"><div class="p-stat-label">Registros</div><div class="p-stat-val">${rows.length}</div></div>
+            <div class="p-stat"><div class="p-stat-label">Ganadas</div><div class="p-stat-val" style="color:var(--corp-green)">${ganadas}</div></div>
+            <div class="p-stat"><div class="p-stat-label">Pend.</div><div class="p-stat-val" style="color:var(--corp-amber)">${pendientes}</div></div>
+          </div>`
+        : `<div style="font-size:9px;color:var(--text3);font-family:var(--font-display);margin-top:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;letter-spacing:.5px">Sin registros aun</div>`}
+    </div>`;
+  }).join('');
+
+  let data = selectedBaseRows.slice();
+  if(mes) data = data.filter(r => getMonth(getRowDateValue(r)) === mes);
+  if(estado) data = data.filter(r => cleanDisplayText(r['ESTADO'],'').toUpperCase() === estado);
+  data = data.sort((a,b)=>toCOP(b)-toCOP(a));
+
+  const totalCOP = data.reduce((sum,row)=>sum+toCOP(row),0);
+  const totalUSD = data.filter(r=>cleanDisplayText(r['MONEDA 2'],'COP').trim().toUpperCase()==='USD').reduce((sum,row)=>sum+(parseMonto(row['MONTO VENTA CLIENTE'])||0),0);
+  const utilidadCOP = sumUtilidad(data,'COP');
+  const utilidadUSD = sumUtilidad(data,'USD');
+  const ganadas = data.filter(r=>cleanDisplayText(r['ESTADO'],'').toUpperCase()==='GANADA');
+  const lineData = buildLineValueData(data);
+  const estadoData = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'].map(name=>({
+    name,
+    val: data.filter(r=>cleanDisplayText(r['ESTADO'],'').toUpperCase()===name).length
+  }));
+
+  host.innerHTML = `
+    <div class="section-hd" style="margin-top:16px"><h2>${escHtml(selected)}</h2><span class="section-tag">PREVENTA</span></div>
+    <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
+      <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Total COP</div>
+        <div class="kpi-val">${abr(totalCOP)}</div>
+        <div class="kpi-sub">${fmtCOP(totalCOP)}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--usd-color)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Total USD</div>
+        <div class="kpi-val">${fmtUSD(totalUSD)}</div>
+        <div class="kpi-sub">TRM dia: ${fmtTRMDisplay(getTRM())}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Utilidad COP</div>
+        <div class="kpi-val">${abr(utilidadCOP)}</div>
+        <div class="kpi-sub">${fmtCOP(utilidadCOP)}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Utilidad USD</div>
+        <div class="kpi-val">${fmtUSD(utilidadUSD)}</div>
+        <div class="kpi-sub">Liq: ${fmtCOP(utilidadUSD * getTRM())}</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Ganadas</div>
+        <div class="kpi-val">${ganadas.length}</div>
+        <div class="kpi-sub">${data.length} registros</div>
+      </div>
+      <div class="kpi" style="--ac:var(--corp-amber)"><div class="kpi-accent"></div>
+        <div class="kpi-label">Registros</div>
+        <div class="kpi-val">${data.length}</div>
+        <div class="kpi-sub">No suma al forecast</div>
+      </div>
+    </div>
+
+    <div class="g2">
+      <div class="chart-card">
+        <div class="chart-hd">Top lineas</div>
+        <div class="bar-list" id="bar-preventa-lineas"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-hd">Estado registros</div>
+        <div class="donut-wrap">
+          <svg id="donut-preventa-est" viewBox="0 0 100 100" style="width:130px;height:130px;flex-shrink:0"></svg>
+          <div class="donut-leg" id="leg-preventa-est"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card g1">
+      <div class="chart-hd">Detalle Preventa</div>
+      <div class="director-table-toolbar">
+        <div>
+          <div class="director-table-toolbar-label">Reporte separado del forecast comercial</div>
+          <div class="director-table-toolbar-meta">Estos registros se leen desde Grupo preventa y no suman a gerencia, directores, ejecutivos, divisas, marcas ni resumen.</div>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        ${buildTable(data, { clickable:true, sourcePage:'preventa' })}
+      </div>
+    </div>
+  `;
+
+  renderBars('bar-preventa-lineas', lineData, COLORS);
+  renderDonut('donut-preventa-est', 'leg-preventa-est', estadoData);
+}
+
+function selectPreventa(name){
+  const sel = document.getElementById('sel-preventa');
+  if(sel) sel.value = name;
+  renderPreventa();
+}
+
+/* ══════════════════════════════════════
    DIVISAS
 ══════════════════════════════════════ */
 function renderDivisas(){
@@ -3353,7 +3522,7 @@ function renderResumen(){
     <tbody>${execs.map(e=>{
       const ed=copData.filter(r=>r['COMERCIAL']===e);
       const dir=ALL_DATA.find(r=>r['COMERCIAL']===e);
-      const monthlyValues = months.map(month => ed.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0));
+      const monthlyValues = months.map(month => ed.filter(r=>getMonth(getRowDateValue(r))===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0));
       const tot=monthlyValues.reduce((sum, val)=>sum+val,0);
       return `<tr>
         <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${escHtml(e)}</td>
@@ -3366,7 +3535,7 @@ function renderResumen(){
     <tr style="border-top:1px solid var(--border2)">
       <td colspan="2" style="font-family:var(--font-display);font-weight:800;color:var(--cop-color)">SUBTOTAL COP</td>
       <td class="td-mono">${copData.length}</td>
-      ${months.map(month => `<td class="td-mono td-cop">${abr(copData.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0))}</td>`).join('')}
+      ${months.map(month => `<td class="td-mono td-cop">${abr(copData.filter(r=>getMonth(getRowDateValue(r))===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0))}</td>`).join('')}
       <td class="td-mono td-cop" style="font-weight:800;font-size:13px">${fmtCOP(totalCOP)}</td>
     </tr></tbody>
   </table>`;
@@ -3378,7 +3547,7 @@ function renderResumen(){
       const ed=usdData.filter(r=>r['COMERCIAL']===e);
       if(!ed.length) return '';
       const dir=ALL_DATA.find(r=>r['COMERCIAL']===e);
-      const monthlyValues = months.map(month => ed.filter(r=>getMonth(r['FECHA DIA/MES/AÑO'])===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0));
+      const monthlyValues = months.map(month => ed.filter(r=>getMonth(getRowDateValue(r))===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0));
       const tot=monthlyValues.reduce((sum, val)=>sum+val,0);
       return `<tr>
         <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${escHtml(e)}</td>
@@ -3499,9 +3668,11 @@ async function loadFolderFromSharePoint() {
     ALL_DATA = [];
     SALES_DATA = [];
     SALES_PENDING_DATA = [];
+    PREVENTA_DATA = [];
     RECORD_SEQ = 0;
     LOADED_FILES_BY_DIR = {};
     LOADED_SALES_BY_SUPPORT = {};
+    LOADED_PREVENTA_FILES = [];
 
     if(role === 'sales_support') {
       await loadSalesSupportFiles(siteId, filesToken);
@@ -3516,6 +3687,7 @@ async function loadFolderFromSharePoint() {
       await runWithConcurrencyLimit(folders, FOLDER_LOAD_CONCURRENCY, folderName =>
         loadDirectorFolder(siteId, folderName, filesToken)
       );
+      await loadPreventaFolder(siteId, filesToken);
     }
     finalizeLoad();
     hideLoadingOverlay();
@@ -3667,6 +3839,10 @@ function normalizeFolderName(value){
     .trim();
 }
 
+function isPreventaFolderName(value){
+  return normalizeFolderName(value) === normalizeFolderName(PREVENTA_FOLDER_NAME);
+}
+
 async function getForecastFolders(siteId, token){
   if(_forecastFolders && _forecastFolders.length) return _forecastFolders;
   const authToken = token || await getToken(['Files.Read.All']);
@@ -3676,7 +3852,7 @@ async function getForecastFolders(siteId, token){
   const folders = (d.value || [])
     .filter(item => item && item.folder)
     .map(item => item.name)
-    .filter(name => /^(Grupo|Gupo)\s+/i.test(name));
+    .filter(name => /^(Grupo|Gupo)\s+/i.test(name) && !isPreventaFolderName(name));
   if(folders.length) {
     _forecastFolders = folders;
     console.log('[FORECAST FOLDERS]', folders);
@@ -3692,6 +3868,18 @@ async function getDirectorFolderName(siteId, directorGroup, token){
   const folders = await getForecastFolders(siteId, token);
   const target = normalizeFolderName(directorGroup);
   return folders.find(name => normalizeFolderName(name) === target) || (directorGroup.includes('Miller') ? 'Gupo Miller Romero' : 'Grupo ' + directorGroup);
+}
+
+async function getPreventaFolderName(siteId, token){
+  const authToken = token || await getToken(['Files.Read.All']);
+  const url = buildGraphRootUrl(siteId, 'COMERCIAL/FORECAST 2026', 'children?$top=100');
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + authToken } });
+  const d = await r.json();
+  const folder = (d.value || [])
+    .filter(item => item && item.folder)
+    .map(item => item.name)
+    .find(name => isPreventaFolderName(name));
+  return folder || PREVENTA_FOLDER_NAME;
 }
 
 async function getSiteId() {
@@ -3752,6 +3940,54 @@ async function loadDirectorFolder(siteId, folderName, token) {
       ALL_DATA.push(...recs);
       LOADED_FILES_BY_DIR[dirName].push({ name: item.name });
     }
+  });
+}
+
+async function loadPreventaSpFile(item, dirName) {
+  const url = item['@microsoft.graph.downloadUrl'];
+  if(!url) return [];
+  try {
+    const buf = await (await fetch(url)).arrayBuffer();
+    const wb = XLSX.read(buf, { type:'array', cellDates:true });
+    const records = parseWorkbookMainRecords(wb, item, dirName, 'preventa');
+    records.forEach(record => {
+      record['PREVENTA'] = cleanDisplayText(record['COMERCIAL'], item.name.replace(/\.(xlsx|xls)$/i,'').trim());
+    });
+    console.log('[PREVENTA PARSE SP]', item.name, 'rows:', records.length);
+    return records;
+  } catch(e) {
+    console.warn('Error leyendo preventa', item.name, e);
+    return [];
+  }
+}
+
+async function loadPreventaFolder(siteId, token) {
+  const authToken = token || await getToken(['Files.Read.All']);
+  const folderName = await getPreventaFolderName(siteId, authToken);
+  updateLoadingStatus('Cargando: ' + folderName + '...');
+  const folderPath = 'COMERCIAL/FORECAST 2026/' + folderName;
+  const url = buildGraphRootUrl(siteId, folderPath, 'children?$top=50');
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + authToken } });
+  const d = await r.json();
+  if(!d.value) {
+    console.warn('Sin archivos preventa en', folderName, d);
+    return;
+  }
+
+  const files = (d.value || []).filter(item =>
+    item &&
+    item.name &&
+    item.name.match(/\.xlsx?$/i) &&
+    !item.name.startsWith('~$') &&
+    !item.name.toLowerCase().includes('base de datos')
+  );
+
+  await runWithConcurrencyLimit(files, FILE_LOAD_CONCURRENCY, async item => {
+    updateLoadingStatus('Leyendo preventa: ' + item.name);
+    const recs = await loadPreventaSpFile(item, normalizeDirectorName(PREVENTA_FOLDER_NAME));
+    const name = cleanNameSegment(item.name.replace(/\.(xlsx|xls)$/i,'').trim());
+    LOADED_PREVENTA_FILES.push({ name, file: item.name });
+    PREVENTA_DATA.push(...recs);
   });
 }
 
@@ -3958,6 +4194,7 @@ function applyRoleTabs() {
     director:  document.getElementById('tab-director'),
     ejecutivo: document.getElementById('tab-ejecutivo'),
     sales:     document.getElementById('tab-sales'),
+    preventa:  document.getElementById('tab-preventa'),
     divisas:   document.getElementById('tab-divisas'),
     marcas:    document.getElementById('tab-marcas'),
     resumen:   document.getElementById('tab-resumen'),
@@ -3969,6 +4206,7 @@ function applyRoleTabs() {
     tabs.gerencia && (tabs.gerencia.style.display = 'none');
     tabs.director && (tabs.director.style.display = 'none');
     tabs.ejecutivo && (tabs.ejecutivo.style.display = 'none');
+    tabs.preventa && (tabs.preventa.style.display = 'none');
     tabs.divisas  && (tabs.divisas.style.display  = 'none');
     tabs.marcas   && (tabs.marcas.style.display   = 'none');
     tabs.resumen  && (tabs.resumen.style.display  = 'none');
@@ -3977,6 +4215,7 @@ function applyRoleTabs() {
     tabs.gerencia && (tabs.gerencia.style.display = 'none');
     tabs.director && (tabs.director.style.display = 'none');
     tabs.sales    && (tabs.sales.style.display    = 'none');
+    tabs.preventa && (tabs.preventa.style.display = 'none');
     tabs.divisas  && (tabs.divisas.style.display  = 'none');
     tabs.marcas   && (tabs.marcas.style.display   = 'none');
     tabs.resumen  && (tabs.resumen.style.display  = 'none');
@@ -3984,6 +4223,7 @@ function applyRoleTabs() {
   } else if(role === 'director') {
     tabs.gerencia && (tabs.gerencia.style.display = 'none');
     tabs.ejecutivo&& (tabs.ejecutivo.style.display= 'none');
+    tabs.preventa && (tabs.preventa.style.display = 'none');
     tabs.resumen  && (tabs.resumen.style.display  = 'none');
     showPage('director', tabs.director);
   } else {
@@ -4015,6 +4255,7 @@ window.showMoreMarcasBars = showMoreMarcasBars;
 window.renderDirector = renderDirector;
 window.renderEjecutivo = renderEjecutivo;
 window.renderSales = renderSales;
+window.renderPreventa = renderPreventa;
 window.setSalesView = setSalesView;
 window.setSalesPendingFilter = setSalesPendingFilter;
 window.renderMarcas = renderMarcas;
@@ -4022,6 +4263,7 @@ window.selectEjecutivo = selectEjecutivo;
 window.clearEjecutivoBrandFocus = clearEjecutivoBrandFocus;
 window.openExecNegociosFromMarcas = openExecNegociosFromMarcas;
 window.selectSalesSupport = selectSalesSupport;
+window.selectPreventa = selectPreventa;
 window.openMarcaLineaDetail = openMarcaLineaDetail;
 window.closeMarcaLineaDetail = closeMarcaLineaDetail;
 window.setMarcaLineaDetailEstado = setMarcaLineaDetailEstado;

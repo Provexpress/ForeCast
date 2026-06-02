@@ -76,6 +76,7 @@
   <button id="tab-director" class="nav-btn" onclick="showPage('director',this)">👔 Por Director</button>
   <button id="tab-ejecutivo" class="nav-btn" onclick="showPage('ejecutivo',this)">👤 Por Ejecutivo</button>
   <button id="tab-sales" class="nav-btn" onclick="showPage('sales',this)">🤝 Sales</button>
+  <button id="tab-preventa" class="nav-btn" onclick="showPage('preventa',this)">Preventa</button>
   <button id="tab-divisas" class="nav-btn" onclick="showPage('divisas',this)">💱 COP / USD</button>
   <button id="tab-marcas" class="nav-btn" onclick="showPage('marcas',this)">🏷 Marcas & Líneas</button>
   <button id="tab-resumen" class="nav-btn" onclick="showPage('resumen',this)">📊 Resumen Total</button>
@@ -290,6 +291,37 @@
   <div id="marca-linea-detail"></div>
 </div>
 
+<!-- PREVENTA -->
+<div class="page" id="page-preventa">
+  <div class="section-hd"><h2>Preventa</h2><span class="section-tag">REPORTE SEPARADO</span></div>
+  <div class="persona-grid" id="preventa-grid"></div>
+
+  <div class="filters" style="margin-top:8px">
+    <div class="filter-group">
+      <div class="filter-label">Preventa</div>
+      <select id="sel-preventa" onchange="renderPreventa()"></select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Mes</div>
+      <select id="sel-preventa-mes" onchange="renderPreventa()">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Estado</div>
+      <select id="sel-preventa-estado" onchange="renderPreventa()">
+        <option value="">Todos</option>
+        <option value="GANADA">GANADA</option>
+        <option value="PENDIENTE">PENDIENTE</option>
+        <option value="PERDIDA">PERDIDA</option>
+        <option value="APLAZADO">APLAZADO</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="preventa-content"></div>
+</div>
+
 <!-- ══════════════════════════════════
      PAGE: DIVISAS
 ══════════════════════════════════ -->
@@ -409,7 +441,7 @@
 
 </main>
 
-<script src="src/scripts/main.js?v=20260601-redirect1"></script>
+<script src="src/scripts/main.js?v=20260602-preventa1"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->
