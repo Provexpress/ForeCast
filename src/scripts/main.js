@@ -152,6 +152,18 @@ function fmtUSD(v){
   if(v===null||v===undefined) return '—';
   return 'USD ' + Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
+function fmtUSDCompact(v){
+  if(v===null||v===undefined||isNaN(v)) return '—';
+  const n=Number(v);
+  const abs=Math.abs(n);
+  if(abs>=1e9) return 'USD '+(n/1e9).toFixed(2)+' B';
+  if(abs>=1e6) return 'USD '+(n/1e6).toFixed(1)+' M';
+  if(abs>=1e3) return 'USD '+(n/1e3).toFixed(0)+' K';
+  return 'USD '+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});
+}
+function kpiUSD(v){
+  return `<div class="kpi-val kpi-val-usd" title="${escAttr(fmtUSD(v))}">${escHtml(fmtUSDCompact(v))}</div>`;
+}
 function fmtTRM(v){
   if(v===null||v===undefined||isNaN(v)) return '—';
   return Number(v).toLocaleString('es-CO',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -2099,7 +2111,7 @@ function renderGerencia(){
     </div>
     <div class="kpi" style="--ac:var(--usd-color)"><div class="kpi-accent"></div>
       <div class="kpi-label">Total USD</div>
-      <div class="kpi-val">${fmtUSD(totalUSD)}</div>
+      ${kpiUSD(totalUSD)}
       <div class="kpi-sub">Liq: ${abr(totalUSD*trm)}</div>
       <span class="kpi-badge usd">USD</span>
     </div>
@@ -2356,7 +2368,7 @@ function renderDirector(){
       </div>
       <div class="kpi" style="--ac:var(--usd-color)"><div class="kpi-accent"></div>
         <div class="kpi-label">Total USD</div>
-        <div class="kpi-val">${fmtUSD(execTotalUSD)}</div>
+        ${kpiUSD(execTotalUSD)}
         <div class="kpi-sub">Liq: ${abr(execTotalUSD*trm)}</div>
       </div>
       <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
@@ -2366,7 +2378,7 @@ function renderDirector(){
       </div>
       <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
         <div class="kpi-label">Utilidad USD</div>
-        <div class="kpi-val">${fmtUSD(execUtilidadUSD)}</div>
+        ${kpiUSD(execUtilidadUSD)}
         <div class="kpi-sub">Liq: ${abr(execUtilidadUSD*trm)}</div>
       </div>
       <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
@@ -2404,7 +2416,7 @@ function renderDirector(){
       </div>
       <div class="kpi" style="--ac:var(--usd-color)"><div class="kpi-accent"></div>
         <div class="kpi-label">Total USD</div>
-        <div class="kpi-val">${fmtUSD(totalUSD)}</div>
+        ${kpiUSD(totalUSD)}
         <div class="kpi-sub">Liq: ${abr(totalUSD*trm)}</div>
       </div>
       <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
@@ -2414,7 +2426,7 @@ function renderDirector(){
       </div>
       <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
         <div class="kpi-label">Utilidad USD</div>
-        <div class="kpi-val">${fmtUSD(utilidadUSD)}</div>
+        ${kpiUSD(utilidadUSD)}
         <div class="kpi-sub">Liq: ${abr(utilidadUSD*trm)}</div>
       </div>
       <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
@@ -2587,7 +2599,7 @@ function renderEjecutivo(){
       </div>
       <div class="kpi" style="--ac:var(--usd-color)"><div class="kpi-accent"></div>
         <div class="kpi-label">Total USD</div>
-        <div class="kpi-val">${fmtUSD(totalUSD)}</div>
+        ${kpiUSD(totalUSD)}
         <div class="kpi-sub">Liq: ${abr(totalUSD*trm)}</div>
       </div>
       <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
@@ -3005,7 +3017,7 @@ function renderSales(){
       </div>
       <div class="kpi" style="--ac:var(--usd-color)"><div class="kpi-accent"></div>
         <div class="kpi-label">Total USD</div>
-        <div class="kpi-val">${fmtUSD(totalUSD)}</div>
+        ${kpiUSD(totalUSD)}
         <div class="kpi-sub">TRM dia: ${fmtTRMDisplay(getTRM())}</div>
       </div>
       <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
@@ -3015,7 +3027,7 @@ function renderSales(){
       </div>
       <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
         <div class="kpi-label">Utilidad USD</div>
-        <div class="kpi-val">${fmtUSD(utilidadUSD)}</div>
+        ${kpiUSD(utilidadUSD)}
         <div class="kpi-sub">Liq: ${fmtCOP(utilidadUSD * getTRM())}</div>
       </div>
       <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
@@ -3149,7 +3161,7 @@ function renderPreventa(){
       </div>
       <div class="kpi" style="--ac:var(--usd-color)"><div class="kpi-accent"></div>
         <div class="kpi-label">Total USD</div>
-        <div class="kpi-val">${fmtUSD(totalUSD)}</div>
+        ${kpiUSD(totalUSD)}
         <div class="kpi-sub">TRM dia: ${fmtTRMDisplay(getTRM())}</div>
       </div>
       <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
@@ -3159,7 +3171,7 @@ function renderPreventa(){
       </div>
       <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
         <div class="kpi-label">Utilidad USD</div>
-        <div class="kpi-val">${fmtUSD(utilidadUSD)}</div>
+        ${kpiUSD(utilidadUSD)}
         <div class="kpi-sub">Liq: ${fmtCOP(utilidadUSD * getTRM())}</div>
       </div>
       <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
