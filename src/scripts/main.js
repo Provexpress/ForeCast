@@ -2004,7 +2004,11 @@ function renderEvoChart(containerId, dataByDir, months){
   const nDirs=dirs.length;
   const allVals=dirs.flatMap(d=>monthKeys.map(m=>dataByDir[d][m]||0));
   const maxVal=Math.max(...allVals,1);
-  const W=520,H=200,padL=56,padR=12,padT=20,padB=36;
+  const positiveVals = allVals.filter(v => v > 0).sort((a,b)=>b-a);
+  const secondVal = positiveVals.find(v => v < maxVal * 0.98) || positiveVals[1] || 0;
+  const hasOutlier = secondVal > 0 && maxVal / secondVal >= 5;
+  const displayMax = hasOutlier ? Math.max(secondVal * 1.35, 1) : maxVal;
+  const W=520,H=210,padL=62,padR=12,padT=hasOutlier?34:22,padB=38;
   const gW=W-padL-padR, gH=H-padT-padB;
   const grpW=gW/monthKeys.length;
   const barW=Math.min(18, (grpW-8)/Math.max(nDirs,1));
@@ -2012,12 +2016,15 @@ function renderEvoChart(containerId, dataByDir, months){
 
   let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;overflow:visible">`;
   svg+=`<defs>${dirs.map((d,di)=>`<linearGradient id="bg${di}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${COLORS[di%COLORS.length]}" stop-opacity=".95"/><stop offset="100%" stop-color="${COLORS[di%COLORS.length]}" stop-opacity=".4"/></linearGradient>`).join('')}</defs>`;
+  if(hasOutlier) {
+    svg+=`<text x="${W-padR}" y="14" text-anchor="end" font-size="8.5" font-weight="600" fill="var(--corp-amber)" font-family="IBM Plex Sans,sans-serif">Escala ajustada</text>`;
+  }
 
   // Grid lines
   [0,.25,.5,.75,1].forEach(t=>{
     const y=padT+gH*(1-t);
     svg+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--border)" stroke-width="${t===0?1.5:.7}"/>`;
-    if(t>0) svg+=`<text x="${padL-5}" y="${y+3.5}" text-anchor="end" font-size="8.5" font-weight="400" fill="var(--text3)" font-family="IBM Plex Mono,monospace">${abr(maxVal*t)}</text>`;
+    if(t>0) svg+=`<text x="${padL-5}" y="${y+3.5}" text-anchor="end" font-size="8.5" font-weight="400" fill="var(--text3)" font-family="IBM Plex Mono,monospace">${abr(displayMax*t)}</text>`;
   });
 
   // Bars
@@ -2026,10 +2033,18 @@ function renderEvoChart(containerId, dataByDir, months){
     const totalBarW=(barW+gap)*nDirs-gap;
     dirs.forEach((d,di)=>{
       const v=dataByDir[d][m]||0;
-      const bh=Math.max(v/maxVal*gH, v>0?2:0);
+      const clipped = hasOutlier && v > displayMax;
+      const displayVal = Math.min(v, displayMax);
+      const bh=Math.max(displayVal/displayMax*gH, v>0?2:0);
       const x=grpCenter - totalBarW/2 + di*(barW+gap);
       const y=padT+gH-bh;
       svg+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${bh.toFixed(1)}" rx="2" fill="url(#bg${di})" data-tooltip="${escAttr(dirs[di]+': '+abr(v))}"></rect>`;
+      if(clipped) {
+        const c = COLORS[di%COLORS.length];
+        const cx = x + barW/2;
+        svg+=`<path d="M${(x+2).toFixed(1)},${(padT+8).toFixed(1)} L${(x+barW-2).toFixed(1)},${(padT+3).toFixed(1)} M${(x+2).toFixed(1)},${(padT+14).toFixed(1)} L${(x+barW-2).toFixed(1)},${(padT+9).toFixed(1)}" stroke="${c}" stroke-width="1.5" stroke-linecap="round" opacity=".95"></path>`;
+        svg+=`<text x="${cx.toFixed(1)}" y="${(padT-7).toFixed(1)}" text-anchor="middle" font-size="7.5" font-weight="700" fill="${c}" font-family="IBM Plex Mono,monospace">${abr(v)}</text>`;
+      }
     });
     // Month label
     svg+=`<text x="${grpCenter.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="IBM Plex Sans,sans-serif" font-weight="400">${getMonthShortLabel(m)}</text>`;
