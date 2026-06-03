@@ -925,11 +925,15 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
 .bar-row-action:hover{background:rgba(45,79,214,.08)}
 .bar-row-action.chart-selected{background:rgba(42,191,223,.10);box-shadow:inset 0 0 0 1px rgba(42,191,223,.24)}
 .bar-row-action:focus-visible{outline:2px solid var(--corp-blue2);outline-offset:2px}
+.evo-month-bar{cursor:pointer;transition:opacity .18s var(--ease),filter .18s var(--ease),stroke-width .18s var(--ease)}
+.evo-month-bar:hover{filter:drop-shadow(0 5px 10px rgba(45,79,214,.22));opacity:.92}
+.evo-month-bar.chart-selected{stroke:var(--corp-cyan);stroke-width:2;filter:drop-shadow(0 0 8px rgba(42,191,223,.38))}
 .donut-slice{transition:opacity .18s var(--ease),filter .18s var(--ease),transform .18s var(--ease);transform-origin:center;cursor:pointer}
 .donut-slice:hover{filter:drop-shadow(0 5px 10px rgba(45,79,214,.22));opacity:1}
 .donut-slice.chart-selected{filter:drop-shadow(0 0 8px rgba(42,191,223,.45))}
 .leg-item-action{cursor:pointer}
 .leg-item-action.chart-selected{background:rgba(42,191,223,.08);padding-left:6px}
+.leg-item-action:focus-visible{outline:2px solid var(--corp-blue2);outline-offset:2px}
 .estado-card{backdrop-filter:blur(8px)}
 .estado-card-head{gap:12px}
 .estado-card-body{scrollbar-gutter:stable both-edges}

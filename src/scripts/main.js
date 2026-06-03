@@ -19,6 +19,12 @@ let SALES_PENDING_VALUE_ONLY = false;
 let FORECAST_CONNECTIONS_LIST_ID = null;
 let FORECAST_CONNECTIONS = { byEmail: {}, byName: {} };
 let GERENCIA_CROSSFILTERS = { estado:'', director:'', ejecutivo:'', linea:'' };
+let VISUAL_CROSSFILTERS = {
+  ejecutivo: { linea:'' },
+  sales: { soporta:'' },
+  preventa: { linea:'' },
+  marcas: { marca:'', linea:'' }
+};
 
 const GERENCIA_ESTADO_STEP = 20;
 const GERENCIA_ESTADO_LIMITS = {
@@ -1369,6 +1375,83 @@ function renderGerenciaCrossfilterBar(totalRows, visibleRows){
   `;
 }
 
+function getVisualCrossfilters(scope){
+  return VISUAL_CROSSFILTERS[scope] || {};
+}
+
+function setVisualCrossfilter(scope, type, value){
+  const filters = VISUAL_CROSSFILTERS[scope];
+  if(!filters || !Object.prototype.hasOwnProperty.call(filters, type)) return;
+  const next = cleanDisplayText(value, '');
+  filters[type] = filters[type] === next ? '' : next;
+  renderPage(scope);
+}
+
+function clearVisualCrossfilter(scope, type){
+  const filters = VISUAL_CROSSFILTERS[scope];
+  if(!filters) return;
+  if(type && Object.prototype.hasOwnProperty.call(filters, type)) {
+    filters[type] = '';
+  } else {
+    Object.keys(filters).forEach(key => { filters[key] = ''; });
+  }
+  renderPage(scope);
+}
+
+function buildVisualCrossfilterBar(scope, totalRows, visibleRows, labels){
+  const filters = getVisualCrossfilters(scope);
+  const chips = (labels || [])
+    .filter(([key]) => filters[key])
+    .map(([key,label]) => `<button type="button" class="crossfilter-chip" onclick="${escAttr(jsCall('clearVisualCrossfilter', scope, key))}" title="Quitar filtro ${escAttr(label)}">
+      <span>${escHtml(label)}</span>${escHtml(filters[key])}<strong>×</strong>
+    </button>`)
+    .join('');
+  if(!chips) return '';
+  return `<div class="crossfilter-bar">
+    <div class="crossfilter-summary">${fmtNum(visibleRows)} de ${fmtNum(totalRows)} registros</div>
+    <div class="crossfilter-chips">${chips}</div>
+    <button type="button" class="crossfilter-clear" onclick="${escAttr(jsCall('clearVisualCrossfilter', scope))}">Limpiar filtros</button>
+  </div>`;
+}
+
+function toggleDirectorEstadoFilter(value){
+  const sel = document.getElementById('sel-dir-estado');
+  if(sel) sel.value = sel.value === value ? '' : value;
+  renderDirector();
+}
+
+function toggleDirectorMonthFilter(value){
+  const sel = document.getElementById('sel-dir-mes');
+  if(sel) sel.value = sel.value === value ? '' : value;
+  renderDirector();
+}
+
+function toggleEjecutivoEstadoFilter(value){
+  const sel = document.getElementById('sel-ej-estado');
+  if(sel) sel.value = sel.value === value ? '' : value;
+  renderEjecutivo();
+}
+
+function toggleSalesEstadoFilter(value){
+  const sel = document.getElementById('sel-sales-estado');
+  if(sel) sel.value = sel.value === value ? '' : value;
+  renderSales();
+}
+
+function toggleSalesPendingFilter(kind, value){
+  const sel = kind === 'categoria'
+    ? document.getElementById('sel-sales-categoria')
+    : document.getElementById('sel-sales-pendiente');
+  const next = sel && sel.value === value ? '' : value;
+  setSalesPendingFilter(kind, next);
+}
+
+function togglePreventaEstadoFilter(value){
+  const sel = document.getElementById('sel-preventa-estado');
+  if(sel) sel.value = sel.value === value ? '' : value;
+  renderPreventa();
+}
+
 function isOscarMarcasGlobalScope(){
   if(!CURRENT_USER || CURRENT_USER.role !== 'director') return false;
   return normalizePersonName(CURRENT_USER.directorGroup) === normalizePersonName('Oscar Beltran');
@@ -1561,7 +1644,7 @@ function getNavButtonForPage(page){
 function showMoreEstadoRows(estado){
   const scrollState = captureScrollSnapshot('gerencia');
   GERENCIA_ESTADO_LIMITS[estado] = (GERENCIA_ESTADO_LIMITS[estado] || 30) + GERENCIA_ESTADO_STEP;
-  renderGerenciaEstadoTables(getVisibleData());
+  renderGerenciaEstadoTables(applyGerenciaCrossfilters(getVisibleData()));
   restoreScrollSnapshot('gerencia', scrollState);
 }
 
@@ -2413,7 +2496,8 @@ function renderDirector(){
       const cx=padL+(i+0.5)*(gW/months.length);
       const x=cx-bW/2;
       const y=padT+gH-bh;
-      s+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${bh.toFixed(1)}" rx="3" fill="url(#bg-dir)" data-tooltip="${escAttr(getMonthShortLabel(m)+': '+abr(v))}"></rect>`;
+      const monthClick = jsCall('toggleDirectorMonthFilter', m);
+      s+=`<rect class="evo-month-bar ${mes===m?'chart-selected':''}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${bh.toFixed(1)}" rx="3" fill="url(#bg-dir)" role="button" tabindex="0" onclick="${escAttr(monthClick)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${monthClick}}`)}" data-tooltip="${escAttr('Filtrar mes '+getMonthShortLabel(m)+': '+abr(v))}"></rect>`;
       s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--text3)" font-family="IBM Plex Sans,sans-serif" font-weight="400">${getMonthShortLabel(m)}</text>`;
     });
     s+='</svg>';
@@ -2563,7 +2647,13 @@ function renderDirector(){
   // Donut estado director — usar datos sin filtro de estado para mostrar distribución real
   const dataForDonut=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir && (!mes||getMonth(getRowDateValue(r))===mes));
   const estD=['GANADA','PENDIENTE','PERDIDA','APLAZADO'].map(e=>({name:e,val:dataForDonut.filter(r=>r['ESTADO']===e).reduce((s,r)=>s+toCOP(r),0)}));
-  renderDonut('donut-dir-est','leg-dir-est',estD);
+  renderDonut('donut-dir-est','leg-dir-est',estD,{
+    hasActive: Boolean(est),
+    getOnClick: item => jsCall('toggleDirectorEstadoFilter', item.name),
+    getIsSelected: item => est === item.name,
+    clickTitle: 'Filtrar por estado',
+    tooltipPrefix: 'Filtrar estado: '
+  });
 }
 
 function selectDirectorExec(name){
@@ -2668,6 +2758,9 @@ function renderEjecutivo(){
   if(focusedBrand) {
     data = data.filter(r => normalizeCategoryValue(getRowBrandName(r)) === brandKey);
   }
+  const ejecutivoBaseData = data.slice();
+  const ejecutivoFilters = getVisualCrossfilters('ejecutivo');
+  if(ejecutivoFilters.linea) data = data.filter(r => getRowLineName(r) === ejecutivoFilters.linea);
   
   const totalCOP=data.reduce((s,r)=>s+toCOP(r),0);
   const totalUSD=data.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
@@ -2687,6 +2780,7 @@ function renderEjecutivo(){
   
   document.getElementById('ejecutivo-content').innerHTML=`
     <div class="section-hd" style="margin-top:16px"><h2>${escHtml(ej)}</h2><span class="section-tag" style="background:${ejColor}20;color:${ejColor};border-color:${ejColor}40">EJECUTIVO</span>${focusBadge}${directorFocusBadge}${focusClear}</div>
+    ${buildVisualCrossfilterBar('ejecutivo', ejecutivoBaseData.length, data.length, [['linea','Linea']])}
     
     <div class="kpi-grid kpi-grid-4" style="margin-bottom:16px">
       <div class="kpi" style="--ac:${ejColor}"><div class="kpi-accent"></div>
@@ -2731,9 +2825,20 @@ function renderEjecutivo(){
     </div>
   `;
   
-  renderBars('bar-ej-lineas',linData,COLORS);
+  renderBars('bar-ej-lineas',linData,COLORS,null,{
+    getOnClick: item => jsCall('setVisualCrossfilter', 'ejecutivo', 'linea', item.name),
+    getIsSelected: item => getVisualCrossfilters('ejecutivo').linea === item.name,
+    clickTitle: 'Filtrar por linea',
+    tooltipPrefix: 'Filtrar linea: '
+  });
   const estD=['GANADA','PENDIENTE','PERDIDA','APLAZADO'].map(e=>({name:e,val:data.filter(r=>r['ESTADO']===e).length}));
-  renderDonut('donut-ej-est','leg-ej-est',estD);
+  renderDonut('donut-ej-est','leg-ej-est',estD,{
+    hasActive: Boolean(est),
+    getOnClick: item => jsCall('toggleEjecutivoEstadoFilter', item.name),
+    getIsSelected: item => est === item.name,
+    clickTitle: 'Filtrar por estado',
+    tooltipPrefix: 'Filtrar estado: '
+  });
 }
 
 function selectEjecutivo(name){
@@ -3077,7 +3182,13 @@ function renderSales(){
       </div>
     `;
 
-    renderDonut('donut-sales-pending-category', 'leg-sales-pending-category', categoryData);
+    renderDonut('donut-sales-pending-category', 'leg-sales-pending-category', categoryData,{
+      hasActive: Boolean(pendingCategory),
+      getOnClick: item => jsCall('toggleSalesPendingFilter', 'categoria', item.name),
+      getIsSelected: item => pendingCategory === item.name,
+      clickTitle: 'Filtrar por categoria',
+      tooltipPrefix: 'Filtrar categoria: '
+    });
     return;
   }
 
@@ -3086,6 +3197,9 @@ function renderSales(){
   let data = allSales.filter(r => namesMatch(getSalesSupportName(r), selectedSupport));
   if(mes) data = data.filter(r => getMonth(getRowDateValue(r)) === mes);
   if(estado) data = data.filter(r => cleanDisplayText(r['ESTADO'],'').toUpperCase() === estado);
+  const salesBaseData = data.slice();
+  const salesFilters = getVisualCrossfilters('sales');
+  if(salesFilters.soporta) data = data.filter(r => getSalesSoportaName(r) === salesFilters.soporta);
   data = data.sort((a,b)=>toCOP(b)-toCOP(a));
 
   const totalCOP = data.reduce((sum,row)=>sum+toCOP(row),0);
@@ -3106,6 +3220,7 @@ function renderSales(){
 
   host.innerHTML = `
     <div class="section-hd" style="margin-top:16px"><h2>${escHtml(selectedSupport)}</h2><span class="section-tag">SALES SUPPORT</span></div>
+    ${buildVisualCrossfilterBar('sales', salesBaseData.length, data.length, [['soporta','Soporta']])}
     <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
       <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
         <div class="kpi-label">Total COP</div>
@@ -3167,8 +3282,19 @@ function renderSales(){
     </div>
   `;
 
-  renderBars('bar-sales-soporta', topSoporta, COLORS);
-  renderDonut('donut-sales-est', 'leg-sales-est', estadoData);
+  renderBars('bar-sales-soporta', topSoporta, COLORS,null,{
+    getOnClick: item => jsCall('setVisualCrossfilter', 'sales', 'soporta', item.name),
+    getIsSelected: item => getVisualCrossfilters('sales').soporta === item.name,
+    clickTitle: 'Filtrar por soporta',
+    tooltipPrefix: 'Filtrar soporta: '
+  });
+  renderDonut('donut-sales-est', 'leg-sales-est', estadoData,{
+    hasActive: Boolean(estado),
+    getOnClick: item => jsCall('toggleSalesEstadoFilter', item.name),
+    getIsSelected: item => estado === item.name,
+    clickTitle: 'Filtrar por estado',
+    tooltipPrefix: 'Filtrar estado: '
+  });
 }
 
 function selectSalesSupport(name){
@@ -3235,6 +3361,9 @@ function renderPreventa(){
   let data = selectedBaseRows.slice();
   if(mes) data = data.filter(r => getMonth(getRowDateValue(r)) === mes);
   if(estado) data = data.filter(r => cleanDisplayText(r['ESTADO'],'').toUpperCase() === estado);
+  const preventaBaseData = data.slice();
+  const preventaFilters = getVisualCrossfilters('preventa');
+  if(preventaFilters.linea) data = data.filter(r => getRowLineName(r) === preventaFilters.linea);
   data = data.sort((a,b)=>toCOP(b)-toCOP(a));
 
   const totalCOP = data.reduce((sum,row)=>sum+toCOP(row),0);
@@ -3250,6 +3379,7 @@ function renderPreventa(){
 
   host.innerHTML = `
     <div class="section-hd" style="margin-top:16px"><h2>${escHtml(selected)}</h2><span class="section-tag">PREVENTA</span></div>
+    ${buildVisualCrossfilterBar('preventa', preventaBaseData.length, data.length, [['linea','Linea']])}
     <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
       <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
         <div class="kpi-label">Total COP</div>
@@ -3311,8 +3441,19 @@ function renderPreventa(){
     </div>
   `;
 
-  renderBars('bar-preventa-lineas', lineData, COLORS);
-  renderDonut('donut-preventa-est', 'leg-preventa-est', estadoData);
+  renderBars('bar-preventa-lineas', lineData, COLORS,null,{
+    getOnClick: item => jsCall('setVisualCrossfilter', 'preventa', 'linea', item.name),
+    getIsSelected: item => getVisualCrossfilters('preventa').linea === item.name,
+    clickTitle: 'Filtrar por linea',
+    tooltipPrefix: 'Filtrar linea: '
+  });
+  renderDonut('donut-preventa-est', 'leg-preventa-est', estadoData,{
+    hasActive: Boolean(estado),
+    getOnClick: item => jsCall('togglePreventaEstadoFilter', item.name),
+    getIsSelected: item => estado === item.name,
+    clickTitle: 'Filtrar por estado',
+    tooltipPrefix: 'Filtrar estado: '
+  });
 }
 
 function selectPreventa(name){
@@ -3502,9 +3643,17 @@ function renderDivisas(){
    MARCAS
 ══════════════════════════════════════ */
 function renderMarcas(){
-  const ALL_DATA = getVisibleMarcasData();
+  const BASE_DATA = getVisibleMarcasData();
+  const marcaFilters = getVisualCrossfilters('marcas');
+  let ALL_DATA = BASE_DATA.slice();
+  if(marcaFilters.marca) ALL_DATA = ALL_DATA.filter(r => getRowBrandName(r) === marcaFilters.marca);
+  if(marcaFilters.linea) ALL_DATA = ALL_DATA.filter(r => getRowLineName(r) === marcaFilters.linea);
   const pageTag = document.querySelector('#page-marcas .section-tag');
   if(pageTag) pageTag.textContent = isOscarMarcasGlobalScope() ? 'TODOS LOS USUARIOS' : 'TOP POR CATEGORIA';
+  const marcasCrossfilters = document.getElementById('marcas-crossfilters');
+  if(marcasCrossfilters) {
+    marcasCrossfilters.innerHTML = buildVisualCrossfilterBar('marcas', BASE_DATA.length, ALL_DATA.length, [['marca','Marca'],['linea','Linea']]);
+  }
   if(!ALL_DATA.length){
     const empty = `<div style="padding:24px 16px;text-align:center;color:var(--text2);font-family:var(--font-body)">Sin registros disponibles para esta vista.</div>`;
     const barMarcas = document.getElementById('bar-marcas');
@@ -3513,12 +3662,16 @@ function renderMarcas(){
     const tblMarcaEj = document.getElementById('tbl-marca-ej');
     const legMarca = document.getElementById('leg-marca');
     const legLinea = document.getElementById('leg-linea2');
+    const donutMarca = document.getElementById('donut-marca');
+    const donutLinea = document.getElementById('donut-linea2');
     if(barMarcas) barMarcas.innerHTML = empty;
     if(barMarcasMore) barMarcasMore.innerHTML = '';
     if(barLineas) barLineas.innerHTML = empty;
     if(tblMarcaEj) tblMarcaEj.innerHTML = empty;
     if(legMarca) legMarca.innerHTML = '';
     if(legLinea) legLinea.innerHTML = '';
+    if(donutMarca) donutMarca.innerHTML = '';
+    if(donutLinea) donutLinea.innerHTML = '';
     return;
   }
   
@@ -3537,7 +3690,13 @@ function renderMarcas(){
       ? `<button type="button" class="table-more-btn" onclick="showMoreMarcasBars()">Ver mas (${marcasRemaining})</button>`
       : '';
   }
-  renderDonut('donut-marca','leg-marca',marcaData);
+  renderDonut('donut-marca','leg-marca',marcaData,{
+    hasActive: Boolean(marcaFilters.marca),
+    getOnClick: item => jsCall('setVisualCrossfilter', 'marcas', 'marca', item.name),
+    getIsSelected: item => getVisualCrossfilters('marcas').marca === item.name,
+    clickTitle: 'Filtrar por marca',
+    tooltipPrefix: 'Filtrar marca: '
+  });
   
   const linData=buildLineValueData(ALL_DATA);
   renderBars('bar-lineas',linData,COLORS,null,{
@@ -3545,7 +3704,13 @@ function renderMarcas(){
     clickTitle: 'Abrir detalle de linea',
     nameClass: 'w160'
   });
-  renderDonut('donut-linea2','leg-linea2',linData);
+  renderDonut('donut-linea2','leg-linea2',linData,{
+    hasActive: Boolean(marcaFilters.linea),
+    getOnClick: item => jsCall('setVisualCrossfilter', 'marcas', 'linea', item.name),
+    getIsSelected: item => getVisualCrossfilters('marcas').linea === item.name,
+    clickTitle: 'Filtrar por linea',
+    tooltipPrefix: 'Filtrar linea: '
+  });
   
   // Marca por ejecutivo
   const directorSelect = document.getElementById('sel-marca-director');
