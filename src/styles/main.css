@@ -898,12 +898,38 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
 .view-opt-btn:hover{background:rgba(45,79,214,.1);border-color:var(--corp-blue2);color:var(--text)}
 .view-opt-btn.active{background:rgba(45,79,214,.15);border-color:var(--corp-blue2);color:var(--text)}
 
+.crossfilter-bar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:-6px 0 20px;min-height:0;
+}
+.crossfilter-bar:empty{display:none}
+.crossfilter-summary{
+  font-family:var(--font-display);font-size:10px;font-weight:800;letter-spacing:.8px;
+  text-transform:uppercase;color:var(--text3);
+}
+.crossfilter-chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.crossfilter-chip,.crossfilter-clear{
+  display:inline-flex;align-items:center;gap:7px;border-radius:999px;cursor:pointer;
+  border:1px solid rgba(45,79,214,.32);background:rgba(45,79,214,.12);
+  color:var(--text);font-family:var(--font-display);font-size:10px;font-weight:800;
+  letter-spacing:.45px;padding:6px 10px;transition:var(--transition);
+}
+.crossfilter-chip span{color:var(--text-soft);font-weight:700}
+.crossfilter-chip strong{font-size:12px;line-height:1;color:var(--corp-cyan)}
+.crossfilter-chip:hover,.crossfilter-clear:hover{background:rgba(45,79,214,.2);border-color:rgba(42,191,223,.42)}
+.crossfilter-clear{background:rgba(255,255,255,.035);border-color:var(--border);color:var(--text3)}
 .table-row-action{cursor:pointer}
 .table-row-action td{transition:var(--transition)}
 .table-row-action:hover td{background:rgba(45,79,214,.08);color:var(--text)}
 .bar-row-action{cursor:pointer;border-radius:12px;padding:6px 8px;margin:0 -8px;transition:var(--transition)}
 .bar-row-action:hover{background:rgba(45,79,214,.08)}
+.bar-row-action.chart-selected{background:rgba(42,191,223,.10);box-shadow:inset 0 0 0 1px rgba(42,191,223,.24)}
 .bar-row-action:focus-visible{outline:2px solid var(--corp-blue2);outline-offset:2px}
+.donut-slice{transition:opacity .18s var(--ease),filter .18s var(--ease),transform .18s var(--ease);transform-origin:center;cursor:pointer}
+.donut-slice:hover{filter:drop-shadow(0 5px 10px rgba(45,79,214,.22));opacity:1}
+.donut-slice.chart-selected{filter:drop-shadow(0 0 8px rgba(42,191,223,.45))}
+.leg-item-action{cursor:pointer}
+.leg-item-action.chart-selected{background:rgba(42,191,223,.08);padding-left:6px}
 .estado-card{backdrop-filter:blur(8px)}
 .estado-card-head{gap:12px}
 .estado-card-body{scrollbar-gutter:stable both-edges}

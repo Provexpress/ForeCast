@@ -18,6 +18,7 @@ let SALES_VIEW_MODE = 'reporte';
 let SALES_PENDING_VALUE_ONLY = false;
 let FORECAST_CONNECTIONS_LIST_ID = null;
 let FORECAST_CONNECTIONS = { byEmail: {}, byName: {} };
+let GERENCIA_CROSSFILTERS = { estado:'', director:'', ejecutivo:'', linea:'' };
 
 const GERENCIA_ESTADO_STEP = 20;
 const GERENCIA_ESTADO_LIMITS = {
@@ -1311,6 +1312,63 @@ function getVisibleData() {
   return ALL_DATA; // gerencia ve todo
 }
 
+function hasGerenciaCrossfilters(){
+  return Object.values(GERENCIA_CROSSFILTERS).some(Boolean);
+}
+
+function applyGerenciaCrossfilters(rows){
+  const f = GERENCIA_CROSSFILTERS;
+  return (rows || []).filter(row => {
+    if(f.estado && cleanDisplayText(row['ESTADO'],'').toUpperCase() !== f.estado) return false;
+    if(f.director && normalizePersonName(row['DIRECTOR']) !== normalizePersonName(f.director)) return false;
+    if(f.ejecutivo && !namesMatch(row['COMERCIAL'] || '', f.ejecutivo)) return false;
+    if(f.linea && getRowLineName(row) !== f.linea) return false;
+    return true;
+  });
+}
+
+function setGerenciaCrossfilter(type, value){
+  if(!Object.prototype.hasOwnProperty.call(GERENCIA_CROSSFILTERS, type)) return;
+  const next = cleanDisplayText(value, '');
+  GERENCIA_CROSSFILTERS[type] = GERENCIA_CROSSFILTERS[type] === next ? '' : next;
+  renderGerencia();
+}
+
+function clearGerenciaCrossfilter(type){
+  if(type && Object.prototype.hasOwnProperty.call(GERENCIA_CROSSFILTERS, type)) {
+    GERENCIA_CROSSFILTERS[type] = '';
+  } else {
+    GERENCIA_CROSSFILTERS = { estado:'', director:'', ejecutivo:'', linea:'' };
+  }
+  renderGerencia();
+}
+
+function renderGerenciaCrossfilterBar(totalRows, visibleRows){
+  const el = document.getElementById('gerencia-crossfilters');
+  if(!el) return;
+  const labels = [
+    ['estado','Estado'],
+    ['director','Director'],
+    ['ejecutivo','Ejecutivo'],
+    ['linea','Linea']
+  ];
+  const chips = labels
+    .filter(([key]) => GERENCIA_CROSSFILTERS[key])
+    .map(([key,label]) => `<button type="button" class="crossfilter-chip" onclick="${escAttr(jsCall('clearGerenciaCrossfilter', key))}" title="Quitar filtro ${escAttr(label)}">
+      <span>${escHtml(label)}</span>${escHtml(GERENCIA_CROSSFILTERS[key])}<strong>×</strong>
+    </button>`)
+    .join('');
+  if(!chips) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = `
+    <div class="crossfilter-summary">${fmtNum(visibleRows)} de ${fmtNum(totalRows)} registros</div>
+    <div class="crossfilter-chips">${chips}</div>
+    <button type="button" class="crossfilter-clear" onclick="clearGerenciaCrossfilter()">Limpiar filtros</button>
+  `;
+}
+
 function isOscarMarcasGlobalScope(){
   if(!CURRENT_USER || CURRENT_USER.role !== 'director') return false;
   return normalizePersonName(CURRENT_USER.directorGroup) === normalizePersonName('Oscar Beltran');
@@ -1961,9 +2019,10 @@ function renderBars(containerId, items, color, fmtFn, opts){
     const pct=Math.round((it.val/max)*100);
     const c=Array.isArray(color)?color[idx%color.length]:color;
     const onClick = options.getOnClick ? options.getOnClick(it, idx) : '';
+    const isSelected = options.getIsSelected ? options.getIsSelected(it, idx) : false;
     const rowAttrs = onClick
-      ? ` class="bar-row bar-row-action" role="button" tabindex="0" onclick="${escAttr(onClick)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${onClick}}`)}" title="${escAttr(options.clickTitle || 'Abrir detalle')}" data-tooltip="${escAttr(options.tooltipPrefix ? options.tooltipPrefix + it.name : 'Abrir detalle de ' + it.name)}"`
-      : ` class="bar-row"`;
+      ? ` class="bar-row bar-row-action ${isSelected ? 'chart-selected' : ''}" role="button" tabindex="0" onclick="${escAttr(onClick)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${onClick}}`)}" title="${escAttr(options.clickTitle || 'Filtrar')}" data-tooltip="${escAttr(options.tooltipPrefix ? options.tooltipPrefix + it.name : 'Filtrar por ' + it.name)}"`
+      : ` class="bar-row ${isSelected ? 'chart-selected' : ''}"`;
     return `<div${rowAttrs}>
       <div class="bar-name ${escAttr(nameClass)}" title="${escAttr(it.name)}">${escHtml(it.name)}</div>
       <div class="bar-track">
@@ -1973,12 +2032,14 @@ function renderBars(containerId, items, color, fmtFn, opts){
       </div>
     </div>`;
   }).join('');
+  attachChartTooltips(el);
 }
 
-function renderDonut(svgId, legId, items){
+function renderDonut(svgId, legId, items, opts){
   const svg=document.getElementById(svgId);
   const leg=document.getElementById(legId);
   if(!svg||!leg) return;
+  const options = opts || {};
   const total=items.reduce((s,i)=>s+i.val,0)||1;
   let angle=-90;
   const r=38, cx=50, cy=50;
@@ -1991,15 +2052,27 @@ function renderDonut(svgId, legId, items){
     const x2=cx+r*Math.cos(a2), y2=cy+r*Math.sin(a2);
     const large=slice>180?1:0;
     const c=COLORS[i%COLORS.length];
-    paths+=`<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z" fill="${c}" opacity=".85"/>`;
+    const onClick = options.getOnClick ? options.getOnClick(it, i) : '';
+    const isSelected = options.getIsSelected ? options.getIsSelected(it, i) : false;
+    const activeMode = options.hasActive && !isSelected;
+    const actionAttrs = onClick
+      ? ` role="button" tabindex="0" onclick="${escAttr(onClick)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${onClick}}`)}" data-tooltip="${escAttr(options.tooltipPrefix ? options.tooltipPrefix + it.name : 'Filtrar por ' + it.name)}"`
+      : '';
+    paths+=`<path class="donut-slice ${isSelected ? 'chart-selected' : ''}" d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z" fill="${c}" opacity="${activeMode ? '.35' : '.85'}" stroke="${isSelected ? c : 'transparent'}" stroke-width="${isSelected ? '2.2' : '0'}"${actionAttrs}/>`;
     angle+=slice;
   });
   svg.innerHTML=paths+`<circle cx="50" cy="50" r="22" fill="#0B0F1E"/>`;
   
   leg.innerHTML=items.slice(0,6).map((it,i)=>{
     const pct=((it.val/total)*100).toFixed(1);
-    return `<div class="leg-item" style="display:flex;align-items:center;gap:8px;font-size:12px"><div class="leg-dot" style="background:${COLORS[i%COLORS.length]};width:10px;height:10px;border-radius:50%;flex-shrink:0"></div><span title="${escAttr(it.name)}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-strong);font-weight:600">${escHtml(it.name)}</span><span class="leg-pct" style="color:var(--text);font-family:var(--font-mono);font-weight:600">${pct}%</span></div>`;
+    const onClick = options.getOnClick ? options.getOnClick(it, i) : '';
+    const isSelected = options.getIsSelected ? options.getIsSelected(it, i) : false;
+    const legAttrs = onClick
+      ? ` role="button" tabindex="0" onclick="${escAttr(onClick)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${onClick}}`)}" title="${escAttr(options.clickTitle || 'Filtrar')}" data-tooltip="${escAttr(options.tooltipPrefix ? options.tooltipPrefix + it.name : 'Filtrar por ' + it.name)}"`
+      : '';
+    return `<div class="leg-item ${onClick ? 'leg-item-action' : ''} ${isSelected ? 'chart-selected' : ''}"${legAttrs} style="display:flex;align-items:center;gap:8px;font-size:12px"><div class="leg-dot" style="background:${COLORS[i%COLORS.length]};width:10px;height:10px;border-radius:50%;flex-shrink:0"></div><span title="${escAttr(it.name)}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-strong);font-weight:600">${escHtml(it.name)}</span><span class="leg-pct" style="color:var(--text);font-family:var(--font-mono);font-weight:600">${pct}%</span></div>`;
   }).join('');
+  attachChartTooltips(svg.parentElement || svg);
 }
 
 function renderEvoChart(containerId, dataByDir, months, opts){
@@ -2075,8 +2148,10 @@ function renderEvoChart(containerId, dataByDir, months, opts){
    GERENCIA GENERAL
 ══════════════════════════════════════ */
 function renderGerencia(){
-  const ALL_DATA = getVisibleData();
-  if(!ALL_DATA.length) return;
+  const BASE_DATA = getVisibleData();
+  if(!BASE_DATA.length) return;
+  const ALL_DATA = applyGerenciaCrossfilters(BASE_DATA);
+  renderGerenciaCrossfilterBar(BASE_DATA.length, ALL_DATA.length);
   const trm=getTRM();
   const today=todayStr();
   
@@ -2139,7 +2214,12 @@ function renderGerencia(){
   const dirData=dirsUniq.map((d)=>({
     name:d, val:ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===d).reduce((s,r)=>s+toCOP(r),0)
   })).sort((a,b)=>b.val-a.val);
-  renderBars('bar-directores',dirData,COLORS);
+  renderBars('bar-directores',dirData,COLORS,null,{
+    getOnClick: item => jsCall('setGerenciaCrossfilter', 'director', item.name),
+    getIsSelected: item => GERENCIA_CROSSFILTERS.director === item.name,
+    clickTitle: 'Filtrar por director',
+    tooltipPrefix: 'Filtrar director: '
+  });
   
   // Evo por director mensual
   const monthsForEvo = getForecastMonths(ALL_DATA);
@@ -2155,16 +2235,33 @@ function renderGerencia(){
   
   // Bar ejecutivos
   const execs=[...new Set(ALL_DATA.map(r=>r['COMERCIAL']||'').filter(Boolean))];
-  const ejData=execs.map(e=>({name:e.split(' ')[0],val:ALL_DATA.filter(r=>r['COMERCIAL']===e).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
-  renderBars('bar-ejecutivos',ejData.slice(0, TOP_BAR_LIMIT),COLORS);
+  const ejData=execs.map(e=>({name:e.split(' ')[0],filterValue:e,val:ALL_DATA.filter(r=>r['COMERCIAL']===e).reduce((s,r)=>s+toCOP(r),0)})).sort((a,b)=>b.val-a.val);
+  renderBars('bar-ejecutivos',ejData.slice(0, TOP_BAR_LIMIT),COLORS,null,{
+    getOnClick: item => jsCall('setGerenciaCrossfilter', 'ejecutivo', item.filterValue || item.name),
+    getIsSelected: item => namesMatch(item.filterValue || item.name, GERENCIA_CROSSFILTERS.ejecutivo),
+    clickTitle: 'Filtrar por ejecutivo',
+    tooltipPrefix: 'Filtrar ejecutivo: '
+  });
   
   // Donuts
   const estados=['GANADA','PENDIENTE','PERDIDA','APLAZADO'];
   const estData=estados.map(e=>({name:e,val:ALL_DATA.filter(r=>r['ESTADO']===e).reduce((s,r)=>s+toCOP(r),0)}));
-  renderDonut('donut-estado','leg-estado',estData);
+  renderDonut('donut-estado','leg-estado',estData,{
+    hasActive: Boolean(GERENCIA_CROSSFILTERS.estado),
+    getOnClick: item => jsCall('setGerenciaCrossfilter', 'estado', item.name),
+    getIsSelected: item => GERENCIA_CROSSFILTERS.estado === item.name,
+    clickTitle: 'Filtrar por estado',
+    tooltipPrefix: 'Filtrar estado: '
+  });
   
   const linData=buildLineValueData(ALL_DATA);
-  renderDonut('donut-linea','leg-linea',linData);
+  renderDonut('donut-linea','leg-linea',linData,{
+    hasActive: Boolean(GERENCIA_CROSSFILTERS.linea),
+    getOnClick: item => jsCall('setGerenciaCrossfilter', 'linea', item.name),
+    getIsSelected: item => GERENCIA_CROSSFILTERS.linea === item.name,
+    clickTitle: 'Filtrar por linea',
+    tooltipPrefix: 'Filtrar linea: '
+  });
 
   // Tablas de estados
   renderGerenciaEstadoTables(ALL_DATA);
