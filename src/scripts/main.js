@@ -1990,9 +1990,10 @@ function renderDonut(svgId, legId, items){
   }).join('');
 }
 
-function renderEvoChart(containerId, dataByDir, months){
+function renderEvoChart(containerId, dataByDir, months, opts){
   const el=document.getElementById(containerId);
   if(!el) return;
+  const options = opts || {};
   const monthKeys = (months && months.length)
     ? months
     : [...new Set(Object.values(dataByDir || {}).flatMap(row => Object.keys(row || {})).filter(Boolean))].sort();
@@ -2000,7 +2001,9 @@ function renderEvoChart(containerId, dataByDir, months){
     el.innerHTML = `<div style="font-size:11px;color:var(--text2)">Sin datos mensuales para mostrar.</div>`;
     return;
   }
-  const dirs=[...new Set(Object.keys(dataByDir))];
+  const dirs=options.dirOrder && options.dirOrder.length
+    ? options.dirOrder.filter(d => Object.prototype.hasOwnProperty.call(dataByDir, d))
+    : [...new Set(Object.keys(dataByDir))];
   const nDirs=dirs.length;
   const allVals=dirs.flatMap(d=>monthKeys.map(m=>dataByDir[d][m]||0));
   const maxVal=Math.max(...allVals,1);
@@ -2008,7 +2011,7 @@ function renderEvoChart(containerId, dataByDir, months){
   const secondVal = positiveVals.find(v => v < maxVal * 0.98) || positiveVals[1] || 0;
   const hasOutlier = secondVal > 0 && maxVal / secondVal >= 5;
   const displayMax = hasOutlier ? Math.max(secondVal * 1.35, 1) : maxVal;
-  const W=520,H=210,padL=62,padR=12,padT=hasOutlier?34:22,padB=38;
+  const W=520,H=210,padL=62,padR=12,padT=22,padB=38;
   const gW=W-padL-padR, gH=H-padT-padB;
   const grpW=gW/monthKeys.length;
   const barW=Math.min(18, (grpW-8)/Math.max(nDirs,1));
@@ -2016,9 +2019,6 @@ function renderEvoChart(containerId, dataByDir, months){
 
   let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;overflow:visible">`;
   svg+=`<defs>${dirs.map((d,di)=>`<linearGradient id="bg${di}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${COLORS[di%COLORS.length]}" stop-opacity=".95"/><stop offset="100%" stop-color="${COLORS[di%COLORS.length]}" stop-opacity=".4"/></linearGradient>`).join('')}</defs>`;
-  if(hasOutlier) {
-    svg+=`<text x="${W-padR}" y="14" text-anchor="end" font-size="8.5" font-weight="600" fill="var(--corp-amber)" font-family="IBM Plex Sans,sans-serif">Escala ajustada</text>`;
-  }
 
   // Grid lines
   [0,.25,.5,.75,1].forEach(t=>{
@@ -2137,10 +2137,7 @@ function renderGerencia(){
   
   // Evo por director mensual
   const monthsForEvo = getForecastMonths(ALL_DATA);
-  const dirsForEvo=[...new Set([
-    ...ALL_DATA.map(r=>(r['DIRECTOR']||'').trim()),
-    ...Object.keys(LOADED_FILES_BY_DIR||{}).map(d=>d.trim())
-  ].filter(Boolean))].sort();
+  const dirsForEvo=dirData.map(item => item.name);
   const evoByDir={};
   dirsForEvo.forEach(d=>{
     evoByDir[d]={};
@@ -2148,7 +2145,7 @@ function renderGerencia(){
       evoByDir[d][m]=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===d&&getMonth(getRowDateValue(r))===m).reduce((s,r)=>s+toCOP(r),0);
     });
   });
-  renderEvoChart('evo-dir-chart',evoByDir, monthsForEvo);
+  renderEvoChart('evo-dir-chart',evoByDir, monthsForEvo, { dirOrder: dirsForEvo });
   
   // Bar ejecutivos
   const execs=[...new Set(ALL_DATA.map(r=>r['COMERCIAL']||'').filter(Boolean))];
