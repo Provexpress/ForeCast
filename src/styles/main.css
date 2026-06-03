@@ -526,15 +526,16 @@ select:hover,select:focus{border-color:var(--corp-blue2);color:var(--text);box-s
 .bar-val{font-size:10px;font-weight:600;color:rgba(255,255,255,.9);white-space:nowrap;font-family:var(--font-mono)}
 
 /* ── DONUT ── */
-.donut-wrap{display:flex;flex-direction:row;align-items:flex-start;gap:20px;padding:10px 0;min-width:0}
-.donut-leg{display:flex;flex-direction:column;gap:0;width:100%;flex:1}
-.leg-item{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-strong);transition:var(--transition);padding:3px 0;border-radius:4px}
+.donut-wrap{display:flex;flex-direction:row;align-items:center;gap:16px;padding:10px 0;min-width:0}
+.donut-wrap > svg{width:clamp(112px,34%,150px) !important;height:auto !important;flex:0 1 clamp(112px,34%,150px) !important}
+.donut-leg{display:flex;flex-direction:column;gap:0;width:auto;min-width:0;max-width:100%;flex:1 1 0}
+.leg-item{display:flex;align-items:center;gap:8px;min-width:0;font-size:11px;color:var(--text-strong);transition:var(--transition);padding:3px 0;border-radius:4px}
 .leg-item:hover{color:var(--text);padding-left:4px}
 .leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
-.leg-pct{margin-left:auto;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--text)}
+.leg-pct{margin-left:auto;flex:0 0 auto;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--text)}
 
 #page-marcas .donut-wrap{flex-wrap:wrap;align-items:center;justify-content:center;gap:16px}
-#page-marcas .donut-wrap svg{width:clamp(116px, 26vw, 160px) !important;height:auto !important}
+#page-marcas .donut-wrap svg{width:clamp(116px, 26vw, 150px) !important;height:auto !important}
 #page-marcas .donut-leg{min-width:0;max-width:100%}
 #page-marcas .leg-item{font-size:10.5px}
 #page-marcas .marcas-donut-card,
