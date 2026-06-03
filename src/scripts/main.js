@@ -2011,13 +2011,17 @@ function renderEvoChart(containerId, dataByDir, months, opts){
   const secondVal = positiveVals.find(v => v < maxVal * 0.98) || positiveVals[1] || 0;
   const hasOutlier = secondVal > 0 && maxVal / secondVal >= 5;
   const displayMax = hasOutlier ? Math.max(secondVal * 1.35, 1) : maxVal;
-  const W=520,H=210,padL=62,padR=12,padT=22,padB=38;
+  const W=520,H=218,padL=62,padR=12,padT=hasOutlier?32:26,padB=38;
   const gW=W-padL-padR, gH=H-padT-padB;
   const grpW=gW/monthKeys.length;
   const barW=Math.min(18, (grpW-8)/Math.max(nDirs,1));
   const gap=2;
+  const legendHtml=`<div class="evo-legend" aria-label="Directores">${dirs.map((d,di)=>{
+    const c=COLORS[di%COLORS.length];
+    return `<div class="evo-legend-item" title="${escAttr(d)}"><span class="evo-legend-dot" style="background:${c}"></span><span class="evo-legend-name">${escHtml(d)}</span></div>`;
+  }).join('')}</div>`;
 
-  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;overflow:visible">`;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" class="evo-chart-svg" aria-hidden="true">`;
   svg+=`<defs>${dirs.map((d,di)=>`<linearGradient id="bg${di}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${COLORS[di%COLORS.length]}" stop-opacity=".95"/><stop offset="100%" stop-color="${COLORS[di%COLORS.length]}" stop-opacity=".4"/></linearGradient>`).join('')}</defs>`;
 
   // Grid lines
@@ -2043,25 +2047,15 @@ function renderEvoChart(containerId, dataByDir, months, opts){
         const c = COLORS[di%COLORS.length];
         const cx = x + barW/2;
         svg+=`<path d="M${(x+2).toFixed(1)},${(padT+8).toFixed(1)} L${(x+barW-2).toFixed(1)},${(padT+3).toFixed(1)} M${(x+2).toFixed(1)},${(padT+14).toFixed(1)} L${(x+barW-2).toFixed(1)},${(padT+9).toFixed(1)}" stroke="${c}" stroke-width="1.5" stroke-linecap="round" opacity=".95"></path>`;
-        svg+=`<text x="${cx.toFixed(1)}" y="${(padT-7).toFixed(1)}" text-anchor="middle" font-size="7.5" font-weight="700" fill="${c}" font-family="IBM Plex Mono,monospace">${abr(v)}</text>`;
+        svg+=`<text x="${cx.toFixed(1)}" y="${(padT-9).toFixed(1)}" text-anchor="middle" font-size="7.5" font-weight="700" fill="${c}" font-family="IBM Plex Mono,monospace">${abr(v)}</text>`;
       }
     });
     // Month label
     svg+=`<text x="${grpCenter.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="IBM Plex Sans,sans-serif" font-weight="400">${getMonthShortLabel(m)}</text>`;
   });
 
-  // Legend top
-  let lx=padL;
-  dirs.forEach((d,di)=>{
-    const c=COLORS[di%COLORS.length];
-    const short=d.split(' ').slice(0,2).join(' ');
-    svg+=`<rect x="${lx}" y="4" width="9" height="9" rx="2" fill="${c}"/>`;
-    svg+=`<text x="${lx+12}" y="12" font-size="9" font-weight="400" fill="var(--text3)" font-family="IBM Plex Sans,sans-serif">${escHtml(short)}</text>`;
-    lx+=short.length*4.8+20;
-  });
-
   svg+='</svg>';
-  el.innerHTML=svg;
+  el.innerHTML=`<div class="evo-chart-wrap">${legendHtml}${svg}</div>`;
   attachChartTooltips(el);
 }
 
