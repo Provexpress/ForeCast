@@ -7,7 +7,7 @@
 <link rel="icon" type="image/png" href="src/icono-provexpress.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="src/styles/main.css?v=20260603-evo-responsive1">
+<link rel="stylesheet" href="src/styles/main.css?v=20260603-responsive-audit1">
 
 <!-- Microsoft Authentication Library -->
 <script src="src/scripts/auth.js?v=20260601-redirect1"></script>
@@ -35,7 +35,7 @@
       </div>
       <span class="trm-label" style="margin-left:2px">COP/USD</span>
     </div>
-    <div style="display:flex;align-items:center;gap:8px">
+    <div class="header-status">
       <div class="status-dot" id="status-dot-hd" style="background:var(--text2);box-shadow:none"></div>
       <div>
         <div style="font-size:10px;color:var(--text2);font-family:var(--font-display)" id="file-count-hd">Sin datos cargados</div>
@@ -54,7 +54,7 @@
     </div>
 
     <!-- Panel de cambio de vista -->
-    <div id="view-panel" style="display:none;position:fixed;top:70px;right:16px;z-index:500;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:16px;min-width:220px;box-shadow:var(--shadow-lg)">
+    <div id="view-panel" class="view-panel" style="display:none;position:fixed;top:70px;right:16px;z-index:500;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:16px;min-width:220px;box-shadow:var(--shadow-lg)">
       <div style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text2);margin-bottom:12px;text-transform:uppercase">Vista activa</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <button onclick="switchView(this,'gerencia')" class="view-opt-btn" data-view="gerencia">👑 Gerencia General</button>
@@ -441,7 +441,7 @@
 
 </main>
 
-<script src="src/scripts/main.js?v=20260603-evo-responsive1"></script>
+<script src="src/scripts/main.js?v=20260603-responsive-audit1"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->

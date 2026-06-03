@@ -3315,7 +3315,7 @@ function renderDivisas(){
   `;
   
   // Table USD detail
-  document.getElementById('tbl-usd').innerHTML=`<table>
+  document.getElementById('tbl-usd').innerHTML=`<table class="responsive-table">
     <thead><tr><th>Ejecutivo</th><th>Cliente</th><th>Producto</th><th>USD</th><th>COP Liquidado</th><th>Estado</th></tr></thead>
     <tbody>${usdDetailData.length ? usdDetailData.slice(0, usdVisible).map(r=>{
       const usd=parseMonto(r['MONTO VENTA CLIENTE'])||0;
@@ -3326,18 +3326,18 @@ function renderDivisas(){
         ? ` class="table-row-action" onclick="${escAttr(jsCall('openNegocioDetailById', r.__RID, 'divisas'))}" title="Abrir detalle del negocio"`
         : '';
       return `<tr${rowAttrs}>
-        <td>${escHtml((r['COMERCIAL']||'').split(' ')[0])}</td>
-        <td>${escHtml(r['CLIENTE']||'—')}</td>
-        <td style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r['PRODUCTO']||'—')}</td>
-        <td class="td-mono td-usd">${fmtUSD(usd)}</td>
-        <td class="td-mono td-cop">${fmtCOP(liq)}</td>
-        <td><span class="badge badge-${estadoClass}">${escHtml(estado)}</span></td>
+        <td data-label="Ejecutivo">${escHtml((r['COMERCIAL']||'').split(' ')[0])}</td>
+        <td data-label="Cliente">${escHtml(r['CLIENTE']||'—')}</td>
+        <td style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-label="Producto">${escHtml(r['PRODUCTO']||'—')}</td>
+        <td class="td-mono td-usd" data-label="USD">${fmtUSD(usd)}</td>
+        <td class="td-mono td-cop" data-label="COP Liquidado">${fmtCOP(liq)}</td>
+        <td data-label="Estado"><span class="badge badge-${estadoClass}">${escHtml(estado)}</span></td>
       </tr>`;
     }).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px 14px">Sin negocios ${estadoDetalle ? estadoDetalle.toLowerCase() : ''} en USD.</td></tr>`}</tbody>
   </table>${usdRemaining > 0 ? `<div class="table-more-wrap"><button type="button" class="table-more-btn" onclick="showMoreDivisaRows('USD')">Ver mas (${usdRemaining})</button></div>` : ''}`;
   
   // Table COP detail
-  document.getElementById('tbl-cop').innerHTML=`<table>
+  document.getElementById('tbl-cop').innerHTML=`<table class="responsive-table">
     <thead><tr><th>Ejecutivo</th><th>Cliente</th><th>Producto</th><th>COP</th><th>Estado</th></tr></thead>
     <tbody>${copDetailData.length ? copDetailData.slice(0, copVisible).map(r=>{
       const cop=parseMonto(r['MONTO VENTA CLIENTE'])||0;
@@ -3347,18 +3347,18 @@ function renderDivisas(){
         ? ` class="table-row-action" onclick="${escAttr(jsCall('openNegocioDetailById', r.__RID, 'divisas'))}" title="Abrir detalle del negocio"`
         : '';
       return `<tr${rowAttrs}>
-        <td>${escHtml((r['COMERCIAL']||'').split(' ')[0])}</td>
-        <td>${escHtml(r['CLIENTE']||'—')}</td>
-        <td style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r['PRODUCTO']||'—')}</td>
-        <td class="td-mono td-cop">${fmtCOP(cop)}</td>
-        <td><span class="badge badge-${estadoClass}">${escHtml(estado)}</span></td>
+        <td data-label="Ejecutivo">${escHtml((r['COMERCIAL']||'').split(' ')[0])}</td>
+        <td data-label="Cliente">${escHtml(r['CLIENTE']||'—')}</td>
+        <td style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-label="Producto">${escHtml(r['PRODUCTO']||'—')}</td>
+        <td class="td-mono td-cop" data-label="COP">${fmtCOP(cop)}</td>
+        <td data-label="Estado"><span class="badge badge-${estadoClass}">${escHtml(estado)}</span></td>
       </tr>`;
     }).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:20px 14px">Sin negocios ${estadoDetalle ? estadoDetalle.toLowerCase() : ''} en COP.</td></tr>`}</tbody>
   </table>${copRemaining > 0 ? `<div class="table-more-wrap"><button type="button" class="table-more-btn" onclick="showMoreDivisaRows('COP')">Ver mas (${copRemaining})</button></div>` : ''}`;
   
   // Tabla resumen consolidado
   const dirs=[...new Set(ALL_DATA.map(r=>(r['DIRECTOR']||'').trim()).filter(Boolean))];
-  document.getElementById('tbl-resumen-divisas').innerHTML=`<table>
+  document.getElementById('tbl-resumen-divisas').innerHTML=`<table class="responsive-table">
     <thead><tr><th>Director</th><th>Negos COP</th><th>Valor COP</th><th>Negos USD</th><th>Valor USD</th><th>Liq. USD→COP</th><th>TOTAL COP</th></tr></thead>
     <tbody>${dirs.map(d=>{
       const dd=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===d);
@@ -3368,23 +3368,23 @@ function renderDivisas(){
       const vUSD=du.reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
       const liq=vUSD*trm;
       return `<tr>
-        <td style="font-family:var(--font-display);font-weight:700;color:var(--text)">${escHtml(d)}</td>
-        <td class="td-mono">${dc.length}</td>
-        <td class="td-mono td-cop">${fmtCOP(vCOP)}</td>
-        <td class="td-mono">${du.length}</td>
-        <td class="td-mono td-usd">${fmtUSD(vUSD)}</td>
-        <td class="td-mono td-usd">${fmtCOP(liq)}</td>
-        <td class="td-mono" style="color:var(--text);font-weight:600">${fmtCOP(vCOP+liq)}</td>
+        <td style="font-family:var(--font-display);font-weight:700;color:var(--text)" data-label="Director">${escHtml(d)}</td>
+        <td class="td-mono" data-label="Negos COP">${dc.length}</td>
+        <td class="td-mono td-cop" data-label="Valor COP">${fmtCOP(vCOP)}</td>
+        <td class="td-mono" data-label="Negos USD">${du.length}</td>
+        <td class="td-mono td-usd" data-label="Valor USD">${fmtUSD(vUSD)}</td>
+        <td class="td-mono td-usd" data-label="Liq. USD→COP">${fmtCOP(liq)}</td>
+        <td class="td-mono" style="color:var(--text);font-weight:600" data-label="TOTAL COP">${fmtCOP(vCOP+liq)}</td>
       </tr>`;
     }).join('')}
     <tr style="border-top:1px solid var(--border2)">
-      <td style="font-family:var(--font-display);font-weight:800;color:var(--text)">TOTAL GENERAL</td>
-      <td class="td-mono">${copData.length}</td>
-      <td class="td-mono td-cop" style="font-weight:700">${fmtCOP(totalCOP)}</td>
-      <td class="td-mono">${usdData.length}</td>
-      <td class="td-mono td-usd" style="font-weight:700">${fmtUSD(totalUSD)}</td>
-      <td class="td-mono td-usd" style="font-weight:700">${fmtCOP(usdLiqCOP)}</td>
-      <td class="td-mono" style="color:var(--corp-cyan);font-weight:800;font-size:13px">${fmtCOP(granTotal)}</td>
+      <td style="font-family:var(--font-display);font-weight:800;color:var(--text)" data-label="Director">TOTAL GENERAL</td>
+      <td class="td-mono" data-label="Negos COP">${copData.length}</td>
+      <td class="td-mono td-cop" style="font-weight:700" data-label="Valor COP">${fmtCOP(totalCOP)}</td>
+      <td class="td-mono" data-label="Negos USD">${usdData.length}</td>
+      <td class="td-mono td-usd" style="font-weight:700" data-label="Valor USD">${fmtUSD(totalUSD)}</td>
+      <td class="td-mono td-usd" style="font-weight:700" data-label="Liq. USD→COP">${fmtCOP(usdLiqCOP)}</td>
+      <td class="td-mono" style="color:var(--corp-cyan);font-weight:800;font-size:13px" data-label="TOTAL COP">${fmtCOP(granTotal)}</td>
     </tr></tbody>
   </table>`;
 }
@@ -3464,7 +3464,7 @@ function renderMarcas(){
     ? ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===selectedDirector)
     : ALL_DATA;
   const execs=[...new Set(marcaExecData.map(r=>r['COMERCIAL']||'').filter(Boolean))];
-  document.getElementById('tbl-marca-ej').innerHTML=`<table>
+  document.getElementById('tbl-marca-ej').innerHTML=`<table class="responsive-table">
     <thead><tr><th>Ejecutivo</th><th>Top Marca</th><th>Cantidad</th></tr></thead>
     <tbody>${execs.length ? execs.map(e=>{
       const ed=marcaExecData.filter(r=>r['COMERCIAL']===e);
@@ -3475,9 +3475,9 @@ function renderMarcas(){
       const topMarcaCount = topIdx >= 0 ? marcaCounts[topIdx] || 0 : 0;
       const topColor = topIdx >= 0 ? COLORS[topIdx%COLORS.length] : 'var(--text3)';
       return `<tr class="table-row-action" onclick="${escAttr(jsCall('openExecNegociosFromMarcas', e, execDirector, topMarca))}" title="Abrir negocios del ejecutivo">
-        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${escHtml(e)}</td>
-        <td style="font-family:var(--font-display);font-weight:700;color:${topColor}">${escHtml(topMarca)}</td>
-        <td class="td-mono">${fmtNum(topMarcaCount)}</td>
+        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)" data-label="Ejecutivo">${escHtml(e)}</td>
+        <td style="font-family:var(--font-display);font-weight:700;color:${topColor}" data-label="Top Marca">${escHtml(topMarca)}</td>
+        <td class="td-mono" data-label="Cantidad">${fmtNum(topMarcaCount)}</td>
       </tr>`;
     }).join('') : `<tr><td colspan="3" style="text-align:center;color:var(--text2);padding:20px 14px">Sin ejecutivos con datos para este grupo.</td></tr>`}</tbody>
   </table>`;
@@ -3523,7 +3523,7 @@ function renderResumen(){
   const dirs=[...new Set(ALL_DATA.map(r=>(r['DIRECTOR']||'').trim()).filter(Boolean))];
   const execs=[...new Set(ALL_DATA.map(r=>r['COMERCIAL']||'').filter(Boolean))];
   
-  document.getElementById('tbl-total-cop').innerHTML=`<table>
+  document.getElementById('tbl-total-cop').innerHTML=`<table class="responsive-table">
     <thead><tr><th>Ejecutivo</th><th>Director</th><th>Negocios COP</th>${monthHeaderCells}<th>Total COP</th></tr></thead>
     <tbody>${execs.map(e=>{
       const ed=copData.filter(r=>r['COMERCIAL']===e);
@@ -3531,23 +3531,23 @@ function renderResumen(){
       const monthlyValues = months.map(month => ed.filter(r=>getMonth(getRowDateValue(r))===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0));
       const tot=monthlyValues.reduce((sum, val)=>sum+val,0);
       return `<tr>
-        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${escHtml(e)}</td>
-        <td style="color:var(--text2)">${escHtml(dir?dir['DIRECTOR']||'—':'—')}</td>
-        <td class="td-mono">${ed.length}</td>
-        ${monthlyValues.map(val=>`<td class="td-mono td-cop">${val>0?abr(val):'—'}</td>`).join('')}
-        <td class="td-mono td-cop" style="font-weight:700">${fmtCOP(tot)}</td>
+        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)" data-label="Ejecutivo">${escHtml(e)}</td>
+        <td style="color:var(--text2)" data-label="Director">${escHtml(dir?dir['DIRECTOR']||'—':'—')}</td>
+        <td class="td-mono" data-label="Negocios COP">${ed.length}</td>
+        ${monthlyValues.map((val,idx)=>`<td class="td-mono td-cop" data-label="${escAttr(getMonthShortLabel(months[idx]))}">${val>0?abr(val):'—'}</td>`).join('')}
+        <td class="td-mono td-cop" style="font-weight:700" data-label="Total COP">${fmtCOP(tot)}</td>
       </tr>`;
     }).join('')}
     <tr style="border-top:1px solid var(--border2)">
       <td colspan="2" style="font-family:var(--font-display);font-weight:800;color:var(--cop-color)">SUBTOTAL COP</td>
-      <td class="td-mono">${copData.length}</td>
-      ${months.map(month => `<td class="td-mono td-cop">${abr(copData.filter(r=>getMonth(getRowDateValue(r))===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0))}</td>`).join('')}
-      <td class="td-mono td-cop" style="font-weight:800;font-size:13px">${fmtCOP(totalCOP)}</td>
+      <td class="td-mono" data-label="Negocios COP">${copData.length}</td>
+      ${months.map(month => `<td class="td-mono td-cop" data-label="${escAttr(getMonthShortLabel(month))}">${abr(copData.filter(r=>getMonth(getRowDateValue(r))===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0))}</td>`).join('')}
+      <td class="td-mono td-cop" style="font-weight:800;font-size:13px" data-label="Total COP">${fmtCOP(totalCOP)}</td>
     </tr></tbody>
   </table>`;
   
   // Tabla USD detail + liquidado
-  document.getElementById('tbl-total-usd').innerHTML=`<table>
+  document.getElementById('tbl-total-usd').innerHTML=`<table class="responsive-table">
     <thead><tr><th>Ejecutivo</th><th>Director</th><th>Negocios USD</th>${monthHeaderCells}<th>Total USD</th><th>TRM</th><th>Total Liquidado COP</th></tr></thead>
     <tbody>${execs.map(e=>{
       const ed=usdData.filter(r=>r['COMERCIAL']===e);
@@ -3556,27 +3556,27 @@ function renderResumen(){
       const monthlyValues = months.map(month => ed.filter(r=>getMonth(getRowDateValue(r))===month).reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0));
       const tot=monthlyValues.reduce((sum, val)=>sum+val,0);
       return `<tr>
-        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)">${escHtml(e)}</td>
-        <td style="color:var(--text2)">${escHtml(dir?dir['DIRECTOR']||'—':'—')}</td>
-        <td class="td-mono">${ed.length}</td>
-        ${monthlyValues.map(val=>`<td class="td-mono td-usd">${val>0?fmtUSD(val):'—'}</td>`).join('')}
-        <td class="td-mono td-usd" style="font-weight:700">${fmtUSD(tot)}</td>
-        <td class="td-mono" style="color:var(--corp-cyan)">${fmtTRMDisplay(trm)}</td>
-        <td class="td-mono td-cop" style="font-weight:700">${fmtCOP(tot*trm)}</td>
+        <td style="font-family:var(--font-display);font-weight:600;color:var(--text)" data-label="Ejecutivo">${escHtml(e)}</td>
+        <td style="color:var(--text2)" data-label="Director">${escHtml(dir?dir['DIRECTOR']||'—':'—')}</td>
+        <td class="td-mono" data-label="Negocios USD">${ed.length}</td>
+        ${monthlyValues.map((val,idx)=>`<td class="td-mono td-usd" data-label="${escAttr(getMonthShortLabel(months[idx]))}">${val>0?fmtUSD(val):'—'}</td>`).join('')}
+        <td class="td-mono td-usd" style="font-weight:700" data-label="Total USD">${fmtUSD(tot)}</td>
+        <td class="td-mono" style="color:var(--corp-cyan)" data-label="TRM">${fmtTRMDisplay(trm)}</td>
+        <td class="td-mono td-cop" style="font-weight:700" data-label="Total Liquidado COP">${fmtCOP(tot*trm)}</td>
       </tr>`;
     }).join('')}
     <tr style="border-top:1px solid var(--border2)">
       <td colspan="2" style="font-family:var(--font-display);font-weight:800;color:var(--usd-color)">SUBTOTAL USD</td>
-      <td class="td-mono">${usdData.length}</td>
-      ${months.map(()=>'<td></td>').join('')}
-      <td class="td-mono td-usd" style="font-weight:800">${fmtUSD(totalUSD)}</td>
-      <td class="td-mono" style="color:var(--corp-cyan)">${fmtTRMDisplay(trm)}</td>
-      <td class="td-mono td-usd" style="font-weight:800;font-size:13px">${fmtCOP(usdLiq)}</td>
+      <td class="td-mono" data-label="Negocios USD">${usdData.length}</td>
+      ${months.map(month=>`<td data-label="${escAttr(getMonthShortLabel(month))}"></td>`).join('')}
+      <td class="td-mono td-usd" style="font-weight:800" data-label="Total USD">${fmtUSD(totalUSD)}</td>
+      <td class="td-mono" style="color:var(--corp-cyan)" data-label="TRM">${fmtTRMDisplay(trm)}</td>
+      <td class="td-mono td-usd" style="font-weight:800;font-size:13px" data-label="Total Liquidado COP">${fmtCOP(usdLiq)}</td>
     </tr></tbody>
   </table>`;
   
   // Consolidado final
-  document.getElementById('tbl-consolidado').innerHTML=`<table>
+  document.getElementById('tbl-consolidado').innerHTML=`<table class="responsive-table">
     <thead><tr><th>Director</th><th>Ejecutivo</th><th>Total COP</th><th>Total USD</th><th>USD Liq. COP</th><th>TOTAL CONSOLIDADO</th></tr></thead>
     <tbody>${dirs.flatMap(d=>{
       const dejecs=[...new Set(ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===d).map(r=>r['COMERCIAL']))];
@@ -3586,21 +3586,21 @@ function renderResumen(){
         const eUSD=ed.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
         const total=eCOP+eUSD*trm;
         return `<tr>
-          <td style="font-family:var(--font-display);font-weight:700;color:var(--text2)">${ei===0?escHtml(d):''}</td>
-          <td style="color:var(--text)">${escHtml(e)}</td>
-          <td class="td-mono td-cop">${fmtCOP(eCOP)}</td>
-          <td class="td-mono td-usd">${eUSD>0?fmtUSD(eUSD):'—'}</td>
-          <td class="td-mono td-usd">${eUSD>0?fmtCOP(eUSD*trm):'—'}</td>
-          <td class="td-mono" style="color:var(--text);font-weight:700">${fmtCOP(total)}</td>
+          <td style="font-family:var(--font-display);font-weight:700;color:var(--text2)" data-label="Director">${ei===0?escHtml(d):''}</td>
+          <td style="color:var(--text)" data-label="Ejecutivo">${escHtml(e)}</td>
+          <td class="td-mono td-cop" data-label="Total COP">${fmtCOP(eCOP)}</td>
+          <td class="td-mono td-usd" data-label="Total USD">${eUSD>0?fmtUSD(eUSD):'—'}</td>
+          <td class="td-mono td-usd" data-label="USD Liq. COP">${eUSD>0?fmtCOP(eUSD*trm):'—'}</td>
+          <td class="td-mono" style="color:var(--text);font-weight:700" data-label="TOTAL CONSOLIDADO">${fmtCOP(total)}</td>
         </tr>`;
       });
     }).join('')}
     <tr style="border-top:2px solid var(--corp-blue2)">
       <td colspan="2" style="font-family:var(--font-display);font-weight:800;font-size:13px;color:var(--corp-cyan)">GRAN TOTAL</td>
-      <td class="td-mono td-cop" style="font-weight:800">${fmtCOP(totalCOP)}</td>
-      <td class="td-mono td-usd" style="font-weight:800">${fmtUSD(totalUSD)}</td>
-      <td class="td-mono td-usd" style="font-weight:800">${fmtCOP(usdLiq)}</td>
-      <td class="td-mono" style="color:var(--corp-cyan);font-weight:800;font-size:14px">${fmtCOP(totalCOP+usdLiq)}</td>
+      <td class="td-mono td-cop" style="font-weight:800" data-label="Total COP">${fmtCOP(totalCOP)}</td>
+      <td class="td-mono td-usd" style="font-weight:800" data-label="Total USD">${fmtUSD(totalUSD)}</td>
+      <td class="td-mono td-usd" style="font-weight:800" data-label="USD Liq. COP">${fmtCOP(usdLiq)}</td>
+      <td class="td-mono" style="color:var(--corp-cyan);font-weight:800;font-size:14px" data-label="TOTAL CONSOLIDADO">${fmtCOP(totalCOP+usdLiq)}</td>
     </tr></tbody>
   </table>`;
 }
