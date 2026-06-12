@@ -2473,8 +2473,8 @@ function excelDateValue(value){
 
 function excelMoneyFormat(moneda, withDecimals){
   const currency = cleanDisplayText(moneda, 'COP').trim().toUpperCase();
-  if(currency === 'USD') return withDecimals ? '"USD" #,##0.##' : '"USD" #,##0';
-  return withDecimals ? '$ #,##0.##' : '$ #,##0';
+  if(currency === 'USD') return withDecimals ? '[$USD] #,##0.##' : '[$USD] #,##0';
+  return withDecimals ? '[$$-es-CO] #,##0.##' : '[$$-es-CO] #,##0';
 }
 
 function getGerenciaEstadoExportData(){
@@ -2635,9 +2635,9 @@ function styleExcelKpis(ws, rows){
     .reduce((sum,row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
   const cards = [
     ['Negocios', rows.length, '#2D4FD6', '#,##0'],
-    ['Total COP', totalCOP, '#0DBF82', '$ #,##0'],
+    ['Total COP', totalCOP, '#0DBF82', excelMoneyFormat('COP', false)],
     ['Total USD', totalUSD, '#2D4FD6', excelMoneyFormat('USD', true)],
-    ['TRM aplicada', getTRM(), '#2ABFDF', '$ #,##0.##']
+    ['TRM aplicada', getTRM(), '#2ABFDF', excelMoneyFormat('COP', true)]
   ];
   cards.forEach((card, idx) => {
     const startCol = idx * 2 + 1;
@@ -2755,11 +2755,11 @@ function formatDetailExcelColumns(ws, startRow, sourceRows){
     ws.getCell(rowNumber, 10).numFmt = 'yyyy-mm-dd';
     ws.getCell(rowNumber, 12).numFmt = excelMoneyFormat(moneda, true);
     ws.getCell(rowNumber, 13).numFmt = excelMoneyFormat(moneda, true);
-    ws.getCell(rowNumber, 14).numFmt = '$ #,##0.##';
-    ws.getCell(rowNumber, 15).numFmt = '$ #,##0';
-    ws.getCell(rowNumber, 16).numFmt = '$ #,##0';
+    ws.getCell(rowNumber, 14).numFmt = excelMoneyFormat('COP', true);
+    ws.getCell(rowNumber, 15).numFmt = excelMoneyFormat('COP', false);
+    ws.getCell(rowNumber, 16).numFmt = excelMoneyFormat('COP', false);
     ws.getCell(rowNumber, 17).numFmt = '0.##%';
-    ws.getCell(rowNumber, 18).numFmt = '$ #,##0';
+    ws.getCell(rowNumber, 18).numFmt = excelMoneyFormat('COP', false);
     [8,12,13,14,15,16,17,18].forEach(col => {
       ws.getCell(rowNumber, col).alignment = { vertical:'top', horizontal:'right' };
     });
@@ -2859,9 +2859,9 @@ function addResumenExcelSheet(workbook, rows){
   });
   for(let rowNumber = 10; rowNumber <= 14; rowNumber++){
     ws.getCell(rowNumber, 2).numFmt = '#,##0';
-    ws.getCell(rowNumber, 3).numFmt = '$ #,##0';
+    ws.getCell(rowNumber, 3).numFmt = excelMoneyFormat('COP', false);
     ws.getCell(rowNumber, 4).numFmt = excelMoneyFormat('USD', true);
-    ws.getCell(rowNumber, 5).numFmt = '$ #,##0';
+    ws.getCell(rowNumber, 5).numFmt = excelMoneyFormat('COP', false);
     ws.getCell(rowNumber, 6).numFmt = '0.##%';
   }
 
@@ -2890,7 +2890,7 @@ function addResumenExcelSheet(workbook, rows){
   });
   for(let rowNumber = directorStart + 1; rowNumber <= directorStart + directorRows.length + 1; rowNumber++){
     ws.getCell(rowNumber, 2).numFmt = '#,##0';
-    ws.getCell(rowNumber, 3).numFmt = '$ #,##0';
+    ws.getCell(rowNumber, 3).numFmt = excelMoneyFormat('COP', false);
     ws.getCell(rowNumber, 4).numFmt = excelMoneyFormat('USD', true);
     [5,6,7,8].forEach(col => { ws.getCell(rowNumber, col).numFmt = '#,##0'; });
   }
