@@ -41,6 +41,8 @@ const GERENCIA_ESTADO_COLORS = {
   PERDIDA: '#2D4FD6',
   APLAZADO: '#E84040'
 };
+const GERENCIA_COMITE_THRESHOLD_COP = 1000000000;
+const GERENCIA_EXCEL_DETAIL_COLS = 21;
 const DIVISAS_DETAIL_STEP = 10;
 const DIVISAS_DETAIL_LIMITS = { COP: 10, USD: 10 };
 const TOP_BAR_LIMIT = 15;
@@ -2514,6 +2516,8 @@ function getBogotaTimestampLabel(){
 function getGerenciaExportRowValues(row){
   const moneda = cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() || 'COP';
   const valorOriginal = parseMonto(row['MONTO VENTA CLIENTE']) || 0;
+  const costoOriginal = parseMonto(firstFilled(row, ['COSTO NEGOCIO','COSTO'])) || 0;
+  const costoCop = moneda === 'USD' ? costoOriginal * getTRM() : costoOriginal;
   const utilidad = getUtilidad(row);
   const utilidadCop = utilidad.moneda === 'USD' ? utilidad.valor * getTRM() : utilidad.valor;
   const margen = getMarginRatio(row['MARGEN']);
@@ -2532,8 +2536,10 @@ function getGerenciaExportRowValues(row){
     excelDateValue(getRowDateValue(row)),
     excelSafeText(moneda, 'COP'),
     valorOriginal,
+    costoOriginal,
     getTRM(),
     toCOP(row),
+    costoCop,
     margen,
     utilidadCop || 0,
     excelSafeText(row.__SOURCE_FILE, ''),
@@ -2624,8 +2630,8 @@ function styleExcelKpis(ws, rows){
   const cards = [
     ['Negocios', rows.length, '#2D4FD6', '#,##0'],
     ['Total COP', totalCOP, '#0DBF82', '$ #,##0'],
-    ['Total USD', totalUSD, '#2D4FD6', 'USD #,##0.00'],
-    ['TRM aplicada', getTRM(), '#2ABFDF', '$ #,##0.00']
+    ['Total USD', totalUSD, '#2D4FD6', 'USD #,##0.##'],
+    ['TRM aplicada', getTRM(), '#2ABFDF', '$ #,##0.##']
   ];
   cards.forEach((card, idx) => {
     const startCol = idx * 2 + 1;
@@ -2738,12 +2744,14 @@ function formatDetailExcelColumns(ws, startRow, rowCount){
   for(let rowNumber = startRow + 1; rowNumber <= totalRow; rowNumber++){
     ws.getCell(rowNumber, 8).numFmt = '#,##0';
     ws.getCell(rowNumber, 10).numFmt = 'yyyy-mm-dd';
-    ws.getCell(rowNumber, 12).numFmt = '#,##0.00';
-    ws.getCell(rowNumber, 13).numFmt = '$ #,##0.00';
-    ws.getCell(rowNumber, 14).numFmt = '$ #,##0';
-    ws.getCell(rowNumber, 15).numFmt = '0.0%';
+    ws.getCell(rowNumber, 12).numFmt = '#,##0.##';
+    ws.getCell(rowNumber, 13).numFmt = '#,##0.##';
+    ws.getCell(rowNumber, 14).numFmt = '$ #,##0.##';
+    ws.getCell(rowNumber, 15).numFmt = '$ #,##0';
     ws.getCell(rowNumber, 16).numFmt = '$ #,##0';
-    [8,12,13,14,15,16].forEach(col => {
+    ws.getCell(rowNumber, 17).numFmt = '0.##%';
+    ws.getCell(rowNumber, 18).numFmt = '$ #,##0';
+    [8,12,13,14,15,16,17,18].forEach(col => {
       ws.getCell(rowNumber, col).alignment = { vertical:'top', horizontal:'right' };
     });
   }
@@ -2763,15 +2771,17 @@ function addDetailExcelTable(ws, rows, tableName, startRow){
     { name:'Fecha' },
     { name:'Moneda' },
     { name:'Valor original' },
+    { name:'Costo original', totalsRowFunction:'sum' },
     { name:'TRM aplicada' },
     { name:'Valor total COP', totalsRowFunction:'sum' },
+    { name:'Costo COP liq.', totalsRowFunction:'sum' },
     { name:'Margen' },
     { name:'Utilidad COP liq.', totalsRowFunction:'sum' },
     { name:'Archivo fuente' },
     { name:'Hoja fuente' },
     { name:'Observaciones' }
   ];
-  const widths = [14,28,24,24,20,18,32,11,20,13,10,15,14,17,11,17,24,16,42];
+  const widths = [14,28,24,24,20,18,32,11,20,13,10,15,15,14,17,16,11,17,24,16,42];
   widths.forEach((width, idx) => { ws.getColumn(idx + 1).width = width; });
   addExcelTable(ws, {
     name: tableName,
@@ -2782,8 +2792,8 @@ function addDetailExcelTable(ws, rows, tableName, startRow){
   });
   styleExcelTable(ws, startRow, rows.length, columns.length, {
     statusColumn: 1,
-    wrapColumns: [2,7,17,19],
-    rightColumns: [8,12,13,14,15,16]
+    wrapColumns: [2,7,19,21],
+    rightColumns: [8,12,13,14,15,16,17,18]
   });
   formatDetailExcelColumns(ws, startRow, rows.length);
 }
@@ -2841,9 +2851,9 @@ function addResumenExcelSheet(workbook, rows){
   for(let rowNumber = 10; rowNumber <= 14; rowNumber++){
     ws.getCell(rowNumber, 2).numFmt = '#,##0';
     ws.getCell(rowNumber, 3).numFmt = '$ #,##0';
-    ws.getCell(rowNumber, 4).numFmt = 'USD #,##0.00';
+    ws.getCell(rowNumber, 4).numFmt = 'USD #,##0.##';
     ws.getCell(rowNumber, 5).numFmt = '$ #,##0';
-    ws.getCell(rowNumber, 6).numFmt = '0.0%';
+    ws.getCell(rowNumber, 6).numFmt = '0.##%';
   }
 
   const directorStart = 17;
@@ -2872,23 +2882,23 @@ function addResumenExcelSheet(workbook, rows){
   for(let rowNumber = directorStart + 1; rowNumber <= directorStart + directorRows.length + 1; rowNumber++){
     ws.getCell(rowNumber, 2).numFmt = '#,##0';
     ws.getCell(rowNumber, 3).numFmt = '$ #,##0';
-    ws.getCell(rowNumber, 4).numFmt = 'USD #,##0.00';
+    ws.getCell(rowNumber, 4).numFmt = 'USD #,##0.##';
     [5,6,7,8].forEach(col => { ws.getCell(rowNumber, col).numFmt = '#,##0'; });
   }
 }
 
 function addEstadoExcelSheet(workbook, estado, rows){
   const ws = workbook.addWorksheet(excelSafeSheetName(estado));
-  setupExcelWorksheet(ws, 19, 6);
+  setupExcelWorksheet(ws, GERENCIA_EXCEL_DETAIL_COLS, 6);
   styleExcelTitle(
     ws,
     `Detalle estado ${estado}`,
     `Generado: ${getBogotaTimestampLabel()} | Registros: ${rows.length}`,
     getGerenciaEstadoFilterText(),
-    19
+    GERENCIA_EXCEL_DETAIL_COLS
   );
   if(!rows.length){
-    ws.mergeCells('A6:S6');
+    ws.mergeCells(`A6:${excelColumnLetter(GERENCIA_EXCEL_DETAIL_COLS)}6`);
     const cell = ws.getCell('A6');
     cell.value = 'Sin registros para este estado con los filtros actuales.';
     cell.font = { name:'Aptos', size:11, italic:true, color:{ argb: excelArgb('#677592') } };
@@ -2902,15 +2912,48 @@ function addEstadoExcelSheet(workbook, estado, rows){
 
 function addDetalleGeneralExcelSheet(workbook, rows){
   const ws = workbook.addWorksheet('Detalle General');
-  setupExcelWorksheet(ws, 19, 6);
+  setupExcelWorksheet(ws, GERENCIA_EXCEL_DETAIL_COLS, 6);
   styleExcelTitle(
     ws,
     'Detalle general por estado',
     `Generado: ${getBogotaTimestampLabel()} | Registros: ${rows.length}`,
     getGerenciaEstadoFilterText(),
-    19
+    GERENCIA_EXCEL_DETAIL_COLS
   );
   addDetailExcelTable(ws, rows, 'DetalleGeneralEstados', 6);
+}
+
+function getGerenciaComiteRows(rows){
+  return (rows || [])
+    .filter(row =>
+      cleanDisplayText(row['ESTADO'], '').toUpperCase() === 'PENDIENTE'
+      && toCOP(row) > GERENCIA_COMITE_THRESHOLD_COP
+    )
+    .sort((a,b) => toCOP(b) - toCOP(a));
+}
+
+function addComiteGerenciaExcelSheet(workbook, rows){
+  const comiteRows = getGerenciaComiteRows(rows);
+  const ws = workbook.addWorksheet('Someter comite gerencia general');
+  setupExcelWorksheet(ws, GERENCIA_EXCEL_DETAIL_COLS, 6);
+  styleExcelTitle(
+    ws,
+    'Someter a comite de gerencia general',
+    `Pendientes mayores a ${fmtCOP(GERENCIA_COMITE_THRESHOLD_COP)} | Registros: ${comiteRows.length}`,
+    getGerenciaEstadoFilterText(),
+    GERENCIA_EXCEL_DETAIL_COLS
+  );
+  if(!comiteRows.length){
+    ws.mergeCells(`A6:${excelColumnLetter(GERENCIA_EXCEL_DETAIL_COLS)}6`);
+    const cell = ws.getCell('A6');
+    cell.value = 'No hay negocios pendientes mayores a $1.000 millones COP con los filtros actuales.';
+    cell.font = { name:'Aptos', size:11, italic:true, color:{ argb: excelArgb('#677592') } };
+    cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#FAFCFF') } };
+    cell.alignment = { vertical:'middle', horizontal:'center' };
+    ws.getRow(6).height = 24;
+    return;
+  }
+  addDetailExcelTable(ws, comiteRows, 'SometerComiteGerencia', 6);
 }
 
 function buildGerenciaEstadoWorkbook(rows){
@@ -2924,6 +2967,7 @@ function buildGerenciaEstadoWorkbook(rows){
   workbook.calcProperties = { fullCalcOnLoad: true };
 
   addResumenExcelSheet(workbook, rows);
+  addComiteGerenciaExcelSheet(workbook, rows);
   addDetalleGeneralExcelSheet(workbook, rows);
   GERENCIA_ESTADOS.forEach(estado => {
     const stateRows = rows.filter(row => cleanDisplayText(row['ESTADO'], '').toUpperCase() === estado);
