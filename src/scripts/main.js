@@ -2471,6 +2471,12 @@ function excelDateValue(value){
   return formatted || '';
 }
 
+function excelMoneyFormat(moneda, withDecimals){
+  const currency = cleanDisplayText(moneda, 'COP').trim().toUpperCase();
+  if(currency === 'USD') return withDecimals ? '"USD" #,##0.##' : '"USD" #,##0';
+  return withDecimals ? '$ #,##0.##' : '$ #,##0';
+}
+
 function getGerenciaEstadoExportData(){
   return applyGerenciaCrossfilters(getVisibleData())
     .filter(row => GERENCIA_ESTADOS.includes(cleanDisplayText(row['ESTADO'], '').toUpperCase()))
@@ -2630,7 +2636,7 @@ function styleExcelKpis(ws, rows){
   const cards = [
     ['Negocios', rows.length, '#2D4FD6', '#,##0'],
     ['Total COP', totalCOP, '#0DBF82', '$ #,##0'],
-    ['Total USD', totalUSD, '#2D4FD6', 'USD #,##0.##'],
+    ['Total USD', totalUSD, '#2D4FD6', excelMoneyFormat('USD', true)],
     ['TRM aplicada', getTRM(), '#2ABFDF', '$ #,##0.##']
   ];
   cards.forEach((card, idx) => {
@@ -2739,13 +2745,16 @@ function styleExcelTable(ws, startRow, rowCount, colCount, options){
   }
 }
 
-function formatDetailExcelColumns(ws, startRow, rowCount){
+function formatDetailExcelColumns(ws, startRow, sourceRows){
+  const rowCount = sourceRows.length;
   const totalRow = startRow + rowCount + 1;
   for(let rowNumber = startRow + 1; rowNumber <= totalRow; rowNumber++){
+    const sourceRow = sourceRows[rowNumber - startRow - 1] || {};
+    const moneda = cleanDisplayText(sourceRow['MONEDA 2'], 'COP').trim().toUpperCase();
     ws.getCell(rowNumber, 8).numFmt = '#,##0';
     ws.getCell(rowNumber, 10).numFmt = 'yyyy-mm-dd';
-    ws.getCell(rowNumber, 12).numFmt = '#,##0.##';
-    ws.getCell(rowNumber, 13).numFmt = '#,##0.##';
+    ws.getCell(rowNumber, 12).numFmt = excelMoneyFormat(moneda, true);
+    ws.getCell(rowNumber, 13).numFmt = excelMoneyFormat(moneda, true);
     ws.getCell(rowNumber, 14).numFmt = '$ #,##0.##';
     ws.getCell(rowNumber, 15).numFmt = '$ #,##0';
     ws.getCell(rowNumber, 16).numFmt = '$ #,##0';
@@ -2771,7 +2780,7 @@ function addDetailExcelTable(ws, rows, tableName, startRow){
     { name:'Fecha' },
     { name:'Moneda' },
     { name:'Valor original' },
-    { name:'Costo original', totalsRowFunction:'sum' },
+    { name:'Costo original' },
     { name:'TRM aplicada' },
     { name:'Valor total COP', totalsRowFunction:'sum' },
     { name:'Costo COP liq.', totalsRowFunction:'sum' },
@@ -2795,7 +2804,7 @@ function addDetailExcelTable(ws, rows, tableName, startRow){
     wrapColumns: [2,7,19,21],
     rightColumns: [8,12,13,14,15,16,17,18]
   });
-  formatDetailExcelColumns(ws, startRow, rows.length);
+  formatDetailExcelColumns(ws, startRow, rows);
 }
 
 function setupExcelWorksheet(ws, lastCol, frozenRows){
@@ -2851,7 +2860,7 @@ function addResumenExcelSheet(workbook, rows){
   for(let rowNumber = 10; rowNumber <= 14; rowNumber++){
     ws.getCell(rowNumber, 2).numFmt = '#,##0';
     ws.getCell(rowNumber, 3).numFmt = '$ #,##0';
-    ws.getCell(rowNumber, 4).numFmt = 'USD #,##0.##';
+    ws.getCell(rowNumber, 4).numFmt = excelMoneyFormat('USD', true);
     ws.getCell(rowNumber, 5).numFmt = '$ #,##0';
     ws.getCell(rowNumber, 6).numFmt = '0.##%';
   }
@@ -2882,7 +2891,7 @@ function addResumenExcelSheet(workbook, rows){
   for(let rowNumber = directorStart + 1; rowNumber <= directorStart + directorRows.length + 1; rowNumber++){
     ws.getCell(rowNumber, 2).numFmt = '#,##0';
     ws.getCell(rowNumber, 3).numFmt = '$ #,##0';
-    ws.getCell(rowNumber, 4).numFmt = 'USD #,##0.##';
+    ws.getCell(rowNumber, 4).numFmt = excelMoneyFormat('USD', true);
     [5,6,7,8].forEach(col => { ws.getCell(rowNumber, col).numFmt = '#,##0'; });
   }
 }
