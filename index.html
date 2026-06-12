@@ -6,8 +6,9 @@
 <title>Forecast 2026 · Provexpress</title>
 <link rel="icon" type="image/png" href="src/icono-provexpress.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="src/styles/main.css?v=20260603-crossfilter2">
+<link rel="stylesheet" href="src/styles/main.css?v=20260612-estado-export1">
 
 <!-- Microsoft Authentication Library -->
 <script src="src/scripts/auth.js?v=20260601-redirect1"></script>
@@ -160,11 +161,15 @@
   </div>
 
   <!-- Tablas de estados por director -->
-  <div style="padding:0 24px 24px">
-    <div style="font-family:var(--font-display);font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--text2);margin-bottom:16px;padding-top:8px;border-top:1px solid var(--border)">
-      DETALLE NEGOCIOS POR ESTADO
+  <div class="gerencia-estado-section">
+    <div class="gerencia-estado-toolbar">
+      <div class="gerencia-estado-title">DETALLE NEGOCIOS POR ESTADO</div>
+      <button id="btn-export-gerencia-estado" class="export-excel-btn" type="button" onclick="downloadGerenciaEstadoExcel()" title="Descargar detalle por estado en Excel">
+        <span class="export-excel-icon" aria-hidden="true">↓</span>
+        <span>Excel</span>
+      </button>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px" id="gerencia-estado-tables"></div>
+    <div class="estado-grid" id="gerencia-estado-tables"></div>
   </div>
 </div>
 
@@ -443,7 +448,7 @@
 
 </main>
 
-<script src="src/scripts/main.js?v=20260612-sales-search1"></script>
+<script src="src/scripts/main.js?v=20260612-estado-export1"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->

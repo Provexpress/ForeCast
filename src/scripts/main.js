@@ -19,6 +19,7 @@ let SALES_PENDING_VALUE_ONLY = false;
 let FORECAST_CONNECTIONS_LIST_ID = null;
 let FORECAST_CONNECTIONS = { byEmail: {}, byName: {} };
 let GERENCIA_CROSSFILTERS = { estado:'', director:'', ejecutivo:'', linea:'' };
+let EXCELJS_EXPORT_LOAD_PROMISE = null;
 let VISUAL_CROSSFILTERS = {
   ejecutivo: { linea:'' },
   sales: { soporta:'' },
@@ -32,6 +33,13 @@ const GERENCIA_ESTADO_LIMITS = {
   PENDIENTE: 30,
   PERDIDA: 30,
   APLAZADO: 30
+};
+const GERENCIA_ESTADOS = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'];
+const GERENCIA_ESTADO_COLORS = {
+  GANADA: '#0DBF82',
+  PENDIENTE: '#F0A020',
+  PERDIDA: '#2D4FD6',
+  APLAZADO: '#E84040'
 };
 const DIVISAS_DETAIL_STEP = 10;
 const DIVISAS_DETAIL_LIMITS = { COP: 10, USD: 10 };
@@ -2421,6 +2429,567 @@ function renderGerenciaEstadoTables(data) {
         </div>${more}
       </div>`;
   }).join('');
+}
+
+function excelArgb(hex){
+  return 'FF' + String(hex || '#000000').replace('#','').toUpperCase().padStart(6,'0').slice(0,6);
+}
+
+function excelColumnLetter(index){
+  let n = Number(index) || 1;
+  let letter = '';
+  while(n > 0){
+    const mod = (n - 1) % 26;
+    letter = String.fromCharCode(65 + mod) + letter;
+    n = Math.floor((n - mod) / 26);
+  }
+  return letter;
+}
+
+function excelSafeSheetName(name){
+  const clean = cleanDisplayText(name, 'Hoja')
+    .replace(/[\[\]\*\/\\\?:]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return (clean || 'Hoja').substring(0, 31);
+}
+
+function excelSafeText(value, fallback){
+  const text = cleanDisplayText(value, fallback || '');
+  if(!text) return '';
+  return /^[=+\-@]/.test(text) ? "'" + text : text;
+}
+
+function excelDateValue(value){
+  const formatted = formatDateValue(value);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(formatted)){
+    const parts = formatted.split('-').map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  return formatted || '';
+}
+
+function getGerenciaEstadoExportData(){
+  return applyGerenciaCrossfilters(getVisibleData())
+    .filter(row => GERENCIA_ESTADOS.includes(cleanDisplayText(row['ESTADO'], '').toUpperCase()))
+    .sort((a,b) => {
+      const stateA = GERENCIA_ESTADOS.indexOf(cleanDisplayText(a['ESTADO'], '').toUpperCase());
+      const stateB = GERENCIA_ESTADOS.indexOf(cleanDisplayText(b['ESTADO'], '').toUpperCase());
+      if(stateA !== stateB) return stateA - stateB;
+      return toCOP(b) - toCOP(a);
+    });
+}
+
+function getGerenciaEstadoFilterText(){
+  const labels = {
+    estado: 'Estado',
+    director: 'Director',
+    ejecutivo: 'Ejecutivo',
+    linea: 'Linea'
+  };
+  const filters = Object.entries(GERENCIA_CROSSFILTERS || {})
+    .filter(([,value]) => value)
+    .map(([key,value]) => `${labels[key] || key}: ${value}`);
+  const role = CURRENT_USER ? getRoleLabel(CURRENT_USER.role) : 'Sin usuario';
+  return [`Vista: ${role}`, ...filters].join(' | ') || 'Sin filtros';
+}
+
+function getBogotaTimestampForFile(){
+  const bogota = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' }));
+  const pad = n => String(n).padStart(2,'0');
+  return `${bogota.getFullYear()}${pad(bogota.getMonth()+1)}${pad(bogota.getDate())}_${pad(bogota.getHours())}${pad(bogota.getMinutes())}`;
+}
+
+function getBogotaTimestampLabel(){
+  return new Date().toLocaleString('es-CO', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function getGerenciaExportRowValues(row){
+  const moneda = cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() || 'COP';
+  const valorOriginal = parseMonto(row['MONTO VENTA CLIENTE']) || 0;
+  const utilidad = getUtilidad(row);
+  const utilidadCop = utilidad.moneda === 'USD' ? utilidad.valor * getTRM() : utilidad.valor;
+  const margen = getMarginRatio(row['MARGEN']);
+  const numero = firstFilled(row, ['NUMERO DE COTIZACION']) || getRowPartNumber(row);
+
+  return [
+    excelSafeText(cleanDisplayText(row['ESTADO'], 'Sin estado').toUpperCase()),
+    excelSafeText(getRowClientName(row), 'Sin cliente'),
+    excelSafeText(row['DIRECTOR'], 'Sin director'),
+    excelSafeText(row['COMERCIAL'], 'Sin ejecutivo'),
+    excelSafeText(getRowLineName(row), 'Sin linea'),
+    excelSafeText(getRowBrandName(row), 'Sin marca'),
+    excelSafeText(getRowProductName(row), 'Sin producto'),
+    getRowQuantityValue(row, null),
+    excelSafeText(numero, 'Sin numero'),
+    excelDateValue(getRowDateValue(row)),
+    excelSafeText(moneda, 'COP'),
+    valorOriginal,
+    getTRM(),
+    toCOP(row),
+    margen,
+    utilidadCop || 0,
+    excelSafeText(row.__SOURCE_FILE, ''),
+    excelSafeText(row.__SOURCE_SHEET, ''),
+    excelSafeText(getRowObservation(row), '')
+  ];
+}
+
+function getGerenciaEstadoSummaryRows(rows){
+  const grandTotal = rows.reduce((sum,row) => sum + toCOP(row), 0);
+  return GERENCIA_ESTADOS.map(estado => {
+    const stateRows = rows.filter(row => cleanDisplayText(row['ESTADO'], '').toUpperCase() === estado);
+    const totalCOP = stateRows.reduce((sum,row) => sum + toCOP(row), 0);
+    const totalUSD = stateRows
+      .filter(row => cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
+      .reduce((sum,row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
+    const utilidadCOP = stateRows.reduce((sum,row) => {
+      const utilidad = getUtilidad(row);
+      return sum + (utilidad.moneda === 'USD' ? utilidad.valor * getTRM() : utilidad.valor);
+    }, 0);
+    return [estado, stateRows.length, totalCOP, totalUSD, utilidadCOP, grandTotal ? totalCOP / grandTotal : 0];
+  });
+}
+
+function getGerenciaDirectorSummaryRows(rows){
+  const directors = [...new Set(rows.map(row => cleanDisplayText(row['DIRECTOR'], 'Sin director')))].sort();
+  return directors.map(director => {
+    const directorRows = rows.filter(row => cleanDisplayText(row['DIRECTOR'], 'Sin director') === director);
+    const totalCOP = directorRows.reduce((sum,row) => sum + toCOP(row), 0);
+    const totalUSD = directorRows
+      .filter(row => cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
+      .reduce((sum,row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
+    const counts = GERENCIA_ESTADOS.reduce((acc, estado) => {
+      acc[estado] = directorRows.filter(row => cleanDisplayText(row['ESTADO'], '').toUpperCase() === estado).length;
+      return acc;
+    }, {});
+    return [
+      director,
+      directorRows.length,
+      totalCOP,
+      totalUSD,
+      counts.GANADA,
+      counts.PENDIENTE,
+      counts.PERDIDA,
+      counts.APLAZADO
+    ];
+  }).sort((a,b) => b[2] - a[2]);
+}
+
+function styleExcelTitle(ws, title, subtitle, filterText, lastCol){
+  const last = excelColumnLetter(lastCol);
+  ws.mergeCells(`A1:${last}1`);
+  ws.mergeCells(`A2:${last}2`);
+  ws.mergeCells(`A3:${last}3`);
+  ws.getRow(1).height = 28;
+  ws.getRow(2).height = 22;
+  ws.getRow(3).height = 22;
+  ws.getCell('A1').value = title;
+  ws.getCell('A1').font = { name:'Aptos Display', size:16, bold:true, color:{ argb:'FFFFFFFF' } };
+  ws.getCell('A1').fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#1B2B8C') } };
+  ws.getCell('A1').alignment = { vertical:'middle', horizontal:'center' };
+  ws.getCell('A2').value = subtitle;
+  ws.getCell('A2').font = { name:'Aptos', size:10, bold:true, color:{ argb: excelArgb('#1A2B6B') } };
+  ws.getCell('A2').fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#EEF3FF') } };
+  ws.getCell('A2').alignment = { vertical:'middle', horizontal:'center' };
+  ws.getCell('A3').value = `Filtros: ${filterText}`;
+  ws.getCell('A3').font = { name:'Aptos', size:9, italic:true, color:{ argb: excelArgb('#677592') } };
+  ws.getCell('A3').fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#FAFCFF') } };
+  ws.getCell('A3').alignment = { vertical:'middle', horizontal:'center' };
+}
+
+function styleExcelSectionLabel(ws, rowNumber, text, lastCol){
+  const last = excelColumnLetter(lastCol);
+  ws.mergeCells(`A${rowNumber}:${last}${rowNumber}`);
+  const cell = ws.getCell(`A${rowNumber}`);
+  cell.value = text;
+  cell.font = { name:'Aptos Display', size:11, bold:true, color:{ argb: excelArgb('#1A2B6B') } };
+  cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#EEF3FF') } };
+  cell.alignment = { vertical:'middle', horizontal:'left' };
+  ws.getRow(rowNumber).height = 22;
+}
+
+function styleExcelKpis(ws, rows){
+  const totalCOP = rows.reduce((sum,row) => sum + toCOP(row), 0);
+  const totalUSD = rows
+    .filter(row => cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
+    .reduce((sum,row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
+  const cards = [
+    ['Negocios', rows.length, '#2D4FD6', '#,##0'],
+    ['Total COP', totalCOP, '#0DBF82', '$ #,##0'],
+    ['Total USD', totalUSD, '#2D4FD6', 'USD #,##0.00'],
+    ['TRM aplicada', getTRM(), '#2ABFDF', '$ #,##0.00']
+  ];
+  cards.forEach((card, idx) => {
+    const startCol = idx * 2 + 1;
+    const endCol = startCol + 1;
+    ws.mergeCells(5, startCol, 5, endCol);
+    ws.mergeCells(6, startCol, 6, endCol);
+    const label = ws.getCell(5, startCol);
+    const value = ws.getCell(6, startCol);
+    label.value = card[0];
+    value.value = card[1];
+    value.numFmt = card[3];
+    [label, value].forEach(cell => {
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#FAFCFF') } };
+      cell.border = {
+        top:{style:'thin', color:{argb:excelArgb('#D7E0F0')}},
+        left:{style:'thin', color:{argb:excelArgb('#D7E0F0')}},
+        bottom:{style:'thin', color:{argb:excelArgb('#D7E0F0')}},
+        right:{style:'thin', color:{argb:excelArgb('#D7E0F0')}}
+      };
+      cell.alignment = { vertical:'middle', horizontal:'center' };
+    });
+    label.font = { name:'Aptos', size:9, bold:true, color:{ argb: excelArgb('#677592') } };
+    value.font = { name:'Aptos Display', size:13, bold:true, color:{ argb: excelArgb(card[2]) } };
+  });
+  ws.getRow(5).height = 20;
+  ws.getRow(6).height = 24;
+}
+
+function addExcelTable(ws, tableConfig){
+  const table = ws.addTable({
+    name: tableConfig.name,
+    ref: tableConfig.ref,
+    headerRow: true,
+    totalsRow: tableConfig.totalsRow !== false,
+    style: {
+      theme: tableConfig.theme || 'TableStyleMedium2',
+      showRowStripes: true
+    },
+    columns: tableConfig.columns,
+    rows: tableConfig.rows
+  });
+  if(table && typeof table.commit === 'function') table.commit();
+}
+
+function styleExcelTable(ws, startRow, rowCount, colCount, options){
+  const opts = options || {};
+  const headerFill = excelArgb(opts.headerColor || '#1B2B8C');
+  const borderColor = excelArgb('#D7E0F0');
+  const header = ws.getRow(startRow);
+  header.height = 22;
+  header.eachCell((cell) => {
+    cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: headerFill } };
+    cell.font = { name:'Aptos', size:9, bold:true, color:{ argb:'FFFFFFFF' } };
+    cell.alignment = { vertical:'middle', horizontal:'center', wrapText:true };
+    cell.border = {
+      top:{style:'thin', color:{argb:borderColor}},
+      left:{style:'thin', color:{argb:borderColor}},
+      bottom:{style:'thin', color:{argb:borderColor}},
+      right:{style:'thin', color:{argb:borderColor}}
+    };
+  });
+
+  const lastRow = startRow + rowCount + 1;
+  for(let rowNumber = startRow + 1; rowNumber <= lastRow; rowNumber++){
+    const row = ws.getRow(rowNumber);
+    row.eachCell((cell) => {
+      cell.font = { name:'Aptos', size:9, color:{ argb: excelArgb('#172033') } };
+      cell.alignment = { vertical:'top', horizontal:'left', wrapText:false };
+      cell.border = {
+        top:{style:'thin', color:{argb:borderColor}},
+        left:{style:'thin', color:{argb:borderColor}},
+        bottom:{style:'thin', color:{argb:borderColor}},
+        right:{style:'thin', color:{argb:borderColor}}
+      };
+    });
+  }
+
+  if(opts.statusColumn){
+    for(let rowNumber = startRow + 1; rowNumber <= startRow + rowCount; rowNumber++){
+      const statusCell = ws.getCell(rowNumber, opts.statusColumn);
+      const color = GERENCIA_ESTADO_COLORS[String(statusCell.value || '').toUpperCase()];
+      if(color){
+        statusCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb(color) } };
+        statusCell.font = { name:'Aptos', size:9, bold:true, color:{ argb:'FFFFFFFF' } };
+        statusCell.alignment = { vertical:'middle', horizontal:'center' };
+      }
+    }
+  }
+
+  if(opts.wrapColumns){
+    for(let rowNumber = startRow + 1; rowNumber <= startRow + rowCount; rowNumber++){
+      opts.wrapColumns.forEach(col => {
+        ws.getCell(rowNumber, col).alignment = { vertical:'top', horizontal:'left', wrapText:true };
+      });
+    }
+  }
+
+  const total = ws.getRow(lastRow);
+  total.height = 22;
+  for(let col = 1; col <= colCount; col++){
+    const cell = ws.getCell(lastRow, col);
+    cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#EEF3FF') } };
+    cell.font = { name:'Aptos', size:9, bold:true, color:{ argb: excelArgb('#1A2B6B') } };
+    cell.alignment = { vertical:'middle', horizontal: opts.rightColumns && opts.rightColumns.includes(col) ? 'right' : 'left' };
+  }
+}
+
+function formatDetailExcelColumns(ws, startRow, rowCount){
+  const totalRow = startRow + rowCount + 1;
+  for(let rowNumber = startRow + 1; rowNumber <= totalRow; rowNumber++){
+    ws.getCell(rowNumber, 8).numFmt = '#,##0';
+    ws.getCell(rowNumber, 10).numFmt = 'yyyy-mm-dd';
+    ws.getCell(rowNumber, 12).numFmt = '#,##0.00';
+    ws.getCell(rowNumber, 13).numFmt = '$ #,##0.00';
+    ws.getCell(rowNumber, 14).numFmt = '$ #,##0';
+    ws.getCell(rowNumber, 15).numFmt = '0.0%';
+    ws.getCell(rowNumber, 16).numFmt = '$ #,##0';
+    [8,12,13,14,15,16].forEach(col => {
+      ws.getCell(rowNumber, col).alignment = { vertical:'top', horizontal:'right' };
+    });
+  }
+}
+
+function addDetailExcelTable(ws, rows, tableName, startRow){
+  const columns = [
+    { name:'Estado', totalsRowLabel:'Total' },
+    { name:'Empresa' },
+    { name:'Director' },
+    { name:'Ejecutivo' },
+    { name:'Linea' },
+    { name:'Marca' },
+    { name:'Producto' },
+    { name:'Cantidad', totalsRowFunction:'sum' },
+    { name:'Cotizacion / Parte' },
+    { name:'Fecha' },
+    { name:'Moneda' },
+    { name:'Valor original' },
+    { name:'TRM aplicada' },
+    { name:'Valor total COP', totalsRowFunction:'sum' },
+    { name:'Margen' },
+    { name:'Utilidad COP liq.', totalsRowFunction:'sum' },
+    { name:'Archivo fuente' },
+    { name:'Hoja fuente' },
+    { name:'Observaciones' }
+  ];
+  const widths = [14,28,24,24,20,18,32,11,20,13,10,15,14,17,11,17,24,16,42];
+  widths.forEach((width, idx) => { ws.getColumn(idx + 1).width = width; });
+  addExcelTable(ws, {
+    name: tableName,
+    ref: `A${startRow}`,
+    columns,
+    rows: rows.map(getGerenciaExportRowValues),
+    theme: 'TableStyleMedium2'
+  });
+  styleExcelTable(ws, startRow, rows.length, columns.length, {
+    statusColumn: 1,
+    wrapColumns: [2,7,17,19],
+    rightColumns: [8,12,13,14,15,16]
+  });
+  formatDetailExcelColumns(ws, startRow, rows.length);
+}
+
+function setupExcelWorksheet(ws, lastCol, frozenRows){
+  ws.properties.defaultRowHeight = 18;
+  ws.views = [{ state:'frozen', ySplit: frozenRows || 0 }];
+  ws.pageSetup = {
+    orientation: 'landscape',
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+    margins: { left:0.25, right:0.25, top:0.4, bottom:0.4, header:0.2, footer:0.2 }
+  };
+  ws.headerFooter.oddFooter = '&LForecast 2026&C&P de &N&RProvexpress';
+  for(let col = 1; col <= lastCol; col++){
+    ws.getColumn(col).font = { name:'Aptos', size:9 };
+  }
+}
+
+function addResumenExcelSheet(workbook, rows){
+  const ws = workbook.addWorksheet('Resumen');
+  setupExcelWorksheet(ws, 8, 9);
+  styleExcelTitle(
+    ws,
+    'Forecast 2026 - Detalle negocios por estado',
+    `Generado: ${getBogotaTimestampLabel()} | Registros exportados: ${rows.length}`,
+    getGerenciaEstadoFilterText(),
+    8
+  );
+  styleExcelKpis(ws, rows);
+
+  styleExcelSectionLabel(ws, 8, 'Resumen por estado', 8);
+  const summaryColumns = [
+    { name:'Estado', totalsRowLabel:'Total' },
+    { name:'Negocios', totalsRowFunction:'sum' },
+    { name:'Total COP', totalsRowFunction:'sum' },
+    { name:'Total USD original', totalsRowFunction:'sum' },
+    { name:'Utilidad COP liq.', totalsRowFunction:'sum' },
+    { name:'Participacion', totalsRowFunction:'sum' }
+  ];
+  const summaryRows = getGerenciaEstadoSummaryRows(rows);
+  [16,12,18,18,18,14].forEach((width, idx) => { ws.getColumn(idx + 1).width = width; });
+  addExcelTable(ws, {
+    name: 'ResumenEstados',
+    ref: 'A9',
+    columns: summaryColumns,
+    rows: summaryRows,
+    theme: 'TableStyleMedium4'
+  });
+  styleExcelTable(ws, 9, summaryRows.length, summaryColumns.length, {
+    statusColumn: 1,
+    rightColumns: [2,3,4,5,6]
+  });
+  for(let rowNumber = 10; rowNumber <= 14; rowNumber++){
+    ws.getCell(rowNumber, 2).numFmt = '#,##0';
+    ws.getCell(rowNumber, 3).numFmt = '$ #,##0';
+    ws.getCell(rowNumber, 4).numFmt = 'USD #,##0.00';
+    ws.getCell(rowNumber, 5).numFmt = '$ #,##0';
+    ws.getCell(rowNumber, 6).numFmt = '0.0%';
+  }
+
+  const directorStart = 17;
+  styleExcelSectionLabel(ws, directorStart - 1, 'Resumen por director', 8);
+  const directorColumns = [
+    { name:'Director', totalsRowLabel:'Total' },
+    { name:'Negocios', totalsRowFunction:'sum' },
+    { name:'Total COP', totalsRowFunction:'sum' },
+    { name:'Total USD original', totalsRowFunction:'sum' },
+    { name:'Ganada', totalsRowFunction:'sum' },
+    { name:'Pendiente', totalsRowFunction:'sum' },
+    { name:'Perdida', totalsRowFunction:'sum' },
+    { name:'Aplazado', totalsRowFunction:'sum' }
+  ];
+  const directorRows = getGerenciaDirectorSummaryRows(rows);
+  addExcelTable(ws, {
+    name: 'ResumenDirectores',
+    ref: `A${directorStart}`,
+    columns: directorColumns,
+    rows: directorRows,
+    theme: 'TableStyleMedium9'
+  });
+  styleExcelTable(ws, directorStart, directorRows.length, directorColumns.length, {
+    rightColumns: [2,3,4,5,6,7,8]
+  });
+  for(let rowNumber = directorStart + 1; rowNumber <= directorStart + directorRows.length + 1; rowNumber++){
+    ws.getCell(rowNumber, 2).numFmt = '#,##0';
+    ws.getCell(rowNumber, 3).numFmt = '$ #,##0';
+    ws.getCell(rowNumber, 4).numFmt = 'USD #,##0.00';
+    [5,6,7,8].forEach(col => { ws.getCell(rowNumber, col).numFmt = '#,##0'; });
+  }
+}
+
+function addEstadoExcelSheet(workbook, estado, rows){
+  const ws = workbook.addWorksheet(excelSafeSheetName(estado));
+  setupExcelWorksheet(ws, 19, 6);
+  styleExcelTitle(
+    ws,
+    `Detalle estado ${estado}`,
+    `Generado: ${getBogotaTimestampLabel()} | Registros: ${rows.length}`,
+    getGerenciaEstadoFilterText(),
+    19
+  );
+  if(!rows.length){
+    ws.mergeCells('A6:S6');
+    const cell = ws.getCell('A6');
+    cell.value = 'Sin registros para este estado con los filtros actuales.';
+    cell.font = { name:'Aptos', size:11, italic:true, color:{ argb: excelArgb('#677592') } };
+    cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#FAFCFF') } };
+    cell.alignment = { vertical:'middle', horizontal:'center' };
+    ws.getRow(6).height = 24;
+    return;
+  }
+  addDetailExcelTable(ws, rows, `Detalle${estado}`, 6);
+}
+
+function addDetalleGeneralExcelSheet(workbook, rows){
+  const ws = workbook.addWorksheet('Detalle General');
+  setupExcelWorksheet(ws, 19, 6);
+  styleExcelTitle(
+    ws,
+    'Detalle general por estado',
+    `Generado: ${getBogotaTimestampLabel()} | Registros: ${rows.length}`,
+    getGerenciaEstadoFilterText(),
+    19
+  );
+  addDetailExcelTable(ws, rows, 'DetalleGeneralEstados', 6);
+}
+
+function buildGerenciaEstadoWorkbook(rows){
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Forecast 2026 Provexpress';
+  workbook.created = new Date();
+  workbook.modified = new Date();
+  workbook.company = 'Provexpress';
+  workbook.subject = 'Detalle negocios por estado';
+  workbook.title = 'Forecast 2026 - Detalle negocios por estado';
+  workbook.calcProperties = { fullCalcOnLoad: true };
+
+  addResumenExcelSheet(workbook, rows);
+  addDetalleGeneralExcelSheet(workbook, rows);
+  GERENCIA_ESTADOS.forEach(estado => {
+    const stateRows = rows.filter(row => cleanDisplayText(row['ESTADO'], '').toUpperCase() === estado);
+    addEstadoExcelSheet(workbook, estado, stateRows);
+  });
+  return workbook;
+}
+
+function loadExcelJsForExport(){
+  if(typeof ExcelJS !== 'undefined') return Promise.resolve();
+  if(EXCELJS_EXPORT_LOAD_PROMISE) return EXCELJS_EXPORT_LOAD_PROMISE;
+  EXCELJS_EXPORT_LOAD_PROMISE = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/exceljs@4.4.0/dist/exceljs.min.js';
+    script.async = true;
+    script.onload = () => {
+      if(typeof ExcelJS !== 'undefined') resolve();
+      else reject(new Error('ExcelJS no quedo disponible despues de cargar el respaldo.'));
+    };
+    script.onerror = () => {
+      EXCELJS_EXPORT_LOAD_PROMISE = null;
+      reject(new Error('No se pudo cargar ExcelJS.'));
+    };
+    document.head.appendChild(script);
+  });
+  return EXCELJS_EXPORT_LOAD_PROMISE;
+}
+
+function setGerenciaEstadoExportButtonBusy(isBusy){
+  const btn = document.getElementById('btn-export-gerencia-estado');
+  if(!btn) return;
+  btn.disabled = Boolean(isBusy);
+  btn.innerHTML = isBusy
+    ? '<span class="export-excel-icon" aria-hidden="true">...</span><span>Generando</span>'
+    : '<span class="export-excel-icon" aria-hidden="true">↓</span><span>Excel</span>';
+}
+
+async function downloadGerenciaEstadoExcel(){
+  const rows = getGerenciaEstadoExportData();
+  if(!rows.length){
+    alert('No hay negocios para descargar con los filtros actuales.');
+    return;
+  }
+
+  setGerenciaEstadoExportButtonBusy(true);
+  try{
+    await loadExcelJsForExport();
+    const workbook = buildGerenciaEstadoWorkbook(rows);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Forecast_Detalle_Negocios_Estado_${getBogotaTimestampForFile()}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  } catch(error){
+    console.error('[EXPORT GERENCIA ESTADO]', error);
+    alert('No se pudo generar el Excel. Intenta nuevamente o revisa la consola para mas detalle.');
+  } finally {
+    setGerenciaEstadoExportButtonBusy(false);
+  }
 }
 
 /* ══════════════════════════════════════

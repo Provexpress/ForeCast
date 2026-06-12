@@ -634,6 +634,42 @@ tr:hover td{background:rgba(255,255,255,.025);color:var(--text)}
 .summary-table-title{font-family:var(--font-display);font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-strong);margin-bottom:10px;display:flex;align-items:center;gap:8px}
 .summary-table-title::after{content:'';flex:1;height:1px;background:var(--border)}
 
+.gerencia-estado-section{padding:0 24px 24px}
+.gerencia-estado-toolbar{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  margin-bottom:16px;padding-top:8px;border-top:1px solid var(--border);
+}
+.gerencia-estado-title{
+  font-family:var(--font-display);font-size:11px;font-weight:700;
+  letter-spacing:1.5px;color:var(--text2);text-transform:uppercase;
+}
+.estado-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;
+}
+.export-excel-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:34px;padding:8px 13px;border-radius:10px;cursor:pointer;
+  border:1px solid rgba(13,191,130,.30);
+  background:linear-gradient(135deg,rgba(13,191,130,.16),rgba(42,191,223,.08));
+  color:var(--corp-green);font-family:var(--font-display);font-size:10px;font-weight:800;
+  letter-spacing:.8px;text-transform:uppercase;transition:var(--transition);
+}
+.export-excel-btn:hover:not(:disabled){
+  transform:translateY(-1px);border-color:rgba(13,191,130,.48);
+  background:linear-gradient(135deg,rgba(13,191,130,.24),rgba(42,191,223,.12));
+  box-shadow:0 8px 24px rgba(13,191,130,.14);
+}
+.export-excel-btn:disabled{cursor:wait;opacity:.72;transform:none}
+.export-excel-icon{
+  width:18px;height:18px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;
+  background:rgba(13,191,130,.16);border:1px solid rgba(13,191,130,.28);
+  line-height:1;font-size:13px;font-weight:800;
+}
+[data-theme="light"] .export-excel-btn{
+  background:linear-gradient(135deg,rgba(22,129,90,.12),rgba(18,140,168,.08));
+  border-color:rgba(22,129,90,.24);color:#16815A;
+}
+
 /* ── LOADING OVERLAY ── */
 #loading-overlay{
   position:fixed;inset:0;z-index:9999;
@@ -767,6 +803,9 @@ tr:hover td{background:rgba(255,255,255,.025);color:var(--text)}
   .trm-pill{display:none}
   .sales-subnav{width:100%;display:grid;grid-template-columns:1fr 1fr}
   .sales-subnav-btn{width:100%}
+  .gerencia-estado-section{padding:0 0 18px}
+  .gerencia-estado-toolbar{align-items:stretch}
+  .export-excel-btn{width:100%}
 }
 @media(max-width:520px){
   .kpi-grid-6,.kpi-grid-5,.kpi-grid-4,.kpi-grid-3{grid-template-columns:1fr}
