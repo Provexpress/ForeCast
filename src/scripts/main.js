@@ -3989,6 +3989,8 @@ let _siteId = null;
 let _driveId = null;
 let _forecastFolders = null;
 let _forecastBasePath = null;
+let _siteDrivesById = {};
+let _siteIdByPath = {};
 const FOLDER_LOAD_CONCURRENCY = 2;
 const FILE_LOAD_CONCURRENCY = 3;
 
@@ -4036,6 +4038,83 @@ async function fetchGraphPathJson(siteId, path, suffix, token){
   const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
   const d = await r.json().catch(() => ({}));
   return { r, d, url };
+}
+
+function graphSearchQueryLiteral(query){
+  return encodeURIComponent(String(query || '').replace(/'/g, "''"));
+}
+
+function buildDriveRootSearchUrl(driveId, query){
+  return 'https://graph.microsoft.com/v1.0/drives/' + driveId
+    + "/root/search(q='" + graphSearchQueryLiteral(query) + "')?$top=100";
+}
+
+function buildDriveItemUrl(driveId, itemId){
+  return 'https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + itemId;
+}
+
+function getSitePathCandidates(){
+  const configuredPath = (() => {
+    try {
+      const url = new URL((window.AZURE_CONFIG && AZURE_CONFIG.siteUrl) || '');
+      return url.pathname.replace(/^\/+/, '').replace(/^sites\//i, '').replace(/\/+$/, '');
+    } catch(_) {
+      return '';
+    }
+  })();
+  return [...new Set([
+    'ProvexpressIntranet/comercial',
+    configuredPath,
+    'ProvexpressIntranet'
+  ].filter(Boolean))];
+}
+
+async function getSiteIdByPath(path, token){
+  if(_siteIdByPath[path]) return _siteIdByPath[path];
+  const url = 'https://graph.microsoft.com/v1.0/sites/provexpress.sharepoint.com:/sites/' + encodeGraphPath(path);
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  const d = await r.json().catch(() => ({}));
+  if(!r.ok || !d.id) throw new Error((d.error && d.error.message) || 'Site no encontrado: ' + path);
+  _siteIdByPath[path] = d.id;
+  return d.id;
+}
+
+async function getSiteDrives(siteId, token){
+  if(_siteDrivesById[siteId]) return _siteDrivesById[siteId];
+  const r = await fetch('https://graph.microsoft.com/v1.0/sites/' + siteId + '/drives', {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  const d = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error((d.error && d.error.message) || 'No se pudieron consultar documentos de SharePoint');
+  _siteDrivesById[siteId] = d.value || [];
+  return _siteDrivesById[siteId];
+}
+
+async function getSearchDriveCandidates(siteId, token){
+  const byDriveId = new Map();
+  const addDrive = (site, drive) => {
+    if(!drive || !drive.id || byDriveId.has(drive.id)) return;
+    byDriveId.set(drive.id, { siteId: site, driveId: drive.id, driveName: drive.name || '', webUrl: drive.webUrl || '' });
+  };
+
+  if(_driveId) addDrive(siteId, { id: _driveId, name: 'selected' });
+
+  try {
+    (await getSiteDrives(siteId, token)).forEach(drive => addDrive(siteId, drive));
+  } catch(e) {
+    console.warn('[DRIVE SEARCH] current site drives failed', e);
+  }
+
+  for(const sitePath of getSitePathCandidates()) {
+    try {
+      const candidateSiteId = await getSiteIdByPath(sitePath, token);
+      (await getSiteDrives(candidateSiteId, token)).forEach(drive => addDrive(candidateSiteId, drive));
+    } catch(e) {
+      console.warn('[DRIVE SEARCH] site skipped', sitePath, e);
+    }
+  }
+
+  return Array.from(byDriveId.values());
 }
 
 async function getForecastBasePath(siteId, token){
@@ -4350,41 +4429,220 @@ function findBestExecFile(items, targetName) {
   return file || null;
 }
 
+function buildSalesSupportSearchQueries(targetName, targetNames) {
+  const names = [...new Set([targetName, ...(targetNames || [])].map(cleanNameSegment).filter(Boolean))];
+  const queries = [];
+  names.forEach(name => {
+    queries.push('Sales Support ' + name);
+    queries.push(name);
+    const parts = name.split(' ').filter(Boolean);
+    if(parts.length >= 3) queries.push('Sales Support ' + parts.slice(0, 3).join(' '));
+    if(parts.length >= 2) {
+      queries.push('Sales Support ' + parts.slice(0, 2).join(' '));
+      queries.push(parts.slice(0, 2).join(' '));
+    }
+  });
+  queries.push('Sales Support');
+  return [...new Set(queries.map(s => s.trim()).filter(s => s.length >= 3))];
+}
+
+function findSalesSupportFiles(items, targetNames) {
+  const candidates = (items || []).filter(item => {
+    if(!item || !item.name || !/\.xlsx?$/i.test(item.name) || item.name.startsWith('~$')) return false;
+    if(!isSalesSupportFile(item.name)) return false;
+    const meta = parseSalesSupportFileName(item.name);
+    return meta && matchesAnySalesSupportName(meta.supportName, targetNames);
+  });
+
+  return candidates.sort((a, b) => {
+    const aMeta = parseSalesSupportFileName(a.name) || {};
+    const bMeta = parseSalesSupportFileName(b.name) || {};
+    const aName = normalizePersonName(aMeta.supportName || a.name);
+    const bName = normalizePersonName(bMeta.supportName || b.name);
+    return aName.localeCompare(bName) || String(a.name).localeCompare(String(b.name));
+  });
+}
+
+function getDriveItemKey(item) {
+  const driveId = item && item.parentReference && item.parentReference.driveId || item && item.__SEARCH_DRIVE_ID || '';
+  return [driveId, item && item.id || '', item && item.webUrl || '', item && item.name || ''].join('|');
+}
+
+async function ensureDriveItemDownloadUrl(item, token) {
+  if(!item || item['@microsoft.graph.downloadUrl']) return item;
+  const driveId = item.parentReference && item.parentReference.driveId || item.__SEARCH_DRIVE_ID || _driveId;
+  if(!driveId || !item.id) return item;
+  const r = await fetch(buildDriveItemUrl(driveId, item.id), {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  const d = await r.json().catch(() => ({}));
+  if(!r.ok) {
+    console.warn('[SALES SUPPORT SEARCH] no se pudo obtener downloadUrl', item.name, d);
+    return item;
+  }
+  return {
+    ...item,
+    ...d,
+    parentReference: {
+      ...(item.parentReference || {}),
+      ...(d.parentReference || {}),
+      driveId
+    },
+    __SEARCH_DRIVE_ID: driveId,
+    __SEARCH_DRIVE_NAME: item.__SEARCH_DRIVE_NAME
+  };
+}
+
+async function loadSalesSupportSearchItem(item, token, targetName) {
+  const file = await ensureDriveItemDownloadUrl(item, token);
+  if(!file || !file['@microsoft.graph.downloadUrl']) return false;
+
+  const meta = parseSalesSupportFileName(file.name) || {};
+  const parentPath = file.parentReference && file.parentReference.path || '';
+  const dirName = normalizeDirectorName(directorFromPath(parentPath)) || cleanDisplayText(file.__SEARCH_DRIVE_NAME, '');
+  updateLoadingStatus('Leyendo: ' + file.name);
+  const bundle = await loadSpFileBundle(file, dirName);
+  const recs = bundle.records || [];
+  const supportName = canonicalizeSalesSupportName(meta.supportName || targetName);
+  const pendingRecords = ensureSalesPendingSupportName(bundle.pendingRecords || [], supportName);
+  if(!LOADED_SALES_BY_SUPPORT[supportName]) LOADED_SALES_BY_SUPPORT[supportName] = [];
+  LOADED_SALES_BY_SUPPORT[supportName].push({ name: file.name, dir: dirName, soporta: cleanNameSegment(meta.soportaName) });
+  SALES_DATA.push(...recs);
+  SALES_PENDING_DATA.push(...pendingRecords);
+  return true;
+}
+
+async function searchDriveItemsGlobally(query, token) {
+  const body = {
+    requests: [{
+      entityTypes: ['driveItem'],
+      query: { queryString: query },
+      from: 0,
+      size: 50,
+      fields: ['id','name','webUrl','parentReference']
+    }]
+  };
+  const r = await fetch('https://graph.microsoft.com/v1.0/search/query', {
+    method: 'POST',
+    headers: graphJsonHeaders(token),
+    body: JSON.stringify(body)
+  });
+  const d = await r.json().catch(() => ({}));
+  if(!r.ok) {
+    console.warn('[SALES SUPPORT SEARCH] busqueda global fallo', query, d);
+    return [];
+  }
+  return (d.value || [])
+    .flatMap(block => block.hitsContainers || [])
+    .flatMap(container => container.hits || [])
+    .map(hit => hit.resource)
+    .filter(Boolean);
+}
+
+async function loadSalesSupportFilesBySearch(siteId, token, targetName, targetNames) {
+  const queries = buildSalesSupportSearchQueries(targetName, targetNames);
+  const drives = await getSearchDriveCandidates(siteId, token);
+  const foundByKey = new Map();
+
+  for(const drive of drives) {
+    for(const query of queries) {
+      try {
+        const r = await fetch(buildDriveRootSearchUrl(drive.driveId, query), {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const d = await r.json().catch(() => ({}));
+        if(!r.ok) {
+          console.warn('[SALES SUPPORT SEARCH] fallo', drive.driveName, query, d);
+          continue;
+        }
+        (d.value || []).forEach(item => {
+          const enriched = {
+            ...item,
+            parentReference: {
+              ...(item.parentReference || {}),
+              driveId: item.parentReference && item.parentReference.driveId || drive.driveId
+            },
+            __SEARCH_DRIVE_ID: drive.driveId,
+            __SEARCH_DRIVE_NAME: drive.driveName
+          };
+          foundByKey.set(getDriveItemKey(enriched), enriched);
+        });
+      } catch(e) {
+        console.warn('[SALES SUPPORT SEARCH] error', drive.driveName, query, e);
+      }
+    }
+  }
+
+  for(const query of queries) {
+    try {
+      (await searchDriveItemsGlobally(query, token)).forEach(item => {
+        foundByKey.set(getDriveItemKey(item), item);
+      });
+    } catch(e) {
+      console.warn('[SALES SUPPORT SEARCH] error busqueda global', query, e);
+    }
+  }
+
+  const files = findSalesSupportFiles(Array.from(foundByKey.values()), targetNames);
+  if(!files.length) return false;
+
+  let loaded = false;
+  const loadedKeys = new Set();
+  for(const item of files) {
+    const key = getDriveItemKey(item);
+    if(loadedKeys.has(key)) continue;
+    loadedKeys.add(key);
+    loaded = await loadSalesSupportSearchItem(item, token, targetName) || loaded;
+  }
+  return loaded;
+}
+
 async function loadSalesSupportFiles(siteId, token) {
   const filesToken = token || await getToken(['Files.Read.All']);
-  const forecastBasePath = await getForecastBasePath(siteId, filesToken);
-  const folders = await getForecastFolders(siteId, filesToken);
   const targetName = getSalesSupportTargetName();
   const targetNames = getSalesSupportTargetNames();
   let found = false;
-  for(const folder of folders) {
-    const folderPath = joinGraphPath(forecastBasePath, folder);
-    try {
-      const url = buildGraphRootUrl(siteId, folderPath, 'children?$top=100');
-      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + filesToken } });
-      const d = await r.json();
-      if(!d.value) continue;
-      const dirName = normalizeDirectorName(folder.replace(/^(Grupo|Gupo)\s+/i,'').trim());
-      for(const item of d.value) {
-        if(!item.name.match(/\.xlsx?$/i)) continue;
-        if(!isSalesSupportFile(item.name)) continue;
-        const meta = parseSalesSupportFileName(item.name);
-        if(!meta || !matchesAnySalesSupportName(meta.supportName, targetNames)) continue;
-        updateLoadingStatus('Leyendo: ' + item.name);
-        const bundle = await loadSpFileBundle(item, dirName);
-        const recs = bundle.records || [];
-        const supportName = canonicalizeSalesSupportName(meta.supportName || targetName);
-        const pendingRecords = ensureSalesPendingSupportName(bundle.pendingRecords || [], supportName);
-        if(!LOADED_SALES_BY_SUPPORT[supportName]) LOADED_SALES_BY_SUPPORT[supportName] = [];
-        LOADED_SALES_BY_SUPPORT[supportName].push({ name: item.name, dir: dirName, soporta: cleanNameSegment(meta.soportaName) });
-        SALES_DATA.push(...recs);
-        SALES_PENDING_DATA.push(...pendingRecords);
-        found = true;
-      }
-    } catch(e) { console.warn('Error leyendo folder sales', folder, e); }
+
+  try {
+    const forecastBasePath = await getForecastBasePath(siteId, filesToken);
+    const folders = await getForecastFolders(siteId, filesToken);
+    for(const folder of folders) {
+      const folderPath = joinGraphPath(forecastBasePath, folder);
+      try {
+        const url = buildGraphRootUrl(siteId, folderPath, 'children?$top=100');
+        const r = await fetch(url, { headers: { Authorization: 'Bearer ' + filesToken } });
+        const d = await r.json();
+        if(!d.value) continue;
+        const dirName = normalizeDirectorName(folder.replace(/^(Grupo|Gupo)\s+/i,'').trim());
+        for(const item of d.value) {
+          if(!item.name.match(/\.xlsx?$/i)) continue;
+          if(!isSalesSupportFile(item.name)) continue;
+          const meta = parseSalesSupportFileName(item.name);
+          if(!meta || !matchesAnySalesSupportName(meta.supportName, targetNames)) continue;
+          updateLoadingStatus('Leyendo: ' + item.name);
+          const bundle = await loadSpFileBundle(item, dirName);
+          const recs = bundle.records || [];
+          const supportName = canonicalizeSalesSupportName(meta.supportName || targetName);
+          const pendingRecords = ensureSalesPendingSupportName(bundle.pendingRecords || [], supportName);
+          if(!LOADED_SALES_BY_SUPPORT[supportName]) LOADED_SALES_BY_SUPPORT[supportName] = [];
+          LOADED_SALES_BY_SUPPORT[supportName].push({ name: item.name, dir: dirName, soporta: cleanNameSegment(meta.soportaName) });
+          SALES_DATA.push(...recs);
+          SALES_PENDING_DATA.push(...pendingRecords);
+          found = true;
+        }
+      } catch(e) { console.warn('Error leyendo folder sales', folder, e); }
+    }
+  } catch(e) {
+    console.warn('[SALES SUPPORT] no se pudo listar FORECAST 2026, se usara busqueda por archivo', e);
   }
+
   if(!found) {
-    throw new Error('No se encontraron archivos Sales Support para ' + (targetName || 'este usuario') + '.');
+    updateLoadingStatus('Buscando archivo Sales Support...');
+    found = await loadSalesSupportFilesBySearch(siteId, filesToken, targetName, targetNames);
+  }
+
+  if(!found) {
+    throw new Error('No se encontraron archivos Sales Support para ' + (targetName || 'este usuario') + ' por carpeta ni por busqueda.');
   }
 }
 
