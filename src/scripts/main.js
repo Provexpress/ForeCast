@@ -43,6 +43,7 @@ let MARCAS_BAR_LIMIT = MARCAS_BAR_INITIAL;
 const TRM_CACHE_KEY = 'trm_last';
 const FORECAST_CONNECTIONS_LIST_NAME = 'ForecastConexiones';
 const PREVENTA_FOLDER_NAME = 'Grupo preventa';
+const FORECAST_BASE_FALLBACK = 'COMERCIAL/FORECAST 2026';
 
 function loadCachedTRM(){
   try {
@@ -3987,6 +3988,7 @@ async function loadFolderFromSharePoint() {
 let _siteId = null;
 let _driveId = null;
 let _forecastFolders = null;
+let _forecastBasePath = null;
 const FOLDER_LOAD_CONCURRENCY = 2;
 const FILE_LOAD_CONCURRENCY = 3;
 
@@ -3998,12 +4000,59 @@ function encodeGraphPath(path){
     .join('/');
 }
 
+function joinGraphPath(){
+  return Array.from(arguments)
+    .map(part => String(part || '').trim().replace(/^\/+|\/+$/g, ''))
+    .filter(Boolean)
+    .join('/');
+}
+
 function buildGraphRootUrl(siteId, path, suffix){
   const encodedPath = encodeGraphPath(path);
   const tail = suffix || 'children?$top=50';
   return _driveId
     ? 'https://graph.microsoft.com/v1.0/drives/' + _driveId + '/root:/' + encodedPath + ':/' + tail
     : 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive/root:/' + encodedPath + ':/' + tail;
+}
+
+function getForecastBaseCandidates(){
+  const configured = (window.AZURE_CONFIG && AZURE_CONFIG.driveBase) || FORECAST_BASE_FALLBACK;
+  const withoutLibrary = String(configured || '')
+    .replace(/^Documentos compartidos\//i, '')
+    .replace(/^Shared Documents\//i, '')
+    .replace(/^Documents\//i, '')
+    .replace(/^\/+|\/+$/g, '');
+  const withoutComercial = withoutLibrary.replace(/^COMERCIAL\//i, '');
+  return [...new Set([
+    withoutComercial,
+    withoutLibrary,
+    'FORECAST 2026',
+    FORECAST_BASE_FALLBACK
+  ].map(path => path.trim()).filter(Boolean))];
+}
+
+async function fetchGraphPathJson(siteId, path, suffix, token){
+  const url = buildGraphRootUrl(siteId, path, suffix);
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  const d = await r.json().catch(() => ({}));
+  return { r, d, url };
+}
+
+async function getForecastBasePath(siteId, token){
+  if(_forecastBasePath) return _forecastBasePath;
+  const authToken = token || await getToken(['Files.Read.All']);
+  const attempts = [];
+  for(const path of getForecastBaseCandidates()) {
+    const { r, d, url } = await fetchGraphPathJson(siteId, path, 'children?$top=1', authToken);
+    attempts.push({ path, status: r.status, message: d && d.error && d.error.message });
+    if(r.ok && Array.isArray(d.value)) {
+      _forecastBasePath = path;
+      console.log('[FORECAST BASE]', path);
+      return _forecastBasePath;
+    }
+  }
+  console.warn('[FORECAST BASE] no encontrada', attempts);
+  throw new Error('No se pudo encontrar la carpeta FORECAST 2026. Rutas probadas: ' + attempts.map(a => a.path + ' (' + a.status + ')').join(', '));
 }
 
 async function runWithConcurrencyLimit(items, limit, worker){
@@ -4126,9 +4175,8 @@ function isPreventaFolderName(value){
 async function getForecastFolders(siteId, token){
   if(_forecastFolders && _forecastFolders.length) return _forecastFolders;
   const authToken = token || await getToken(['Files.Read.All']);
-  const url = buildGraphRootUrl(siteId, 'COMERCIAL/FORECAST 2026', 'children?$top=100');
-  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + authToken } });
-  const d = await r.json();
+  const forecastBasePath = await getForecastBasePath(siteId, authToken);
+  const { d } = await fetchGraphPathJson(siteId, forecastBasePath, 'children?$top=100', authToken);
   const folders = (d.value || [])
     .filter(item => item && item.folder)
     .map(item => item.name)
@@ -4152,9 +4200,8 @@ async function getDirectorFolderName(siteId, directorGroup, token){
 
 async function getPreventaFolderName(siteId, token){
   const authToken = token || await getToken(['Files.Read.All']);
-  const url = buildGraphRootUrl(siteId, 'COMERCIAL/FORECAST 2026', 'children?$top=100');
-  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + authToken } });
-  const d = await r.json();
+  const forecastBasePath = await getForecastBasePath(siteId, authToken);
+  const { d } = await fetchGraphPathJson(siteId, forecastBasePath, 'children?$top=100', authToken);
   const folder = (d.value || [])
     .filter(item => item && item.folder)
     .map(item => item.name)
@@ -4189,7 +4236,8 @@ async function getSiteId() {
 async function loadDirectorFolder(siteId, folderName, token) {
   const authToken = token || await getToken(['Files.Read.All']);
   updateLoadingStatus('Cargando: ' + folderName + '...');
-  const folderPath = 'COMERCIAL/FORECAST 2026/' + folderName;
+  const forecastBasePath = await getForecastBasePath(siteId, authToken);
+  const folderPath = joinGraphPath(forecastBasePath, folderName);
   const driveBase = buildGraphRootUrl(siteId, folderPath, 'children?$top=50');
   console.log('[FOLDER]', driveBase);
   const r = await fetch(driveBase, { headers: { Authorization: 'Bearer ' + authToken } });
@@ -4245,7 +4293,8 @@ async function loadPreventaFolder(siteId, token) {
   const authToken = token || await getToken(['Files.Read.All']);
   const folderName = await getPreventaFolderName(siteId, authToken);
   updateLoadingStatus('Cargando: ' + folderName + '...');
-  const folderPath = 'COMERCIAL/FORECAST 2026/' + folderName;
+  const forecastBasePath = await getForecastBasePath(siteId, authToken);
+  const folderPath = joinGraphPath(forecastBasePath, folderName);
   const url = buildGraphRootUrl(siteId, folderPath, 'children?$top=50');
   const r = await fetch(url, { headers: { Authorization: 'Bearer ' + authToken } });
   const d = await r.json();
@@ -4303,12 +4352,13 @@ function findBestExecFile(items, targetName) {
 
 async function loadSalesSupportFiles(siteId, token) {
   const filesToken = token || await getToken(['Files.Read.All']);
+  const forecastBasePath = await getForecastBasePath(siteId, filesToken);
   const folders = await getForecastFolders(siteId, filesToken);
   const targetName = getSalesSupportTargetName();
   const targetNames = getSalesSupportTargetNames();
   let found = false;
   for(const folder of folders) {
-    const folderPath = 'COMERCIAL/FORECAST 2026/' + folder;
+    const folderPath = joinGraphPath(forecastBasePath, folder);
     try {
       const url = buildGraphRootUrl(siteId, folderPath, 'children?$top=100');
       const r = await fetch(url, { headers: { Authorization: 'Bearer ' + filesToken } });
@@ -4343,7 +4393,7 @@ async function searchExecFileInForecast(siteId, targetName, token) {
   const queries = buildExecSearchQueries(targetName, email);
   if(!queries.length) return null;
   const authToken = token || await getToken(['Files.Read.All']);
-  const folderPath = 'COMERCIAL/FORECAST 2026';
+  const folderPath = await getForecastBasePath(siteId, authToken);
   for(const q of queries) {
     const url = buildGraphRootUrl(siteId, folderPath, 'search(q=\'' + encodeURIComponent(q) + '\')?$top=50');
     const r = await fetch(url, { headers: { Authorization: 'Bearer ' + authToken } });
@@ -4356,12 +4406,14 @@ async function searchExecFileInForecast(siteId, targetName, token) {
 
 async function loadEjecutivoFile(siteId, token) {
   const filesToken = token || await getToken(['Files.Read.All']);
+  const forecastBasePath = await getForecastBasePath(siteId, filesToken);
   const folders = await getForecastFolders(siteId, filesToken);
   const targetName = getExecTargetName();
   let found = false;
   for(const folder of folders) {
     try {
-      const r = await fetch(buildGraphRootUrl(siteId, 'COMERCIAL/FORECAST 2026/' + folder, 'children?$top=50'), { headers: { Authorization: 'Bearer ' + filesToken } });
+      const folderPath = joinGraphPath(forecastBasePath, folder);
+      const r = await fetch(buildGraphRootUrl(siteId, folderPath, 'children?$top=50'), { headers: { Authorization: 'Bearer ' + filesToken } });
       const d = await r.json();
       if(!d.value) continue;
       const file = findBestExecFile(d.value, targetName);
