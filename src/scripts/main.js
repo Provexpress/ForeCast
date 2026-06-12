@@ -2636,7 +2636,7 @@ function styleExcelKpis(ws, rows){
   const cards = [
     ['Negocios', rows.length, '#2D4FD6', '#,##0'],
     ['Total COP', totalCOP, '#0DBF82', excelMoneyFormat('COP', false)],
-    ['Total USD', totalUSD, '#2D4FD6', excelMoneyFormat('USD', true)],
+    ['Total USD', totalUSD, '#2D4FD6', excelMoneyFormat('USD', false)],
     ['TRM aplicada', getTRM(), '#2ABFDF', excelMoneyFormat('COP', true)]
   ];
   cards.forEach((card, idx) => {
@@ -2753,8 +2753,8 @@ function formatDetailExcelColumns(ws, startRow, sourceRows){
     const moneda = cleanDisplayText(sourceRow['MONEDA 2'], 'COP').trim().toUpperCase();
     ws.getCell(rowNumber, 8).numFmt = '#,##0';
     ws.getCell(rowNumber, 10).numFmt = 'yyyy-mm-dd';
-    ws.getCell(rowNumber, 12).numFmt = excelMoneyFormat(moneda, true);
-    ws.getCell(rowNumber, 13).numFmt = excelMoneyFormat(moneda, true);
+    ws.getCell(rowNumber, 12).numFmt = excelMoneyFormat(moneda, false);
+    ws.getCell(rowNumber, 13).numFmt = excelMoneyFormat(moneda, false);
     ws.getCell(rowNumber, 14).numFmt = excelMoneyFormat('COP', true);
     ws.getCell(rowNumber, 15).numFmt = excelMoneyFormat('COP', false);
     ws.getCell(rowNumber, 16).numFmt = excelMoneyFormat('COP', false);
@@ -2860,7 +2860,7 @@ function addResumenExcelSheet(workbook, rows){
   for(let rowNumber = 10; rowNumber <= 14; rowNumber++){
     ws.getCell(rowNumber, 2).numFmt = '#,##0';
     ws.getCell(rowNumber, 3).numFmt = excelMoneyFormat('COP', false);
-    ws.getCell(rowNumber, 4).numFmt = excelMoneyFormat('USD', true);
+    ws.getCell(rowNumber, 4).numFmt = excelMoneyFormat('USD', false);
     ws.getCell(rowNumber, 5).numFmt = excelMoneyFormat('COP', false);
     ws.getCell(rowNumber, 6).numFmt = '0.##%';
   }
@@ -2891,7 +2891,7 @@ function addResumenExcelSheet(workbook, rows){
   for(let rowNumber = directorStart + 1; rowNumber <= directorStart + directorRows.length + 1; rowNumber++){
     ws.getCell(rowNumber, 2).numFmt = '#,##0';
     ws.getCell(rowNumber, 3).numFmt = excelMoneyFormat('COP', false);
-    ws.getCell(rowNumber, 4).numFmt = excelMoneyFormat('USD', true);
+    ws.getCell(rowNumber, 4).numFmt = excelMoneyFormat('USD', false);
     [5,6,7,8].forEach(col => { ws.getCell(rowNumber, col).numFmt = '#,##0'; });
   }
 }
@@ -2934,10 +2934,7 @@ function addDetalleGeneralExcelSheet(workbook, rows){
 
 function getGerenciaComiteRows(rows){
   return (rows || [])
-    .filter(row =>
-      cleanDisplayText(row['ESTADO'], '').toUpperCase() === 'PENDIENTE'
-      && toCOP(row) > GERENCIA_COMITE_THRESHOLD_COP
-    )
+    .filter(row => toCOP(row) > GERENCIA_COMITE_THRESHOLD_COP)
     .sort((a,b) => toCOP(b) - toCOP(a));
 }
 
@@ -2948,14 +2945,14 @@ function addComiteGerenciaExcelSheet(workbook, rows){
   styleExcelTitle(
     ws,
     'Someter a comite de gerencia general',
-    `Pendientes mayores a ${fmtCOP(GERENCIA_COMITE_THRESHOLD_COP)} | Registros: ${comiteRows.length}`,
+    `Negocios mayores a ${fmtCOP(GERENCIA_COMITE_THRESHOLD_COP)} | Registros: ${comiteRows.length}`,
     getGerenciaEstadoFilterText(),
     GERENCIA_EXCEL_DETAIL_COLS
   );
   if(!comiteRows.length){
     ws.mergeCells(`A6:${excelColumnLetter(GERENCIA_EXCEL_DETAIL_COLS)}6`);
     const cell = ws.getCell('A6');
-    cell.value = 'No hay negocios pendientes mayores a $1.000 millones COP con los filtros actuales.';
+    cell.value = 'No hay negocios mayores a $1.000 millones COP con los filtros actuales.';
     cell.font = { name:'Aptos', size:11, italic:true, color:{ argb: excelArgb('#677592') } };
     cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#FAFCFF') } };
     cell.alignment = { vertical:'middle', horizontal:'center' };
