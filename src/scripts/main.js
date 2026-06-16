@@ -349,9 +349,10 @@ function getExcelMetadataDateBuckets(metadataRows){
   (metadataRows || []).forEach(item => {
     const key = getExcelMetadataDateKey(item.rawDate);
     if(!key) return;
-    const current = buckets.get(key) || { key, count: 0, names: [] };
+    const current = buckets.get(key) || { key, count: 0, names: [], files: [] };
     current.count += 1;
     current.names.push(item.name);
+    current.files.push(item.file);
     buckets.set(key, current);
   });
   return [...buckets.values()].sort((a,b) => a.key.localeCompare(b.key));
@@ -410,13 +411,13 @@ function styleExcelMetadataKpis(ws, rows){
   }).length;
   const cards = [
     ['Archivos', rows.length, '#2D4FD6', '#,##0'],
-    ['Actualizados 7 dias', recentCount, '#0DBF82', '#,##0'],
+    ['Actualizados en 7 dias', recentCount, '#0DBF82', '#,##0'],
     ['Mas reciente', latest ? new Date(latest.rawDate) : '', '#2ABFDF', 'yyyy-mm-dd hh:mm'],
     ['Sin fecha', noDateCount, '#F0A020', '#,##0']
   ];
   cards.forEach((card, idx) => {
-    const startCol = idx * 2 + 1;
-    const endCol = startCol + 1;
+    const startCol = idx * 4 + 1;
+    const endCol = startCol + 3;
     ws.mergeCells(5, startCol, 5, endCol);
     ws.mergeCells(6, startCol, 6, endCol);
     const label = ws.getCell(5, startCol);
@@ -444,16 +445,26 @@ function styleExcelMetadataKpis(ws, rows){
 function addExecutiveExcelMetadataChartSheet(workbook, context, rows){
   const ws = workbook.addWorksheet('Grafica fechas');
   const lastCol = 16;
-  setupExcelWorksheet(ws, lastCol, 9);
+  setupExcelWorksheet(ws, lastCol, 12);
   styleExcelTitle(
     ws,
     'Grafica de actualizaciones de Excel',
     `Generado: ${getBogotaTimestampLabel()} | ${context.subtitle || 'Sin filtro'}`,
-    'Fuente: metadatos lastModifiedDateTime de SharePoint',
+    'Fuente: SharePoint',
     lastCol
   );
+  ws.getCell('A3').value = 'Fuente: fecha de ultima modificacion del archivo Excel en SharePoint (lastModifiedDateTime). No corresponde al ingreso al dashboard.';
   styleExcelMetadataKpis(ws, rows);
-  styleExcelSectionLabel(ws, 8, 'Archivos actualizados por fecha', lastCol);
+  styleExcelSectionLabel(ws, 8, 'Como leer esta hoja', lastCol);
+  ws.mergeCells(`A9:${excelColumnLetter(lastCol)}9`);
+  const helpCell = ws.getCell('A9');
+  helpCell.value = 'Cada barra muestra cuantos archivos Excel fueron modificados en esa fecha. La escala es relativa al dia con mas archivos actualizados.';
+  helpCell.font = { name:'Aptos', size:10, color:{ argb: excelArgb('#677592') } };
+  helpCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#FAFCFF') } };
+  helpCell.alignment = { vertical:'middle', horizontal:'left', wrapText:true };
+  ws.getRow(9).height = 24;
+
+  styleExcelSectionLabel(ws, 11, 'Distribucion por fecha', lastCol);
 
   const barStartCol = 4;
   const barEndCol = lastCol;
@@ -461,9 +472,11 @@ function addExecutiveExcelMetadataChartSheet(workbook, context, rows){
   [16,12,14].forEach((width, idx) => { ws.getColumn(idx + 1).width = width; });
   for(let col = barStartCol; col <= barEndCol; col++) ws.getColumn(col).width = 4;
 
-  const header = ws.getRow(9);
-  ['Fecha','Archivos','Participacion','Grafica'].forEach((label, idx) => {
-    const cell = ws.getCell(9, idx + 1);
+  const headerRowNumber = 12;
+  const dataStartRow = headerRowNumber + 1;
+  const header = ws.getRow(headerRowNumber);
+  ['Fecha','Archivos','Participacion'].forEach((label, idx) => {
+    const cell = ws.getCell(headerRowNumber, idx + 1);
     cell.value = label;
     cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#1B2B8C') } };
     cell.font = { name:'Aptos', size:9, bold:true, color:{ argb:'FFFFFFFF' } };
@@ -475,7 +488,18 @@ function addExecutiveExcelMetadataChartSheet(workbook, context, rows){
       right:{style:'thin', color:{argb:excelArgb('#D7E0F0')}}
     };
   });
-  ws.mergeCells(9, barStartCol, 9, barEndCol);
+  ws.mergeCells(headerRowNumber, barStartCol, headerRowNumber, barEndCol);
+  const chartHeader = ws.getCell(headerRowNumber, barStartCol);
+  chartHeader.value = 'Barra de archivos actualizados';
+  chartHeader.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#1B2B8C') } };
+  chartHeader.font = { name:'Aptos', size:9, bold:true, color:{ argb:'FFFFFFFF' } };
+  chartHeader.alignment = { vertical:'middle', horizontal:'center' };
+  chartHeader.border = {
+    top:{style:'thin', color:{argb:excelArgb('#D7E0F0')}},
+    left:{style:'thin', color:{argb:excelArgb('#D7E0F0')}},
+    bottom:{style:'thin', color:{argb:excelArgb('#D7E0F0')}},
+    right:{style:'thin', color:{argb:excelArgb('#D7E0F0')}}
+  };
   header.height = 22;
 
   const buckets = getExcelMetadataDateBuckets(rows).slice(-14);
@@ -484,21 +508,21 @@ function addExecutiveExcelMetadataChartSheet(workbook, context, rows){
   const borderColor = excelArgb('#D7E0F0');
 
   if(!buckets.length){
-    ws.mergeCells(`A10:${excelColumnLetter(lastCol)}10`);
-    const cell = ws.getCell('A10');
+    ws.mergeCells(`A${dataStartRow}:${excelColumnLetter(lastCol)}${dataStartRow}`);
+    const cell = ws.getCell(`A${dataStartRow}`);
     cell.value = 'No hay fechas de actualizacion disponibles en los metadatos de SharePoint.';
     cell.font = { name:'Aptos', size:11, italic:true, color:{ argb: excelArgb('#677592') } };
     cell.alignment = { vertical:'middle', horizontal:'center' };
     cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#FAFCFF') } };
-    ws.getRow(10).height = 24;
+    ws.getRow(dataStartRow).height = 24;
     return;
   }
 
   buckets.forEach((item, idx) => {
-    const rowNumber = 10 + idx;
+    const rowNumber = dataStartRow + idx;
     const row = ws.getRow(rowNumber);
     row.height = 22;
-    const fillColor = excelArgb(COLORS[idx % COLORS.length]);
+    const fillColor = excelArgb('#2D4FD6');
     const segments = Math.max(1, Math.round((item.count / maxCount) * barSegments));
     ws.getCell(rowNumber, 1).value = formatExcelMetadataDateLabel(item.key);
     ws.getCell(rowNumber, 2).value = item.count;
@@ -525,37 +549,72 @@ function addExecutiveExcelMetadataChartSheet(workbook, context, rows){
       barCell.fill = {
         type:'pattern',
         pattern:'solid',
-        fgColor:{ argb: filled ? fillColor : excelArgb('#EEF3FF') }
+        fgColor:{ argb: filled ? fillColor : excelArgb('#F6F8FF') }
       };
       barCell.font = { name:'Aptos', size:8, bold:true, color:{ argb: filled ? 'FFFFFFFF' : excelArgb('#677592') } };
       barCell.alignment = { vertical:'middle', horizontal:'center' };
     }
   });
 
-  const listStart = 12 + buckets.length;
-  styleExcelSectionLabel(ws, listStart, 'Detalle por fecha', lastCol);
+  const noteRow = dataStartRow + buckets.length + 2;
+  ws.mergeCells(`A${noteRow}:${excelColumnLetter(lastCol)}${noteRow}`);
+  const noteCell = ws.getCell(`A${noteRow}`);
+  noteCell.value = 'El listado de ejecutivos y archivos por fecha esta en la hoja "Detalle por fecha".';
+  noteCell.font = { name:'Aptos', size:10, italic:true, color:{ argb: excelArgb('#677592') } };
+  noteCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#FAFCFF') } };
+  noteCell.alignment = { vertical:'middle', horizontal:'left' };
+  ws.getRow(noteRow).height = 22;
+}
+
+function addExecutiveExcelMetadataDateDetailSheet(workbook, context, rows){
+  const ws = workbook.addWorksheet('Detalle por fecha');
+  const lastCol = 4;
+  setupExcelWorksheet(ws, lastCol, 6);
+  styleExcelTitle(
+    ws,
+    'Detalle de actualizaciones por fecha',
+    `Generado: ${getBogotaTimestampLabel()} | ${context.subtitle || 'Sin filtro'}`,
+    'Fuente: SharePoint lastModifiedDateTime',
+    lastCol
+  );
+  [18,12,56,56].forEach((width, idx) => { ws.getColumn(idx + 1).width = width; });
+
+  const buckets = getExcelMetadataDateBuckets(rows).slice(-30);
+  if(!buckets.length){
+    ws.mergeCells(`A6:${excelColumnLetter(lastCol)}6`);
+    const cell = ws.getCell('A6');
+    cell.value = 'No hay fechas de actualizacion disponibles en los metadatos de SharePoint.';
+    cell.font = { name:'Aptos', size:11, italic:true, color:{ argb: excelArgb('#677592') } };
+    cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#FAFCFF') } };
+    cell.alignment = { vertical:'middle', horizontal:'center' };
+    ws.getRow(6).height = 24;
+    return;
+  }
+
   const detailColumns = [
     { name:'Fecha', totalsRowLabel:'Total' },
     { name:'Archivos', totalsRowFunction:'sum' },
-    { name:'Ejecutivos' }
+    { name:'Ejecutivos' },
+    { name:'Archivos Excel' }
   ];
   const detailRows = buckets.map(item => [
     formatExcelMetadataDateLabel(item.key),
     item.count,
-    excelSafeText(item.names.join(', '))
+    excelSafeText(item.names.join(', ')),
+    excelSafeText(item.files.join(', '))
   ]);
   addExcelTable(ws, {
-    name: context.scope === 'ejecutivo' ? 'GraficaFechasEjecutivos' : 'GraficaFechasDirector',
-    ref: `A${listStart + 1}`,
+    name: context.scope === 'ejecutivo' ? 'DetalleFechasEjecutivos' : 'DetalleFechasDirector',
+    ref: 'A6',
     columns: detailColumns,
     rows: detailRows,
     theme: 'TableStyleMedium2'
   });
-  styleExcelTable(ws, listStart + 1, detailRows.length, detailColumns.length, {
-    wrapColumns: [3],
+  styleExcelTable(ws, 6, detailRows.length, detailColumns.length, {
+    wrapColumns: [3,4],
     rightColumns: [2]
   });
-  for(let rowNumber = listStart + 2; rowNumber <= listStart + detailRows.length + 2; rowNumber++){
+  for(let rowNumber = 7; rowNumber <= 7 + detailRows.length; rowNumber++){
     ws.getCell(rowNumber, 2).numFmt = '#,##0';
   }
 }
@@ -572,6 +631,7 @@ function buildExecutiveExcelMetadataWorkbook(context){
   workbook.calcProperties = { fullCalcOnLoad: true };
 
   addExecutiveExcelMetadataChartSheet(workbook, context, rows);
+  addExecutiveExcelMetadataDateDetailSheet(workbook, context, rows);
 
   const ws = workbook.addWorksheet('Ultima actualizacion Excel');
   setupExcelWorksheet(ws, 10, 6);
