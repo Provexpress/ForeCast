@@ -605,6 +605,34 @@ tr:hover td{background:rgba(255,255,255,.025);color:var(--text)}
 .last-connection.empty span{background:var(--text2);box-shadow:none;opacity:.65}
 .metadata-export-btn{min-width:auto;min-height:30px;padding:7px 11px;margin-left:2px}
 .metadata-export-btn .export-excel-icon{width:16px;height:16px;font-size:12px}
+.excel-metadata-chart{margin-bottom:18px}
+.excel-meta-summary{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px;
+}
+.excel-meta-summary div{
+  min-width:0;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.06);
+}
+.excel-meta-summary strong{
+  display:block;color:var(--text);font-family:var(--font-display);font-size:14px;font-weight:800;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.excel-meta-summary span{
+  display:block;margin-top:3px;color:var(--text2);font-family:var(--font-display);
+  font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
+}
+.excel-date-chart{display:flex;flex-direction:column;gap:8px}
+.excel-date-row{display:grid;grid-template-columns:78px minmax(0,1fr) 34px;align-items:center;gap:10px;min-width:0}
+.excel-date-label{
+  color:var(--text3);font-family:var(--font-display);font-size:10px;font-weight:800;text-transform:uppercase;
+  white-space:nowrap;
+}
+.excel-date-track{
+  height:18px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.06);
+}
+.excel-date-fill{height:100%;border-radius:inherit;box-shadow:0 0 14px rgba(42,191,223,.18)}
+.excel-date-count{color:var(--text);font-family:var(--font-mono);font-size:11px;font-weight:800;text-align:right}
 .persona-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .persona-stats.persona-stats-3{grid-template-columns:repeat(3,1fr)}
 .p-stat{background:rgba(255,255,255,.03);border-radius:7px;padding:7px 9px;transition:var(--transition)}
@@ -810,6 +838,9 @@ tr:hover td{background:rgba(255,255,255,.025);color:var(--text)}
   .gerencia-estado-toolbar{align-items:stretch}
   .export-excel-btn{width:100%}
   .section-export-btn{margin-left:0}
+  .metadata-export-btn{width:auto}
+  .excel-meta-summary{grid-template-columns:1fr}
+  .excel-date-row{grid-template-columns:64px minmax(0,1fr) 28px;gap:8px}
 }
 @media(max-width:520px){
   .kpi-grid-6,.kpi-grid-5,.kpi-grid-4,.kpi-grid-3{grid-template-columns:1fr}

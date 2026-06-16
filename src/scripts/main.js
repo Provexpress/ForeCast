@@ -318,6 +318,78 @@ function getExecutiveExcelMetadataRows(executives, sourceRows, opts){
   });
 }
 
+function getExcelMetadataDateKey(value){
+  if(!value) return '';
+  const date = new Date(value);
+  if(Number.isNaN(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date).reduce((acc, part) => {
+    if(part.type !== 'literal') acc[part.type] = part.value;
+    return acc;
+  }, {});
+  return parts.year && parts.month && parts.day ? `${parts.year}-${parts.month}-${parts.day}` : '';
+}
+
+function formatExcelMetadataDateLabel(dateKey){
+  if(!dateKey) return 'Sin fecha';
+  const parts = String(dateKey).split('-').map(Number);
+  if(parts.length !== 3 || parts.some(n => !n)) return dateKey;
+  return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString('es-CO', {
+    day: '2-digit',
+    month: 'short'
+  });
+}
+
+function getExcelMetadataDateBuckets(metadataRows){
+  const buckets = new Map();
+  (metadataRows || []).forEach(item => {
+    const key = getExcelMetadataDateKey(item.rawDate);
+    if(!key) return;
+    const current = buckets.get(key) || { key, count: 0, names: [] };
+    current.count += 1;
+    current.names.push(item.name);
+    buckets.set(key, current);
+  });
+  return [...buckets.values()].sort((a,b) => a.key.localeCompare(b.key));
+}
+
+function buildExcelMetadataDateChart(scope){
+  const context = getExecutiveExcelMetadataReportContext(scope);
+  const rows = getExecutiveExcelMetadataRows(context.executives, context.sourceRows, { director: context.director });
+  if(!rows.length) return '';
+
+  const buckets = getExcelMetadataDateBuckets(rows).slice(-12);
+  const noDateCount = rows.filter(item => !item.rawDate).length;
+  const latest = rows.find(item => item.rawDate);
+  const maxCount = Math.max(...buckets.map(item => item.count), 1);
+  const barRows = buckets.map((item, idx) => {
+    const pct = Math.max(6, Math.round((item.count / maxCount) * 100));
+    const color = COLORS[idx % COLORS.length];
+    const title = item.names.slice(0, 8).join(', ') + (item.names.length > 8 ? '...' : '');
+    return `<div class="excel-date-row" title="${escAttr(title)}">
+      <div class="excel-date-label">${escHtml(formatExcelMetadataDateLabel(item.key))}</div>
+      <div class="excel-date-track">
+        <div class="excel-date-fill" style="width:${pct}%;background:${color}"></div>
+      </div>
+      <div class="excel-date-count">${fmtNum(item.count)}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="chart-card g1 excel-metadata-chart">
+    <div class="chart-hd">Actualizaciones de Excel por fecha <span>${escHtml(context.subtitle || '')}</span></div>
+    <div class="excel-meta-summary">
+      <div><strong>${fmtNum(rows.length)}</strong><span>Archivos</span></div>
+      <div><strong>${latest ? escHtml(formatLastConnection(latest.rawDate)) : '—'}</strong><span>Mas reciente</span></div>
+      <div><strong>${fmtNum(noDateCount)}</strong><span>Sin fecha</span></div>
+    </div>
+    ${buckets.length ? `<div class="excel-date-chart">${barRows}</div>` : `<div style="font-size:11px;color:var(--text2)">No hay fechas de actualizacion disponibles en los metadatos de SharePoint.</div>`}
+  </div>`;
+}
+
 function buildExcelConnectionExportButton(scope, label){
   const id = scope === 'director' ? 'btn-export-director-excel-meta' : 'btn-export-ejecutivo-excel-meta';
   return `<button id="${id}" class="export-excel-btn metadata-export-btn" type="button" onclick="${escAttr(jsCall('downloadExecutiveExcelMetadataReport', scope))}" title="Descargar ultima actualizacion de Excel">
@@ -3874,6 +3946,7 @@ function renderDirector(){
     </div>
 
     <div class="section-hd"><h2>Equipo</h2><span class="section-tag">${execs.length} EJECUTIVOS</span>${buildExcelConnectionExportButton('director', 'Excel')}</div>
+    ${buildExcelMetadataDateChart('director')}
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:18px">
       ${ejCards}
     </div>
@@ -3950,6 +4023,8 @@ function renderEjecutivo(){
     renderEjecutivo();
     return;
   }
+  const ejecutivoExcelDateChart = document.getElementById('ejecutivo-excel-date-chart');
+  if(ejecutivoExcelDateChart) ejecutivoExcelDateChart.innerHTML = buildExcelMetadataDateChart('ejecutivo');
   const focusedBrand = EJECUTIVO_BRAND_FOCUS ? EJECUTIVO_BRAND_FOCUS.brandName : '';
   const focusedDirector = EJECUTIVO_BRAND_FOCUS ? EJECUTIVO_BRAND_FOCUS.directorName : '';
   const brandKey = normalizeCategoryValue(focusedBrand);
