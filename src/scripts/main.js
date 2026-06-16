@@ -228,6 +228,116 @@ function renderLastConnection(name) {
     <span></span>${text ? 'Ult. conexion: ' + escHtml(text) : 'Sin conexion registrada'}
   </div>`;
 }
+
+function getForecastConnectionForName(name){
+  const key = normalizePersonName(name || '');
+  if(!key) return null;
+  if(FORECAST_CONNECTIONS.byName[key]) return FORECAST_CONNECTIONS.byName[key];
+  const match = Object.entries(FORECAST_CONNECTIONS.byName || {})
+    .find(([connectionName]) => namesMatch(connectionName, key));
+  return match ? match[1] : null;
+}
+
+function formatLastConnectionFull(value){
+  if(!value) return 'Sin conexion registrada';
+  const date = new Date(value);
+  if(Number.isNaN(date.getTime())) return 'Sin conexion registrada';
+  return date.toLocaleString('es-CO', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function getConnectionStatusInfo(value){
+  if(!value) return { label:'Sin registro', className:'empty' };
+  const date = new Date(value);
+  if(Number.isNaN(date.getTime())) return { label:'Sin registro', className:'empty' };
+  const diffHours = (Date.now() - date.getTime()) / 3600000;
+  if(diffHours <= 24) return { label:'Al dia', className:'ok' };
+  if(diffHours <= 168) return { label:'Reciente', className:'warn' };
+  return { label:'Antigua', className:'stale' };
+}
+
+function getExecutiveFileInfo(name, sourceRows, directorHint){
+  const rows = Array.isArray(sourceRows) ? sourceRows : [];
+  const rowMatch = rows.find(row => namesMatch(row['COMERCIAL'] || '', name));
+  let director = cleanDisplayText(directorHint || (rowMatch && rowMatch['DIRECTOR']) || '', '');
+  let file = cleanDisplayText(rowMatch && rowMatch.__SOURCE_FILE, '');
+
+  const loadedEntry = Object.entries(LOADED_FILES_BY_DIR || {}).find(([dir, files]) => {
+    if(director && normalizePersonName(dir) !== normalizePersonName(director)) return false;
+    return (files || []).some(item => namesMatch(String(item.name || '').replace(/\.(xlsx|xls)$/i, ''), name));
+  }) || Object.entries(LOADED_FILES_BY_DIR || {}).find(([, files]) =>
+    (files || []).some(item => namesMatch(String(item.name || '').replace(/\.(xlsx|xls)$/i, ''), name))
+  );
+
+  if(loadedEntry){
+    const [loadedDirector, files] = loadedEntry;
+    const loadedFile = (files || []).find(item => namesMatch(String(item.name || '').replace(/\.(xlsx|xls)$/i, ''), name));
+    if(!director) director = loadedDirector;
+    if(!file && loadedFile) file = loadedFile.name || '';
+  }
+
+  if(!file) file = cleanDisplayText(name, 'Ejecutivo') + '.xlsx';
+  return { director: director || 'Sin director', file };
+}
+
+function getExecutiveConnectionRows(executives, sourceRows, opts){
+  const options = opts || {};
+  return (executives || []).filter(Boolean).map(name => {
+    const connection = getForecastConnectionForName(name);
+    const fileInfo = getExecutiveFileInfo(name, sourceRows, options.director);
+    const rawDate = connection && connection.UltimaConexion;
+    const status = getConnectionStatusInfo(rawDate);
+    const personRows = (sourceRows || []).filter(row => namesMatch(row['COMERCIAL'] || '', name));
+    return {
+      name,
+      director: fileInfo.director,
+      file: fileInfo.file,
+      rawDate,
+      lastConnection: formatLastConnectionFull(rawDate),
+      shortConnection: rawDate ? formatLastConnection(rawDate) : '',
+      count: connection ? Number(connection.ConteoConexiones || 0) : 0,
+      status,
+      negocios: personRows.length
+    };
+  }).sort((a,b) => {
+    const dateA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
+    const dateB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
+    if(dateA !== dateB) return dateB - dateA;
+    return a.name.localeCompare(b.name, 'es', { sensitivity:'base' });
+  });
+}
+
+function buildExecutiveConnectionTable(executives, sourceRows, opts){
+  const options = opts || {};
+  const rows = getExecutiveConnectionRows(executives, sourceRows, options);
+  const title = options.title || 'Ultima conexion al Excel';
+  const subtitle = options.subtitle || `${rows.length} ejecutivo${rows.length !== 1 ? 's' : ''}`;
+  return `<div class="chart-card g1">
+    <div class="chart-hd">${escHtml(title)} <span>${escHtml(subtitle)}</span></div>
+    <div class="tbl-wrap">
+      <table class="responsive-table executive-connection-table">
+        <thead><tr><th>Ejecutivo</th><th>Director</th><th>Excel</th><th>Ultima conexion</th><th>Conexiones</th><th>Negocios</th><th>Estado</th></tr></thead>
+        <tbody>${rows.length ? rows.map(item => `
+          <tr>
+            <td style="font-family:var(--font-display);font-weight:700;color:var(--text)" data-label="Ejecutivo">${escHtml(item.name)}</td>
+            <td data-label="Director">${escHtml(item.director)}</td>
+            <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${escAttr(item.file)}" data-label="Excel">${escHtml(item.file)}</td>
+            <td class="td-mono" data-label="Ultima conexion">${escHtml(item.lastConnection)}${item.shortConnection ? `<small>${escHtml(item.shortConnection)}</small>` : ''}</td>
+            <td class="td-mono" data-label="Conexiones">${item.count ? fmtNum(item.count) : '—'}</td>
+            <td class="td-mono" data-label="Negocios">${fmtNum(item.negocios)}</td>
+            <td data-label="Estado"><span class="connection-pill ${escAttr(item.status.className)}">${escHtml(item.status.label)}</span></td>
+          </tr>
+        `).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:18px 14px">Sin ejecutivos para mostrar.</td></tr>`}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
 function fmtNum(v){return Math.round(v).toLocaleString('es-CO')}
 function fmtPct(v){return (v*100).toFixed(1)+'%'}
 function abr(v){
@@ -3640,6 +3750,11 @@ function renderDirector(){
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:18px">
       ${ejCards}
     </div>
+    ${buildExecutiveConnectionTable(execs, directorMonthRows, {
+      title: 'Ultima conexion al Excel',
+      subtitle: 'Equipo del director',
+      director: dir
+    })}
     ${execKPIs}
   `;
   attachChartTooltips(document.getElementById('director-content'));
@@ -3749,6 +3864,7 @@ function renderEjecutivo(){
   
   if(!ej) return;
   
+  const executiveConnectionSourceRows = ALL_DATA.filter(r=>namesMatch(r['COMERCIAL'] || '', ej));
   let data=ALL_DATA.filter(r=>r['COMERCIAL']===ej);
   if(mes) data=data.filter(r=>getMonth(getRowDateValue(r))===mes);
   if(est) data=data.filter(r=>r['ESTADO']===est);
@@ -3804,6 +3920,11 @@ function renderEjecutivo(){
         <div class="kpi-sub">Director: ${escHtml((data[0]||{})['DIRECTOR']||'—')}</div>
       </div>
     </div>
+
+    ${buildExecutiveConnectionTable([ej], executiveConnectionSourceRows, {
+      title: 'Ultima conexion al Excel',
+      subtitle: 'Ejecutivo seleccionado'
+    })}
     
     <div class="g2">
       <div class="chart-card">
@@ -5235,6 +5356,9 @@ async function syncForecastConnections(siteId) {
 
   buildConnectionMaps(items);
   console.log('[FORECAST CONNECTIONS]', Object.keys(FORECAST_CONNECTIONS.byEmail).length);
+  if(ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length || PREVENTA_DATA.length) {
+    renderVisiblePage();
+  }
 }
 
 function normalizeFolderName(value){
