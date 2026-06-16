@@ -372,7 +372,14 @@
      PAGE: MARCAS & LÍNEAS
 ══════════════════════════════════ -->
 <div class="page" id="page-marcas">
-  <div class="section-hd"><h2>Marcas & Líneas</h2><span class="section-tag">TOP POR CATEGORÍA</span></div>
+  <div class="section-hd">
+    <h2>Marcas & Líneas</h2>
+    <span class="section-tag">TOP POR CATEGORÍA</span>
+    <button id="btn-export-marcas-lineas" class="export-excel-btn section-export-btn" type="button" onclick="downloadMarcasLineasExcel()" title="Descargar marcas y líneas en Excel">
+      <span class="export-excel-icon" aria-hidden="true">↓</span>
+      <span>Excel</span>
+    </button>
+  </div>
   <div id="marcas-crossfilters"></div>
 
   <div class="g2b marcas-split">
@@ -448,7 +455,7 @@
 
 </main>
 
-<script src="src/scripts/main.js?v=20260612-estado-export5"></script>
+<script src="src/scripts/main.js?v=20260616-marcas-export1"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->

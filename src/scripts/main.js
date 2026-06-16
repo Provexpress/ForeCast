@@ -3042,6 +3042,386 @@ async function downloadGerenciaEstadoExcel(){
   }
 }
 
+function getRowCostOriginalValue(row){
+  return parseMonto(firstFilled(row, ['COSTO NEGOCIO','COSTO'])) || 0;
+}
+
+function getRowCostCopValue(row){
+  const moneda = cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase();
+  const costo = getRowCostOriginalValue(row);
+  return moneda === 'USD' ? costo * getTRM() : costo;
+}
+
+function getRowUtilidadCopValue(row){
+  const utilidad = getUtilidad(row);
+  return utilidad.moneda === 'USD' ? utilidad.valor * getTRM() : utilidad.valor;
+}
+
+function getMarcasLineasExportData(){
+  const filters = getVisualCrossfilters('marcas');
+  let rows = getVisibleMarcasData().slice();
+  if(filters.marca) rows = rows.filter(row => getRowBrandName(row) === filters.marca);
+  if(filters.linea) rows = rows.filter(row => getRowLineName(row) === filters.linea);
+
+  const directorSelect = document.getElementById('sel-marca-director');
+  const selectedDirector = directorSelect ? directorSelect.value || '' : '';
+  if(selectedDirector) rows = rows.filter(row => cleanDisplayText(row['DIRECTOR'], '') === selectedDirector);
+
+  return rows.sort((a,b) => toCOP(b) - toCOP(a));
+}
+
+function getMarcasLineasFilterText(){
+  const filters = getVisualCrossfilters('marcas');
+  const parts = [`Vista: ${CURRENT_USER ? getRoleLabel(CURRENT_USER.role) : 'Sin usuario'}`];
+  if(isOscarMarcasGlobalScope()) parts.push('Alcance: Todos los usuarios');
+  if(filters.marca) parts.push(`Marca: ${filters.marca}`);
+  if(filters.linea) parts.push(`Linea: ${filters.linea}`);
+  const directorSelect = document.getElementById('sel-marca-director');
+  if(directorSelect && directorSelect.value) parts.push(`Director: ${directorSelect.value}`);
+  return parts.join(' | ') || 'Sin filtros';
+}
+
+function getTopGroupedLabel(rows, getter, fallback){
+  if(!(rows || []).length) return '';
+  const totals = new Map();
+  (rows || []).forEach(row => {
+    const label = cleanDisplayText(getter(row), fallback || 'Sin dato');
+    totals.set(label, (totals.get(label) || 0) + toCOP(row));
+  });
+  const top = [...totals.entries()].sort((a,b) => b[1] - a[1])[0];
+  return top ? top[0] : (fallback || 'Sin dato');
+}
+
+function getMarcasTotalUSD(rows){
+  return (rows || [])
+    .filter(row => cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
+    .reduce((sum,row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
+}
+
+function getMarcasCategorySummaryRows(rows, type){
+  const getter = type === 'marca'
+    ? row => getRowBrandName(row)
+    : row => getRowLineName(row);
+  const otherGetter = type === 'marca'
+    ? row => getRowLineName(row)
+    : row => getRowBrandName(row);
+  const fallback = type === 'marca' ? 'Sin marca' : 'Sin linea';
+  const otherFallback = type === 'marca' ? 'Sin linea' : 'Sin marca';
+  const grandTotal = rows.reduce((sum,row) => sum + toCOP(row), 0);
+  const labels = [...new Set(rows.map(row => cleanDisplayText(getter(row), fallback)))].sort();
+
+  return labels.map(label => {
+    const groupRows = rows.filter(row => cleanDisplayText(getter(row), fallback) === label);
+    const totalCOP = groupRows.reduce((sum,row) => sum + toCOP(row), 0);
+    const costoCOP = groupRows.reduce((sum,row) => sum + getRowCostCopValue(row), 0);
+    const utilidadCOP = groupRows.reduce((sum,row) => sum + getRowUtilidadCopValue(row), 0);
+    return [
+      label,
+      groupRows.length,
+      totalCOP,
+      getMarcasTotalUSD(groupRows),
+      costoCOP,
+      utilidadCOP,
+      grandTotal ? totalCOP / grandTotal : 0,
+      getTopGroupedLabel(groupRows, otherGetter, otherFallback)
+    ];
+  }).sort((a,b) => b[2] - a[2]);
+}
+
+function getMarcasEstadoSummaryRows(rows){
+  return GERENCIA_ESTADOS.map(estado => {
+    const stateRows = rows.filter(row => cleanDisplayText(row['ESTADO'], '').toUpperCase() === estado);
+    return [
+      estado,
+      stateRows.length,
+      stateRows.reduce((sum,row) => sum + toCOP(row), 0),
+      getMarcasTotalUSD(stateRows),
+      stateRows.reduce((sum,row) => sum + getRowCostCopValue(row), 0),
+      stateRows.reduce((sum,row) => sum + getRowUtilidadCopValue(row), 0),
+      getTopGroupedLabel(stateRows, row => getRowBrandName(row), 'Sin marca'),
+      getTopGroupedLabel(stateRows, row => getRowLineName(row), 'Sin linea')
+    ];
+  });
+}
+
+function getMarcasExecSummaryRows(rows){
+  const execs = [...new Set(rows.map(row => cleanDisplayText(row['COMERCIAL'], 'Sin ejecutivo')))].sort();
+  return execs.map(ejecutivo => {
+    const execRows = rows.filter(row => cleanDisplayText(row['COMERCIAL'], 'Sin ejecutivo') === ejecutivo);
+    const director = cleanDisplayText((execRows[0] && execRows[0]['DIRECTOR']) || '', 'Sin director');
+    return [
+      ejecutivo,
+      director,
+      getTopGroupedLabel(execRows, row => getRowBrandName(row), 'Sin marca'),
+      getTopGroupedLabel(execRows, row => getRowLineName(row), 'Sin linea'),
+      execRows.length,
+      execRows.reduce((sum,row) => sum + toCOP(row), 0),
+      getMarcasTotalUSD(execRows),
+      execRows.reduce((sum,row) => sum + getRowCostCopValue(row), 0),
+      execRows.reduce((sum,row) => sum + getRowUtilidadCopValue(row), 0)
+    ];
+  }).sort((a,b) => b[5] - a[5]);
+}
+
+function formatMarcasEstadoSummaryColumns(ws, startRow, rowCount){
+  const totalRow = startRow + rowCount + 1;
+  for(let rowNumber = startRow + 1; rowNumber <= totalRow; rowNumber++){
+    ws.getCell(rowNumber, 2).numFmt = '#,##0';
+    ws.getCell(rowNumber, 3).numFmt = excelMoneyFormat('COP', false);
+    ws.getCell(rowNumber, 4).numFmt = excelMoneyFormat('USD', false);
+    ws.getCell(rowNumber, 5).numFmt = excelMoneyFormat('COP', false);
+    ws.getCell(rowNumber, 6).numFmt = excelMoneyFormat('COP', false);
+    [2,3,4,5,6].forEach(col => {
+      ws.getCell(rowNumber, col).alignment = { vertical:'top', horizontal:'right' };
+    });
+  }
+}
+
+function formatMarcasCategorySummaryColumns(ws, startRow, rowCount){
+  const totalRow = startRow + rowCount + 1;
+  for(let rowNumber = startRow + 1; rowNumber <= totalRow; rowNumber++){
+    ws.getCell(rowNumber, 2).numFmt = '#,##0';
+    ws.getCell(rowNumber, 3).numFmt = excelMoneyFormat('COP', false);
+    ws.getCell(rowNumber, 4).numFmt = excelMoneyFormat('USD', false);
+    ws.getCell(rowNumber, 5).numFmt = excelMoneyFormat('COP', false);
+    ws.getCell(rowNumber, 6).numFmt = excelMoneyFormat('COP', false);
+    ws.getCell(rowNumber, 7).numFmt = '0.##%';
+    [2,3,4,5,6,7].forEach(col => {
+      ws.getCell(rowNumber, col).alignment = { vertical:'top', horizontal:'right' };
+    });
+  }
+}
+
+function formatMarcasExecSummaryColumns(ws, startRow, rowCount){
+  const totalRow = startRow + rowCount + 1;
+  for(let rowNumber = startRow + 1; rowNumber <= totalRow; rowNumber++){
+    ws.getCell(rowNumber, 5).numFmt = '#,##0';
+    ws.getCell(rowNumber, 6).numFmt = excelMoneyFormat('COP', false);
+    ws.getCell(rowNumber, 7).numFmt = excelMoneyFormat('USD', false);
+    ws.getCell(rowNumber, 8).numFmt = excelMoneyFormat('COP', false);
+    ws.getCell(rowNumber, 9).numFmt = excelMoneyFormat('COP', false);
+    [5,6,7,8,9].forEach(col => {
+      ws.getCell(rowNumber, col).alignment = { vertical:'top', horizontal:'right' };
+    });
+  }
+}
+
+function addMarcasLineasResumenSheet(workbook, rows){
+  const ws = workbook.addWorksheet('Resumen marcas lineas');
+  setupExcelWorksheet(ws, 8, 9);
+  styleExcelTitle(
+    ws,
+    'Forecast 2026 - Marcas & Lineas',
+    `Generado: ${getBogotaTimestampLabel()} | Registros exportados: ${rows.length}`,
+    getMarcasLineasFilterText(),
+    8
+  );
+  styleExcelKpis(ws, rows);
+  styleExcelSectionLabel(ws, 8, 'Resumen por estado', 8);
+
+  const columns = [
+    { name:'Estado', totalsRowLabel:'Total' },
+    { name:'Negocios', totalsRowFunction:'sum' },
+    { name:'Total COP', totalsRowFunction:'sum' },
+    { name:'Total USD original', totalsRowFunction:'sum' },
+    { name:'Costo COP liq.', totalsRowFunction:'sum' },
+    { name:'Utilidad COP liq.', totalsRowFunction:'sum' },
+    { name:'Top Marca' },
+    { name:'Top Linea' }
+  ];
+  const summaryRows = getMarcasEstadoSummaryRows(rows);
+  [16,12,18,18,18,18,22,22].forEach((width, idx) => { ws.getColumn(idx + 1).width = width; });
+  addExcelTable(ws, {
+    name: 'ResumenEstadosMarcas',
+    ref: 'A9',
+    columns,
+    rows: summaryRows,
+    theme: 'TableStyleMedium4'
+  });
+  styleExcelTable(ws, 9, summaryRows.length, columns.length, {
+    statusColumn: 1,
+    rightColumns: [2,3,4,5,6]
+  });
+  formatMarcasEstadoSummaryColumns(ws, 9, summaryRows.length);
+}
+
+function addMarcasCategoryExcelSheet(workbook, rows, type){
+  const typeLabel = type === 'marca' ? 'Marca' : 'Linea';
+  const otherLabel = type === 'marca' ? 'Top Linea' : 'Top Marca';
+  const sheetName = type === 'marca' ? 'Resumen marcas' : 'Resumen lineas';
+  const tableName = type === 'marca' ? 'ResumenPorMarca' : 'ResumenPorLinea';
+  const ws = workbook.addWorksheet(sheetName);
+  setupExcelWorksheet(ws, 8, 9);
+  styleExcelTitle(
+    ws,
+    `Forecast 2026 - Resumen por ${typeLabel}`,
+    `Generado: ${getBogotaTimestampLabel()} | Registros exportados: ${rows.length}`,
+    getMarcasLineasFilterText(),
+    8
+  );
+  styleExcelKpis(ws, rows);
+  styleExcelSectionLabel(ws, 8, `Resumen por ${typeLabel.toLowerCase()}`, 8);
+
+  const columns = [
+    { name:typeLabel, totalsRowLabel:'Total' },
+    { name:'Negocios', totalsRowFunction:'sum' },
+    { name:'Total COP', totalsRowFunction:'sum' },
+    { name:'Total USD original', totalsRowFunction:'sum' },
+    { name:'Costo COP liq.', totalsRowFunction:'sum' },
+    { name:'Utilidad COP liq.', totalsRowFunction:'sum' },
+    { name:'Participacion', totalsRowFunction:'sum' },
+    { name:otherLabel }
+  ];
+  const summaryRows = getMarcasCategorySummaryRows(rows, type);
+  [24,12,18,18,18,18,14,24].forEach((width, idx) => { ws.getColumn(idx + 1).width = width; });
+  addExcelTable(ws, {
+    name: tableName,
+    ref: 'A9',
+    columns,
+    rows: summaryRows,
+    theme: type === 'marca' ? 'TableStyleMedium9' : 'TableStyleMedium2'
+  });
+  styleExcelTable(ws, 9, summaryRows.length, columns.length, {
+    rightColumns: [2,3,4,5,6,7]
+  });
+  formatMarcasCategorySummaryColumns(ws, 9, summaryRows.length);
+}
+
+function addMarcasEjecutivoExcelSheet(workbook, rows){
+  const ws = workbook.addWorksheet('Marca por ejecutivo');
+  setupExcelWorksheet(ws, 9, 9);
+  styleExcelTitle(
+    ws,
+    'Forecast 2026 - Marca por ejecutivo',
+    `Generado: ${getBogotaTimestampLabel()} | Registros exportados: ${rows.length}`,
+    getMarcasLineasFilterText(),
+    9
+  );
+  styleExcelKpis(ws, rows);
+  styleExcelSectionLabel(ws, 8, 'Top marca y linea por ejecutivo', 9);
+
+  const columns = [
+    { name:'Ejecutivo', totalsRowLabel:'Total' },
+    { name:'Director' },
+    { name:'Top Marca' },
+    { name:'Top Linea' },
+    { name:'Negocios', totalsRowFunction:'sum' },
+    { name:'Total COP', totalsRowFunction:'sum' },
+    { name:'Total USD original', totalsRowFunction:'sum' },
+    { name:'Costo COP liq.', totalsRowFunction:'sum' },
+    { name:'Utilidad COP liq.', totalsRowFunction:'sum' }
+  ];
+  const execRows = getMarcasExecSummaryRows(rows);
+  [26,24,22,22,12,18,18,18,18].forEach((width, idx) => { ws.getColumn(idx + 1).width = width; });
+  addExcelTable(ws, {
+    name: 'MarcaPorEjecutivo',
+    ref: 'A9',
+    columns,
+    rows: execRows,
+    theme: 'TableStyleMedium4'
+  });
+  styleExcelTable(ws, 9, execRows.length, columns.length, {
+    rightColumns: [5,6,7,8,9]
+  });
+  formatMarcasExecSummaryColumns(ws, 9, execRows.length);
+}
+
+function addMarcasComiteGerenciaExcelSheet(workbook, rows){
+  const comiteRows = getGerenciaComiteRows(rows);
+  const ws = workbook.addWorksheet('Someter comite gerencia general');
+  setupExcelWorksheet(ws, GERENCIA_EXCEL_DETAIL_COLS, 6);
+  styleExcelTitle(
+    ws,
+    'Someter a comite de gerencia general',
+    `Negocios mayores a ${fmtCOP(GERENCIA_COMITE_THRESHOLD_COP)} | Registros: ${comiteRows.length}`,
+    getMarcasLineasFilterText(),
+    GERENCIA_EXCEL_DETAIL_COLS
+  );
+  if(!comiteRows.length){
+    ws.mergeCells(`A6:${excelColumnLetter(GERENCIA_EXCEL_DETAIL_COLS)}6`);
+    const cell = ws.getCell('A6');
+    cell.value = 'No hay negocios mayores a $1.000 millones COP con los filtros actuales.';
+    cell.font = { name:'Aptos', size:11, italic:true, color:{ argb: excelArgb('#677592') } };
+    cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb('#FAFCFF') } };
+    cell.alignment = { vertical:'middle', horizontal:'center' };
+    ws.getRow(6).height = 24;
+    return;
+  }
+  addDetailExcelTable(ws, comiteRows, 'SometerComiteMarcas', 6);
+}
+
+function addMarcasDetalleExcelSheet(workbook, rows){
+  const ws = workbook.addWorksheet('Detalle marcas lineas');
+  setupExcelWorksheet(ws, GERENCIA_EXCEL_DETAIL_COLS, 6);
+  styleExcelTitle(
+    ws,
+    'Detalle marcas y lineas',
+    `Generado: ${getBogotaTimestampLabel()} | Registros: ${rows.length}`,
+    getMarcasLineasFilterText(),
+    GERENCIA_EXCEL_DETAIL_COLS
+  );
+  addDetailExcelTable(ws, rows, 'DetalleMarcasLineas', 6);
+}
+
+function buildMarcasLineasWorkbook(rows){
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Forecast 2026 Provexpress';
+  workbook.created = new Date();
+  workbook.modified = new Date();
+  workbook.company = 'Provexpress';
+  workbook.subject = 'Marcas y lineas';
+  workbook.title = 'Forecast 2026 - Marcas y lineas';
+  workbook.calcProperties = { fullCalcOnLoad: true };
+
+  addMarcasLineasResumenSheet(workbook, rows);
+  addMarcasCategoryExcelSheet(workbook, rows, 'marca');
+  addMarcasCategoryExcelSheet(workbook, rows, 'linea');
+  addMarcasEjecutivoExcelSheet(workbook, rows);
+  addMarcasComiteGerenciaExcelSheet(workbook, rows);
+  addMarcasDetalleExcelSheet(workbook, rows);
+  return workbook;
+}
+
+function setMarcasLineasExportButtonBusy(isBusy){
+  const btn = document.getElementById('btn-export-marcas-lineas');
+  if(!btn) return;
+  btn.disabled = Boolean(isBusy);
+  btn.innerHTML = isBusy
+    ? '<span class="export-excel-icon" aria-hidden="true">...</span><span>Generando</span>'
+    : '<span class="export-excel-icon" aria-hidden="true">↓</span><span>Excel</span>';
+}
+
+async function downloadMarcasLineasExcel(){
+  const rows = getMarcasLineasExportData();
+  if(!rows.length){
+    alert('No hay negocios de marcas y lineas para descargar con los filtros actuales.');
+    return;
+  }
+
+  setMarcasLineasExportButtonBusy(true);
+  try{
+    await loadExcelJsForExport();
+    const workbook = buildMarcasLineasWorkbook(rows);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Forecast_Marcas_Lineas_${getBogotaTimestampForFile()}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  } catch(error){
+    console.error('[EXPORT MARCAS LINEAS]', error);
+    alert('No se pudo generar el Excel de marcas y lineas. Intenta nuevamente o revisa la consola para mas detalle.');
+  } finally {
+    setMarcasLineasExportButtonBusy(false);
+  }
+}
+
 /* ══════════════════════════════════════
    DIRECTOR
 ══════════════════════════════════════ */
@@ -5468,6 +5848,7 @@ window.renderPreventa = renderPreventa;
 window.setSalesView = setSalesView;
 window.setSalesPendingFilter = setSalesPendingFilter;
 window.renderMarcas = renderMarcas;
+window.downloadMarcasLineasExcel = downloadMarcasLineasExcel;
 window.selectEjecutivo = selectEjecutivo;
 window.clearEjecutivoBrandFocus = clearEjecutivoBrandFocus;
 window.openExecNegociosFromMarcas = openExecNegociosFromMarcas;
