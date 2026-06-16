@@ -221,27 +221,17 @@ function formatLastConnection(value) {
   return localDate.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }) + ' ' + time;
 }
 function renderLastConnection(name) {
-  const key = normalizePersonName(name || '');
-  const connection = FORECAST_CONNECTIONS.byName[key];
-  const text = connection ? formatLastConnection(connection.UltimaConexion) : '';
+  const fileInfo = getLoadedExcelFileMetaForExecutive(name);
+  const text = fileInfo && fileInfo.lastModifiedDateTime ? formatLastConnection(fileInfo.lastModifiedDateTime) : '';
   return `<div class="last-connection ${text ? '' : 'empty'}">
-    <span></span>${text ? 'Ult. conexion: ' + escHtml(text) : 'Sin conexion registrada'}
+    <span></span>${text ? 'Ult. Excel: ' + escHtml(text) : 'Sin fecha del Excel'}
   </div>`;
 }
 
-function getForecastConnectionForName(name){
-  const key = normalizePersonName(name || '');
-  if(!key) return null;
-  if(FORECAST_CONNECTIONS.byName[key]) return FORECAST_CONNECTIONS.byName[key];
-  const match = Object.entries(FORECAST_CONNECTIONS.byName || {})
-    .find(([connectionName]) => namesMatch(connectionName, key));
-  return match ? match[1] : null;
-}
-
 function formatLastConnectionFull(value){
-  if(!value) return 'Sin conexion registrada';
+  if(!value) return 'Sin fecha registrada';
   const date = new Date(value);
-  if(Number.isNaN(date.getTime())) return 'Sin conexion registrada';
+  if(Number.isNaN(date.getTime())) return 'Sin fecha registrada';
   return date.toLocaleString('es-CO', {
     timeZone: 'America/Bogota',
     year: 'numeric',
@@ -252,57 +242,72 @@ function formatLastConnectionFull(value){
   });
 }
 
-function getConnectionStatusInfo(value){
-  if(!value) return { label:'Sin registro', className:'empty' };
+function getExcelFileStatusInfo(value){
+  if(!value) return 'Sin fecha';
   const date = new Date(value);
-  if(Number.isNaN(date.getTime())) return { label:'Sin registro', className:'empty' };
+  if(Number.isNaN(date.getTime())) return 'Sin fecha';
   const diffHours = (Date.now() - date.getTime()) / 3600000;
-  if(diffHours <= 24) return { label:'Al dia', className:'ok' };
-  if(diffHours <= 168) return { label:'Reciente', className:'warn' };
-  return { label:'Antigua', className:'stale' };
+  if(diffHours <= 24) return 'Actualizado hoy';
+  if(diffHours <= 168) return 'Actualizado esta semana';
+  return 'Sin actualizacion reciente';
 }
 
-function getExecutiveFileInfo(name, sourceRows, directorHint){
-  const rows = Array.isArray(sourceRows) ? sourceRows : [];
-  const rowMatch = rows.find(row => namesMatch(row['COMERCIAL'] || '', name));
-  let director = cleanDisplayText(directorHint || (rowMatch && rowMatch['DIRECTOR']) || '', '');
-  let file = cleanDisplayText(rowMatch && rowMatch.__SOURCE_FILE, '');
+function getDriveItemModifier(item){
+  const by = item && item.lastModifiedBy || {};
+  const user = by.user || by.application || {};
+  return {
+    name: cleanDisplayText(user.displayName, ''),
+    email: cleanDisplayText(user.email || user.userPrincipalName, '')
+  };
+}
 
-  const loadedEntry = Object.entries(LOADED_FILES_BY_DIR || {}).find(([dir, files]) => {
-    if(director && normalizePersonName(dir) !== normalizePersonName(director)) return false;
-    return (files || []).some(item => namesMatch(String(item.name || '').replace(/\.(xlsx|xls)$/i, ''), name));
-  }) || Object.entries(LOADED_FILES_BY_DIR || {}).find(([, files]) =>
-    (files || []).some(item => namesMatch(String(item.name || '').replace(/\.(xlsx|xls)$/i, ''), name))
+function buildLoadedExcelFileMeta(item, dirName){
+  const modifier = getDriveItemModifier(item || {});
+  return {
+    name: item && item.name || '',
+    dir: dirName || '',
+    lastModifiedDateTime: item && item.lastModifiedDateTime || '',
+    lastModifiedByName: modifier.name,
+    lastModifiedByEmail: modifier.email,
+    webUrl: item && item.webUrl || '',
+    size: Number(item && item.size || 0)
+  };
+}
+
+function getLoadedExcelFileMetaForExecutive(name, directorHint){
+  const target = cleanDisplayText(name, '');
+  const directorNorm = normalizePersonName(directorHint || '');
+  const allFiles = Object.entries(LOADED_FILES_BY_DIR || {}).flatMap(([director, files]) =>
+    (files || []).map(file => ({ ...file, dir: file.dir || director }))
   );
-
-  if(loadedEntry){
-    const [loadedDirector, files] = loadedEntry;
-    const loadedFile = (files || []).find(item => namesMatch(String(item.name || '').replace(/\.(xlsx|xls)$/i, ''), name));
-    if(!director) director = loadedDirector;
-    if(!file && loadedFile) file = loadedFile.name || '';
-  }
-
-  if(!file) file = cleanDisplayText(name, 'Ejecutivo') + '.xlsx';
-  return { director: director || 'Sin director', file };
+  const direct = allFiles.find(file => {
+    if(directorNorm && normalizePersonName(file.dir) !== directorNorm) return false;
+    return namesMatch(String(file.name || '').replace(/\.(xlsx|xls)$/i, ''), target);
+  });
+  if(direct) return direct;
+  return allFiles.find(file => namesMatch(String(file.name || '').replace(/\.(xlsx|xls)$/i, ''), target)) || null;
 }
 
-function getExecutiveConnectionRows(executives, sourceRows, opts){
+function getExecutiveExcelMetadataRows(executives, sourceRows, opts){
   const options = opts || {};
+  const rows = Array.isArray(sourceRows) ? sourceRows : [];
   return (executives || []).filter(Boolean).map(name => {
-    const connection = getForecastConnectionForName(name);
-    const fileInfo = getExecutiveFileInfo(name, sourceRows, options.director);
-    const rawDate = connection && connection.UltimaConexion;
-    const status = getConnectionStatusInfo(rawDate);
-    const personRows = (sourceRows || []).filter(row => namesMatch(row['COMERCIAL'] || '', name));
+    const rowMatch = rows.find(row => namesMatch(row['COMERCIAL'] || '', name));
+    const fileInfo = getLoadedExcelFileMetaForExecutive(name, options.director) || {};
+    const director = cleanDisplayText(options.director || fileInfo.dir || rowMatch && rowMatch['DIRECTOR'], 'Sin director');
+    const file = cleanDisplayText(fileInfo.name || rowMatch && rowMatch.__SOURCE_FILE, cleanDisplayText(name, 'Ejecutivo') + '.xlsx');
+    const personRows = rows.filter(row => namesMatch(row['COMERCIAL'] || '', name));
     return {
       name,
-      director: fileInfo.director,
-      file: fileInfo.file,
-      rawDate,
-      lastConnection: formatLastConnectionFull(rawDate),
-      shortConnection: rawDate ? formatLastConnection(rawDate) : '',
-      count: connection ? Number(connection.ConteoConexiones || 0) : 0,
-      status,
+      director,
+      file,
+      rawDate: fileInfo.lastModifiedDateTime || '',
+      lastModified: formatLastConnectionFull(fileInfo.lastModifiedDateTime),
+      lastModifiedBy: cleanDisplayText(fileInfo.lastModifiedByName, 'Sin dato'),
+      lastModifiedByEmail: cleanDisplayText(fileInfo.lastModifiedByEmail, ''),
+      webUrl: cleanDisplayText(fileInfo.webUrl, ''),
+      sizeKb: fileInfo.size ? Math.round(fileInfo.size / 1024) : 0,
+      status: getExcelFileStatusInfo(fileInfo.lastModifiedDateTime),
       negocios: personRows.length
     };
   }).sort((a,b) => {
@@ -313,31 +318,155 @@ function getExecutiveConnectionRows(executives, sourceRows, opts){
   });
 }
 
-function buildExecutiveConnectionTable(executives, sourceRows, opts){
-  const options = opts || {};
-  const rows = getExecutiveConnectionRows(executives, sourceRows, options);
-  const title = options.title || 'Ultima conexion al Excel';
-  const subtitle = options.subtitle || `${rows.length} ejecutivo${rows.length !== 1 ? 's' : ''}`;
-  return `<div class="chart-card g1">
-    <div class="chart-hd">${escHtml(title)} <span>${escHtml(subtitle)}</span></div>
-    <div class="tbl-wrap">
-      <table class="responsive-table executive-connection-table">
-        <thead><tr><th>Ejecutivo</th><th>Director</th><th>Excel</th><th>Ultima conexion</th><th>Conexiones</th><th>Negocios</th><th>Estado</th></tr></thead>
-        <tbody>${rows.length ? rows.map(item => `
-          <tr>
-            <td style="font-family:var(--font-display);font-weight:700;color:var(--text)" data-label="Ejecutivo">${escHtml(item.name)}</td>
-            <td data-label="Director">${escHtml(item.director)}</td>
-            <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${escAttr(item.file)}" data-label="Excel">${escHtml(item.file)}</td>
-            <td class="td-mono" data-label="Ultima conexion">${escHtml(item.lastConnection)}${item.shortConnection ? `<small>${escHtml(item.shortConnection)}</small>` : ''}</td>
-            <td class="td-mono" data-label="Conexiones">${item.count ? fmtNum(item.count) : '—'}</td>
-            <td class="td-mono" data-label="Negocios">${fmtNum(item.negocios)}</td>
-            <td data-label="Estado"><span class="connection-pill ${escAttr(item.status.className)}">${escHtml(item.status.label)}</span></td>
-          </tr>
-        `).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:18px 14px">Sin ejecutivos para mostrar.</td></tr>`}</tbody>
-      </table>
-    </div>
+function buildExcelConnectionExportCard(scope, title, subtitle){
+  const id = scope === 'director' ? 'btn-export-director-excel-meta' : 'btn-export-ejecutivo-excel-meta';
+  return `<div class="chart-card g1 executive-connection-export-card">
+    <div class="chart-hd">${escHtml(title)} <span>${escHtml(subtitle || '')}</span></div>
+    <button id="${id}" class="export-excel-btn" type="button" onclick="${escAttr(jsCall('downloadExecutiveExcelMetadataReport', scope))}" title="Descargar reporte de fecha del Excel">
+      <span class="export-excel-icon" aria-hidden="true">↓</span>
+      <span>Excel</span>
+    </button>
   </div>`;
 }
+
+function getExecutiveExcelMetadataReportContext(scope){
+  const reportScope = scope === 'ejecutivo' ? 'ejecutivo' : 'director';
+  if(reportScope === 'ejecutivo') {
+    const role = CURRENT_USER ? CURRENT_USER.role : null;
+    const targetName = role === 'ejecutivo' ? getExecTargetName() : '';
+    const selEj = document.getElementById('sel-ejecutivo');
+    const ejecutivo = targetName || (selEj ? selEj.value : '');
+    const rows = getVisibleData().filter(row => namesMatch(row['COMERCIAL'] || '', ejecutivo));
+    return {
+      scope: reportScope,
+      title: 'Ultima actualizacion del Excel - Ejecutivo',
+      subtitle: ejecutivo || 'Ejecutivo',
+      executives: ejecutivo ? [ejecutivo] : [],
+      sourceRows: rows,
+      director: rows[0] && rows[0]['DIRECTOR'] || ''
+    };
+  }
+
+  const dir = document.getElementById('sel-director') ? document.getElementById('sel-director').value : '';
+  const rows = getVisibleData().filter(row => cleanDisplayText(row['DIRECTOR'], '') === dir);
+  const execsWithData = [...new Set(rows.map(row => cleanDisplayText(row['COMERCIAL'], '')).filter(Boolean))];
+  const execsFromFiles = (LOADED_FILES_BY_DIR[dir] || []).map(file => String(file.name || '').replace(/\.(xlsx|xls)$/i, '').trim()).filter(Boolean);
+  const executives = [...new Set([...execsWithData, ...execsFromFiles])].sort();
+  return {
+    scope: reportScope,
+    title: 'Ultima actualizacion del Excel - Director',
+    subtitle: dir || 'Director',
+    executives,
+    sourceRows: rows,
+    director: dir
+  };
+}
+
+function buildExecutiveExcelMetadataWorkbook(context){
+  const rows = getExecutiveExcelMetadataRows(context.executives, context.sourceRows, { director: context.director });
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Forecast 2026 Provexpress';
+  workbook.created = new Date();
+  workbook.modified = new Date();
+  workbook.company = 'Provexpress';
+  workbook.subject = 'Ultima actualizacion de Excel';
+  workbook.title = context.title;
+  workbook.calcProperties = { fullCalcOnLoad: true };
+
+  const ws = workbook.addWorksheet('Ultima actualizacion Excel');
+  setupExcelWorksheet(ws, 10, 6);
+  styleExcelTitle(
+    ws,
+    context.title,
+    `Generado: ${getBogotaTimestampLabel()} | Registros: ${rows.length}`,
+    context.subtitle || 'Sin filtro',
+    10
+  );
+  [26,24,32,20,24,28,12,12,20,46].forEach((width, idx) => { ws.getColumn(idx + 1).width = width; });
+  addExcelTable(ws, {
+    name: context.scope === 'ejecutivo' ? 'UltimaActualizacionEjecutivo' : 'UltimaActualizacionDirector',
+    ref: 'A6',
+    columns: [
+      { name:'Ejecutivo', totalsRowLabel:'Total' },
+      { name:'Director' },
+      { name:'Archivo Excel' },
+      { name:'Ultima actualizacion Excel' },
+      { name:'Modificado por' },
+      { name:'Correo modificador' },
+      { name:'Negocios', totalsRowFunction:'sum' },
+      { name:'Tamano KB', totalsRowFunction:'sum' },
+      { name:'Estado' },
+      { name:'Link SharePoint' }
+    ],
+    rows: rows.map(item => [
+      excelSafeText(item.name),
+      excelSafeText(item.director),
+      excelSafeText(item.file),
+      item.rawDate ? new Date(item.rawDate) : '',
+      excelSafeText(item.lastModifiedBy),
+      excelSafeText(item.lastModifiedByEmail),
+      item.negocios,
+      item.sizeKb,
+      excelSafeText(item.status),
+      excelSafeText(item.webUrl)
+    ]),
+    theme: 'TableStyleMedium4'
+  });
+  styleExcelTable(ws, 6, rows.length, 10, {
+    wrapColumns: [3,10],
+    rightColumns: [7,8]
+  });
+  for(let rowNumber = 7; rowNumber <= 7 + rows.length; rowNumber++){
+    ws.getCell(rowNumber, 4).numFmt = 'yyyy-mm-dd hh:mm';
+    ws.getCell(rowNumber, 7).numFmt = '#,##0';
+    ws.getCell(rowNumber, 8).numFmt = '#,##0';
+  }
+  return workbook;
+}
+
+function setExecutiveExcelMetadataButtonBusy(scope, isBusy){
+  const id = scope === 'ejecutivo' ? 'btn-export-ejecutivo-excel-meta' : 'btn-export-director-excel-meta';
+  const btn = document.getElementById(id);
+  if(!btn) return;
+  btn.disabled = Boolean(isBusy);
+  btn.innerHTML = isBusy
+    ? '<span class="export-excel-icon" aria-hidden="true">...</span><span>Generando</span>'
+    : '<span class="export-excel-icon" aria-hidden="true">↓</span><span>Excel</span>';
+}
+
+async function downloadExecutiveExcelMetadataReport(scope){
+  const reportScope = scope === 'ejecutivo' ? 'ejecutivo' : 'director';
+  const context = getExecutiveExcelMetadataReportContext(reportScope);
+  if(!context.executives.length){
+    alert('No hay ejecutivos para descargar en esta vista.');
+    return;
+  }
+
+  setExecutiveExcelMetadataButtonBusy(reportScope, true);
+  try{
+    await loadExcelJsForExport();
+    const workbook = buildExecutiveExcelMetadataWorkbook(context);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const suffix = reportScope === 'ejecutivo' ? 'Ejecutivo' : 'Director';
+    link.href = url;
+    link.download = `Forecast_Ultima_Actualizacion_Excel_${suffix}_${getBogotaTimestampForFile()}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  } catch(error){
+    console.error('[EXPORT EXCEL METADATA]', error);
+    alert('No se pudo generar el reporte de ultima actualizacion del Excel.');
+  } finally {
+    setExecutiveExcelMetadataButtonBusy(reportScope, false);
+  }
+}
+
 function fmtNum(v){return Math.round(v).toLocaleString('es-CO')}
 function fmtPct(v){return (v*100).toFixed(1)+'%'}
 function abr(v){
@@ -3750,11 +3879,7 @@ function renderDirector(){
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:18px">
       ${ejCards}
     </div>
-    ${buildExecutiveConnectionTable(execs, directorMonthRows, {
-      title: 'Ultima conexion al Excel',
-      subtitle: 'Equipo del director',
-      director: dir
-    })}
+    ${buildExcelConnectionExportCard('director', 'Ultima actualizacion del Excel', 'Descarga el reporte del equipo')}
     ${execKPIs}
   `;
   attachChartTooltips(document.getElementById('director-content'));
@@ -3864,7 +3989,6 @@ function renderEjecutivo(){
   
   if(!ej) return;
   
-  const executiveConnectionSourceRows = ALL_DATA.filter(r=>namesMatch(r['COMERCIAL'] || '', ej));
   let data=ALL_DATA.filter(r=>r['COMERCIAL']===ej);
   if(mes) data=data.filter(r=>getMonth(getRowDateValue(r))===mes);
   if(est) data=data.filter(r=>r['ESTADO']===est);
@@ -3921,10 +4045,7 @@ function renderEjecutivo(){
       </div>
     </div>
 
-    ${buildExecutiveConnectionTable([ej], executiveConnectionSourceRows, {
-      title: 'Ultima conexion al Excel',
-      subtitle: 'Ejecutivo seleccionado'
-    })}
+    ${buildExcelConnectionExportCard('ejecutivo', 'Ultima actualizacion del Excel', 'Descarga el reporte del ejecutivo')}
     
     <div class="g2">
       <div class="chart-card">
@@ -5468,7 +5589,7 @@ async function loadDirectorFolder(siteId, folderName, token) {
       SALES_PENDING_DATA.push(...pendingRecords);
     } else {
       ALL_DATA.push(...recs);
-      LOADED_FILES_BY_DIR[dirName].push({ name: item.name });
+      LOADED_FILES_BY_DIR[dirName].push(buildLoadedExcelFileMeta(item, dirName));
     }
   });
 }
@@ -5642,7 +5763,7 @@ async function searchDriveItemsGlobally(query, token) {
       query: { queryString: query },
       from: 0,
       size: 50,
-      fields: ['id','name','webUrl','parentReference']
+      fields: ['id','name','webUrl','parentReference','lastModifiedDateTime','lastModifiedBy','size']
     }]
   };
   const r = await fetch('https://graph.microsoft.com/v1.0/search/query', {
@@ -5799,11 +5920,12 @@ async function loadEjecutivoFile(siteId, token) {
       if(!d.value) continue;
       const file = findBestExecFile(d.value, targetName);
       if(file) {
+        const readyFile = await ensureDriveItemDownloadUrl(file, filesToken);
         const dirName = normalizeDirectorName(folder.replace(/^(Grupo|Gupo)\s+/i,'').trim());
         if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
-        const recs = await loadSpFile(file, dirName);
+        const recs = await loadSpFile(readyFile, dirName);
         ALL_DATA.push(...recs);
-        LOADED_FILES_BY_DIR[dirName].push({ name: file.name });
+        LOADED_FILES_BY_DIR[dirName].push(buildLoadedExcelFileMeta(readyFile, dirName));
         found = true;
         return true;
       }
@@ -5812,11 +5934,12 @@ async function loadEjecutivoFile(siteId, token) {
   // Fallback: search in FORECAST 2026 if file is nested or renamed
   const fallback = await searchExecFileInForecast(siteId, targetName, filesToken);
   if(fallback) {
+    const readyFallback = await ensureDriveItemDownloadUrl(fallback, filesToken);
     const dirName = normalizeDirectorName(directorFromPath((fallback.parentReference && fallback.parentReference.path) || '') || '');
     if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
-    const recs = await loadSpFile(fallback, dirName);
+    const recs = await loadSpFile(readyFallback, dirName);
     ALL_DATA.push(...recs);
-    LOADED_FILES_BY_DIR[dirName].push({ name: fallback.name });
+    LOADED_FILES_BY_DIR[dirName].push(buildLoadedExcelFileMeta(readyFallback, dirName));
     return true;
   }
   if(!found) {
@@ -5973,6 +6096,7 @@ window.setSalesView = setSalesView;
 window.setSalesPendingFilter = setSalesPendingFilter;
 window.renderMarcas = renderMarcas;
 window.downloadMarcasLineasExcel = downloadMarcasLineasExcel;
+window.downloadExecutiveExcelMetadataReport = downloadExecutiveExcelMetadataReport;
 window.selectEjecutivo = selectEjecutivo;
 window.clearEjecutivoBrandFocus = clearEjecutivoBrandFocus;
 window.openExecNegociosFromMarcas = openExecNegociosFromMarcas;
