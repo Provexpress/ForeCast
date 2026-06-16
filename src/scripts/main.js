@@ -318,32 +318,30 @@ function getExecutiveExcelMetadataRows(executives, sourceRows, opts){
   });
 }
 
-function buildExcelConnectionExportCard(scope, title, subtitle){
+function buildExcelConnectionExportButton(scope, label){
   const id = scope === 'director' ? 'btn-export-director-excel-meta' : 'btn-export-ejecutivo-excel-meta';
-  return `<div class="chart-card g1 executive-connection-export-card">
-    <div class="chart-hd">${escHtml(title)} <span>${escHtml(subtitle || '')}</span></div>
-    <button id="${id}" class="export-excel-btn" type="button" onclick="${escAttr(jsCall('downloadExecutiveExcelMetadataReport', scope))}" title="Descargar reporte de fecha del Excel">
-      <span class="export-excel-icon" aria-hidden="true">↓</span>
-      <span>Excel</span>
-    </button>
-  </div>`;
+  return `<button id="${id}" class="export-excel-btn metadata-export-btn" type="button" onclick="${escAttr(jsCall('downloadExecutiveExcelMetadataReport', scope))}" title="Descargar ultima actualizacion de Excel">
+    <span class="export-excel-icon" aria-hidden="true">↓</span>
+    <span>${escHtml(label || 'Excel')}</span>
+  </button>`;
 }
 
 function getExecutiveExcelMetadataReportContext(scope){
   const reportScope = scope === 'ejecutivo' ? 'ejecutivo' : 'director';
   if(reportScope === 'ejecutivo') {
-    const role = CURRENT_USER ? CURRENT_USER.role : null;
-    const targetName = role === 'ejecutivo' ? getExecTargetName() : '';
-    const selEj = document.getElementById('sel-ejecutivo');
-    const ejecutivo = targetName || (selEj ? selEj.value : '');
-    const rows = getVisibleData().filter(row => namesMatch(row['COMERCIAL'] || '', ejecutivo));
+    const rows = getVisibleData();
+    const execsFromData = [...new Set(rows.map(row => cleanDisplayText(row['COMERCIAL'], '')).filter(Boolean))];
+    const execsFromFiles = Object.values(LOADED_FILES_BY_DIR || {}).flat()
+      .map(file => String(file.name || '').replace(/\.(xlsx|xls)$/i, '').trim())
+      .filter(Boolean);
+    const executives = [...new Set([...execsFromData, ...execsFromFiles])].sort();
     return {
       scope: reportScope,
-      title: 'Ultima actualizacion del Excel - Ejecutivo',
-      subtitle: ejecutivo || 'Ejecutivo',
-      executives: ejecutivo ? [ejecutivo] : [],
+      title: 'Ultima actualizacion del Excel - Ejecutivos',
+      subtitle: 'Global ejecutivos',
+      executives,
       sourceRows: rows,
-      director: rows[0] && rows[0]['DIRECTOR'] || ''
+      director: ''
     };
   }
 
@@ -3875,11 +3873,10 @@ function renderDirector(){
       </div>
     </div>
 
-    <div class="section-hd"><h2>Equipo</h2><span class="section-tag">${execs.length} EJECUTIVOS</span></div>
+    <div class="section-hd"><h2>Equipo</h2><span class="section-tag">${execs.length} EJECUTIVOS</span>${buildExcelConnectionExportButton('director', 'Excel')}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:18px">
       ${ejCards}
     </div>
-    ${buildExcelConnectionExportCard('director', 'Ultima actualizacion del Excel', 'Descarga el reporte del equipo')}
     ${execKPIs}
   `;
   attachChartTooltips(document.getElementById('director-content'));
@@ -4045,8 +4042,6 @@ function renderEjecutivo(){
       </div>
     </div>
 
-    ${buildExcelConnectionExportCard('ejecutivo', 'Ultima actualizacion del Excel', 'Descarga el reporte del ejecutivo')}
-    
     <div class="g2">
       <div class="chart-card">
         <div class="chart-hd">Top Líneas — ${escHtml(ej.split(' ')[0])}</div>

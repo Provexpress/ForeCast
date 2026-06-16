@@ -213,7 +213,14 @@
      PAGE: POR EJECUTIVO
 ══════════════════════════════════ -->
 <div class="page" id="page-ejecutivo">
-  <div class="section-hd"><h2>Estado por Persona</h2><span class="section-tag">EJECUTIVOS COMERCIALES</span></div>
+  <div class="section-hd">
+    <h2>Estado por Persona</h2>
+    <span class="section-tag">EJECUTIVOS COMERCIALES</span>
+    <button id="btn-export-ejecutivo-excel-meta" class="export-excel-btn metadata-export-btn" type="button" onclick="downloadExecutiveExcelMetadataReport('ejecutivo')" title="Descargar ultima actualizacion de Excel por ejecutivo">
+      <span class="export-excel-icon" aria-hidden="true">↓</span>
+      <span>Excel</span>
+    </button>
+  </div>
   <div class="persona-grid" id="persona-grid"></div>
 
   <div class="filters" style="margin-top:8px">
@@ -455,7 +462,7 @@
 
 </main>
 
-<script src="src/scripts/main.js?v=20260616-marcas-export1"></script>
+<script src="src/scripts/main.js?v=20260616-excel-meta-ui1"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->
