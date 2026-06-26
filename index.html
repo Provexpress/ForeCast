@@ -8,7 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="src/styles/main.css?v=20260612-estado-export1">
+<link rel="stylesheet" href="src/styles/main.css?v=20260626-finanzas1">
 
 <!-- Microsoft Authentication Library -->
 <script src="src/scripts/auth.js?v=20260601-redirect1"></script>
@@ -81,6 +81,7 @@
   <button id="tab-divisas" class="nav-btn" onclick="showPage('divisas',this)">💱 COP / USD</button>
   <button id="tab-marcas" class="nav-btn" onclick="showPage('marcas',this)">🏷 Marcas & Líneas</button>
   <button id="tab-resumen" class="nav-btn" onclick="showPage('resumen',this)">📊 Resumen Total</button>
+  <button id="tab-finanzas" class="nav-btn" onclick="showPage('finanzas',this)">Finanzas</button>
 </nav>
 
 <main class="app">
@@ -460,9 +461,65 @@
   </div>
 </div>
 
+<!-- ══════════════════════════════════
+     PAGE: FINANZAS
+══════════════════════════════════ -->
+<div class="page" id="page-finanzas">
+  <div class="section-hd">
+    <h2>Ejecución financiera</h2>
+    <span class="section-tag">META · API PBI · EXCEL</span>
+  </div>
+
+  <div class="finance-shell">
+    <section class="finance-control-panel">
+      <div>
+        <div class="finance-control-title">Meta del mes</div>
+        <p class="finance-control-copy">Gerencia define la meta; las ventas, costos y utilidad se calculan con datos PBI.</p>
+      </div>
+      <div class="finance-controls">
+        <label class="finance-field">
+          <span>Mes</span>
+          <input id="finance-period" type="month" onchange="setFinancePeriod(this.value)">
+        </label>
+        <label class="finance-field">
+          <span>Corte</span>
+          <input id="finance-end-date" type="date" onchange="setFinanceEndDate(this.value)">
+        </label>
+        <label class="finance-field finance-field-wide">
+          <span>Meta ventas</span>
+          <input id="finance-goal" type="number" min="0" step="1000000" placeholder="0">
+        </label>
+        <button class="finance-primary-btn" type="button" onclick="saveFinanceGoal()">Guardar meta</button>
+        <button class="finance-secondary-btn" type="button" onclick="loadFinanceSummary(true)">Actualizar</button>
+      </div>
+    </section>
+
+    <div id="finance-admin-note" class="finance-note"></div>
+    <div id="finance-source-note" class="finance-source-note"></div>
+
+    <section class="kpi-grid kpi-grid-5" id="finance-kpis"></section>
+
+    <section class="finance-formula-grid">
+      <article class="finance-formula-card">
+        <div class="finance-formula-label">Utilidad bruta total</div>
+        <div id="finance-profit-formula" class="finance-formula-main">Ventas - Costo = Utilidad</div>
+      </article>
+      <article class="finance-formula-card">
+        <div class="finance-formula-label">Margen bruto del mes</div>
+        <div id="finance-margin-formula" class="finance-formula-main">Utilidad / Ventas = Margen</div>
+      </article>
+    </section>
+
+    <section class="chart-card">
+      <div class="chart-hd">Utilidad por categoría <span>% utilidad calculado con costo PBI</span></div>
+      <div class="tbl-wrap" id="finance-category-table"></div>
+    </section>
+  </div>
+</div>
+
 </main>
 
-<script src="src/scripts/main.js?v=20260616-excel-meta-chart3"></script>
+<script src="src/scripts/main.js?v=20260626-finanzas1"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->

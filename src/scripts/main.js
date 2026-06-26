@@ -16,6 +16,13 @@ let LOADED_SALES_BY_SUPPORT = {};
 let LOADED_PREVENTA_FILES = [];
 let SALES_VIEW_MODE = 'reporte';
 let SALES_PENDING_VALUE_ONLY = false;
+let FINANCE_STATE = {
+  isLoading: false,
+  data: null,
+  error: null,
+  period: '',
+  endDate: '',
+};
 let FORECAST_CONNECTIONS_LIST_ID = null;
 let FORECAST_CONNECTIONS = { byEmail: {}, byName: {} };
 let GERENCIA_CROSSFILTERS = { estado:'', director:'', ejecutivo:'', linea:'' };
@@ -51,6 +58,9 @@ const MARCAS_BAR_INITIAL = 10;
 let MARCAS_BAR_LIMIT = MARCAS_BAR_INITIAL;
 
 const TRM_CACHE_KEY = 'trm_last';
+const FINANCE_GOAL_KEY_PREFIX = 'finance_sales_goal_';
+const FINANCE_CATEGORY_ORDER = ['Servicios','Renta de Equipos','PAC','Suministros','Tecnología','Licenciamiento'];
+const FINANCE_CATEGORY_COLORS = ['#0DBF82','#2ABFDF','#F0A020','#8B5FC8','#2D4FD6','#E84040','#40C8F0','#E040A0'];
 const FORECAST_CONNECTIONS_LIST_NAME = 'ForecastConexiones';
 const PREVENTA_FOLDER_NAME = 'Grupo preventa';
 const FORECAST_BASE_FALLBACK = 'COMERCIAL/FORECAST 2026';
@@ -782,6 +792,310 @@ function buildOptionList(items, config){
     const selected = opts.selectedValue !== undefined && String(value) === String(opts.selectedValue);
     return optionHtml(value, label, selected);
   }).join('');
+}
+
+function getBogotaDateKey(date){
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date || new Date()).reduce((acc, part) => {
+    if(part.type !== 'literal') acc[part.type] = part.value;
+    return acc;
+  }, {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function getFinanceDefaultPeriod(){
+  return getBogotaDateKey().slice(0,7);
+}
+
+function getFinanceMonthEnd(period){
+  const parts = String(period || getFinanceDefaultPeriod()).split('-').map(Number);
+  if(parts.length !== 2 || !parts[0] || !parts[1]) return getBogotaDateKey();
+  const lastDay = new Date(parts[0], parts[1], 0).getDate();
+  return `${String(parts[0]).padStart(4,'0')}-${String(parts[1]).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+}
+
+function getFinanceDefaultEndDate(period){
+  const today = getBogotaDateKey();
+  return period === today.slice(0,7) ? today : getFinanceMonthEnd(period);
+}
+
+function isFinanceAdmin(){
+  const role = CURRENT_USER && CURRENT_USER.role;
+  return role === 'gerencia' || role === 'gerencia_director';
+}
+
+function getFinanceGoalKey(period){
+  return FINANCE_GOAL_KEY_PREFIX + (period || getFinanceDefaultPeriod());
+}
+
+function readFinanceGoal(period){
+  try {
+    const raw = localStorage.getItem(getFinanceGoalKey(period));
+    const value = parseFloat(raw);
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  } catch(_) {
+    return 0;
+  }
+}
+
+function writeFinanceGoal(period, value){
+  try {
+    localStorage.setItem(getFinanceGoalKey(period), String(Math.max(0, Number(value || 0))));
+  } catch(_) {}
+}
+
+function ensureFinanceStateDefaults(){
+  if(!FINANCE_STATE.period) FINANCE_STATE.period = getFinanceDefaultPeriod();
+  if(!FINANCE_STATE.endDate) FINANCE_STATE.endDate = getFinanceDefaultEndDate(FINANCE_STATE.period);
+}
+
+function setFinanceInputs(){
+  ensureFinanceStateDefaults();
+  const periodInput = document.getElementById('finance-period');
+  const endInput = document.getElementById('finance-end-date');
+  const goalInput = document.getElementById('finance-goal');
+  const admin = isFinanceAdmin();
+  if(periodInput) periodInput.value = FINANCE_STATE.period;
+  if(endInput) {
+    endInput.value = FINANCE_STATE.endDate;
+    endInput.min = `${FINANCE_STATE.period}-01`;
+    endInput.max = getFinanceMonthEnd(FINANCE_STATE.period);
+  }
+  if(goalInput) {
+    goalInput.value = readFinanceGoal(FINANCE_STATE.period) || '';
+    goalInput.disabled = !admin;
+  }
+  document.querySelectorAll('.finance-primary-btn').forEach(btn => {
+    btn.disabled = !admin;
+    btn.style.opacity = admin ? '' : '.55';
+    btn.style.cursor = admin ? '' : 'not-allowed';
+  });
+}
+
+function setFinancePeriod(value){
+  if(!/^\d{4}-\d{2}$/.test(String(value || ''))) return;
+  FINANCE_STATE.period = value;
+  FINANCE_STATE.endDate = getFinanceDefaultEndDate(value);
+  FINANCE_STATE.data = null;
+  FINANCE_STATE.error = null;
+  setFinanceInputs();
+  loadFinanceSummary(true);
+}
+
+function setFinanceEndDate(value){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return;
+  FINANCE_STATE.endDate = value;
+  FINANCE_STATE.data = null;
+  FINANCE_STATE.error = null;
+  loadFinanceSummary(true);
+}
+
+function saveFinanceGoal(){
+  if(!isFinanceAdmin()) {
+    alert('Solo gerencia puede editar la meta financiera.');
+    return;
+  }
+  ensureFinanceStateDefaults();
+  const input = document.getElementById('finance-goal');
+  const value = parseFloat(input && input.value || '0');
+  writeFinanceGoal(FINANCE_STATE.period, Number.isFinite(value) ? value : 0);
+  renderFinanceSummary();
+}
+
+function formatFinancePct(value){
+  if(!Number.isFinite(Number(value))) return '—';
+  return (Number(value) * 100).toLocaleString('es-CO', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  }) + '%';
+}
+
+function getFinanceCategoryRows(data){
+  const byCategory = new Map((data && data.categories || []).map(row => [row.category, row]));
+  const ordered = FINANCE_CATEGORY_ORDER.map(category => byCategory.get(category) || {
+    category,
+    sales: 0,
+    cost: 0,
+    grossProfit: 0,
+    marginPct: null,
+    documents: 0
+  });
+  const extras = (data && data.categories || []).filter(row => !FINANCE_CATEGORY_ORDER.includes(row.category));
+  return [...ordered, ...extras];
+}
+
+async function loadFinanceSummary(force){
+  ensureFinanceStateDefaults();
+  if(FINANCE_STATE.isLoading) return;
+  if(FINANCE_STATE.data && !force) {
+    renderFinanceSummary();
+    return;
+  }
+  FINANCE_STATE.isLoading = true;
+  FINANCE_STATE.error = null;
+  renderFinanceSummary();
+  try {
+    const params = new URLSearchParams({
+      period: FINANCE_STATE.period,
+      startDate: `${FINANCE_STATE.period}-01`,
+      endDate: FINANCE_STATE.endDate
+    });
+    const response = await fetch(`/api/finance-summary?${params.toString()}`, { cache: 'no-store' });
+    const payload = await response.json().catch(() => ({}));
+    if(!response.ok || !payload.ok) {
+      throw new Error(payload.error || `HTTP ${response.status}`);
+    }
+    FINANCE_STATE.data = payload;
+  } catch(error) {
+    FINANCE_STATE.error = error instanceof Error ? error.message : 'No fue posible cargar el resumen financiero.';
+    FINANCE_STATE.data = null;
+  } finally {
+    FINANCE_STATE.isLoading = false;
+    renderFinanceSummary();
+  }
+}
+
+function renderFinanceAdminNote(){
+  const note = document.getElementById('finance-admin-note');
+  if(!note) return;
+  if(isFinanceAdmin()) {
+    note.textContent = 'Meta editable para gerencia. En esta primera versión la meta queda guardada por mes en este navegador.';
+  } else {
+    note.textContent = 'Vista de consulta. La edición de meta está reservada para gerencia.';
+  }
+}
+
+function renderFinanceSourceNote(data){
+  const note = document.getElementById('finance-source-note');
+  if(!note) return;
+  if(!data) {
+    note.textContent = '';
+    return;
+  }
+  const generated = data.sourceGeneratedAt ? formatLastConnectionFull(data.sourceGeneratedAt) : 'Sin fecha de cache';
+  const range = data.sourceRange && data.sourceRange.start && data.sourceRange.end
+    ? `Rango fuente: ${data.sourceRange.start} a ${data.sourceRange.end}.`
+    : '';
+  note.textContent = `Fuente: ${data.sourceName || 'PBI ventas'} (${data.source || 'api'}). Corte consultado: ${data.startDate} a ${data.endDate}. Cache/fuente: ${generated}. ${range}`;
+}
+
+function renderFinanceSummary(){
+  ensureFinanceStateDefaults();
+  setFinanceInputs();
+  renderFinanceAdminNote();
+  const kpis = document.getElementById('finance-kpis');
+  const formulaProfit = document.getElementById('finance-profit-formula');
+  const formulaMargin = document.getElementById('finance-margin-formula');
+  const table = document.getElementById('finance-category-table');
+  if(!kpis || !formulaProfit || !formulaMargin || !table) return;
+
+  if(FINANCE_STATE.isLoading) {
+    kpis.innerHTML = `<div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div><div class="kpi-label">Cargando</div><div class="kpi-val">PBI</div><div class="kpi-sub">Consultando resumen financiero</div></div>`;
+    formulaProfit.textContent = 'Cargando datos PBI...';
+    formulaMargin.textContent = 'Cargando datos PBI...';
+    table.innerHTML = '<div style="padding:18px;color:var(--text2)">Consultando datos de ventas.</div>';
+    renderFinanceSourceNote(null);
+    return;
+  }
+
+  if(FINANCE_STATE.error) {
+    kpis.innerHTML = `<div class="kpi" style="--ac:var(--corp-red)"><div class="kpi-accent"></div><div class="kpi-label">Error</div><div class="kpi-val">Sin datos</div><div class="kpi-sub">${escHtml(FINANCE_STATE.error)}</div></div>`;
+    formulaProfit.textContent = 'No fue posible calcular la utilidad.';
+    formulaMargin.textContent = 'No fue posible calcular el margen.';
+    table.innerHTML = `<div style="padding:18px;color:var(--text2)">${escHtml(FINANCE_STATE.error)}</div>`;
+    renderFinanceSourceNote(null);
+    return;
+  }
+
+  const data = FINANCE_STATE.data;
+  if(!data) {
+    kpis.innerHTML = `<div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div><div class="kpi-label">Finanzas</div><div class="kpi-val">Listo</div><div class="kpi-sub">Define la meta y actualiza el resumen.</div></div>`;
+    formulaProfit.textContent = 'Ventas acumuladas - Costo PBI = Utilidad bruta';
+    formulaMargin.textContent = 'Utilidad bruta / Ventas acumuladas = Margen bruto';
+    table.innerHTML = '<div style="padding:18px;color:var(--text2)">Aún no hay datos cargados.</div>';
+    renderFinanceSourceNote(null);
+    return;
+  }
+
+  const goal = readFinanceGoal(FINANCE_STATE.period);
+  const totals = data.totals || {};
+  const sales = Number(totals.grossSales || 0);
+  const cost = Number(totals.cost || 0);
+  const grossProfit = Number(totals.grossProfit || 0);
+  const marginPct = Number(totals.marginPct || 0);
+  const fulfillment = goal > 0 ? sales / goal : null;
+
+  kpis.innerHTML = `
+    <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
+      <div class="kpi-label">Proyección ventas ${escHtml(FINANCE_STATE.period)}</div>
+      <div class="kpi-val">${goal ? abr(goal) : '—'}</div>
+      <div class="kpi-sub">${goal ? fmtCOP(goal) : 'Meta pendiente'}</div>
+    </div>
+    <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
+      <div class="kpi-label">Ventas 01 al ${escHtml(FINANCE_STATE.endDate.slice(8,10))}</div>
+      <div class="kpi-val">${abr(sales)}</div>
+      <div class="kpi-sub">${fmtCOP(sales)} · ${fmtNum(data.positiveDocuments || 0)} FV</div>
+    </div>
+    <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
+      <div class="kpi-label">Cumplimiento</div>
+      <div class="kpi-val">${fulfillment === null ? '—' : formatFinancePct(fulfillment)}</div>
+      <div class="kpi-sub">Ventas acumuladas / meta</div>
+    </div>
+    <div class="kpi" style="--ac:var(--corp-amber)"><div class="kpi-accent"></div>
+      <div class="kpi-label">Utilidad bruta total</div>
+      <div class="kpi-val">${abr(grossProfit)}</div>
+      <div class="kpi-sub">${fmtCOP(grossProfit)}</div>
+    </div>
+    <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
+      <div class="kpi-label">Margen bruto del mes</div>
+      <div class="kpi-val">${formatFinancePct(marginPct)}</div>
+      <div class="kpi-sub">Utilidad bruta / ventas</div>
+    </div>
+  `;
+
+  formulaProfit.textContent = `${fmtCOP(sales)} - ${fmtCOP(cost)} = ${fmtCOP(grossProfit)}`;
+  formulaMargin.textContent = `${fmtCOP(grossProfit)} / ${fmtCOP(sales)} = ${formatFinancePct(marginPct)}`;
+
+  const rows = getFinanceCategoryRows(data);
+  table.innerHTML = `<table class="responsive-table">
+    <thead>
+      <tr><th>Categoría</th><th>Documentos</th><th>Ventas</th><th>Costo PBI</th><th>Utilidad</th><th>% Utilidad</th></tr>
+    </thead>
+    <tbody>${rows.map((row, index) => {
+      const color = FINANCE_CATEGORY_COLORS[index % FINANCE_CATEGORY_COLORS.length];
+      const rowSales = Number(row.sales || 0);
+      const rowCost = Number(row.cost || 0);
+      const rowProfit = Number(row.grossProfit || rowSales - rowCost || 0);
+      const rowMargin = rowSales ? rowProfit / rowSales : null;
+      return `<tr>
+        <td data-label="Categoría">
+          <div class="finance-category-cell">
+            <span class="finance-category-swatch" style="background:${escAttr(color)}"></span>
+            <span>${escHtml(row.category)}</span>
+          </div>
+        </td>
+        <td class="td-mono" data-label="Documentos">${fmtNum(row.documents || 0)}</td>
+        <td class="td-mono td-cop" data-label="Ventas">${rowSales ? fmtCOP(rowSales) : '—'}</td>
+        <td class="td-mono" data-label="Costo PBI">${rowCost ? fmtCOP(rowCost) : '—'}</td>
+        <td class="td-mono" data-label="Utilidad">${rowSales ? fmtCOP(rowProfit) : '—'}</td>
+        <td class="td-mono" data-label="% Utilidad">${rowMargin === null ? '—' : formatFinancePct(rowMargin)}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+
+  renderFinanceSourceNote(data);
+}
+
+function renderFinanzas(){
+  ensureFinanceStateDefaults();
+  renderFinanceSummary();
+  if(!FINANCE_STATE.data && !FINANCE_STATE.error && !FINANCE_STATE.isLoading) {
+    loadFinanceSummary(false);
+  }
 }
 
 function normalizeHeaderKey(v){
@@ -2071,6 +2385,10 @@ function renderPage(pageId){
     renderResumen();
     return;
   }
+  if(page === 'finanzas') {
+    renderFinanzas();
+    return;
+  }
   if(page === 'marca-linea-detail' && MARCA_LINEA_DETAIL_STATE) {
     renderMarcaLineaDetail();
     return;
@@ -2098,7 +2416,7 @@ function showPage(id,btn){
   document.getElementById('page-'+id).classList.add('active');
   if(btn) btn.classList.add('active');
   const hasLoadedData = ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length || PREVENTA_DATA.length;
-  if(hasLoadedData || id === 'negocio' || id === 'marca-linea-detail') {
+  if(hasLoadedData || id === 'finanzas' || id === 'negocio' || id === 'marca-linea-detail') {
     renderPage(id);
   }
 }
@@ -6291,6 +6609,7 @@ function applyRoleTabs() {
     divisas:   document.getElementById('tab-divisas'),
     marcas:    document.getElementById('tab-marcas'),
     resumen:   document.getElementById('tab-resumen'),
+    finanzas:  document.getElementById('tab-finanzas'),
   };
   // Reset — mostrar todas
   Object.values(tabs).forEach(t => { if(t) t.style.display = ''; });
@@ -6303,6 +6622,7 @@ function applyRoleTabs() {
     tabs.divisas  && (tabs.divisas.style.display  = 'none');
     tabs.marcas   && (tabs.marcas.style.display   = 'none');
     tabs.resumen  && (tabs.resumen.style.display  = 'none');
+    tabs.finanzas && (tabs.finanzas.style.display = 'none');
     showPage('sales', tabs.sales);
   } else if(role === 'ejecutivo') {
     tabs.gerencia && (tabs.gerencia.style.display = 'none');
@@ -6312,12 +6632,14 @@ function applyRoleTabs() {
     tabs.divisas  && (tabs.divisas.style.display  = 'none');
     tabs.marcas   && (tabs.marcas.style.display   = 'none');
     tabs.resumen  && (tabs.resumen.style.display  = 'none');
+    tabs.finanzas && (tabs.finanzas.style.display = 'none');
     showPage('ejecutivo', tabs.ejecutivo);
   } else if(role === 'director') {
     tabs.gerencia && (tabs.gerencia.style.display = 'none');
     tabs.ejecutivo&& (tabs.ejecutivo.style.display= 'none');
     tabs.preventa && (tabs.preventa.style.display = 'none');
     tabs.resumen  && (tabs.resumen.style.display  = 'none');
+    tabs.finanzas && (tabs.finanzas.style.display = 'none');
     showPage('director', tabs.director);
   } else {
     // gerencia / gerencia_director — ven todo
@@ -6342,6 +6664,11 @@ window.loadFolderFromSharePoint = loadFolderFromSharePoint;
 window.showPage = showPage;
 window.toggleAppTheme = toggleAppTheme;
 window.renderDivisas = renderDivisas;
+window.renderFinanzas = renderFinanzas;
+window.setFinancePeriod = setFinancePeriod;
+window.setFinanceEndDate = setFinanceEndDate;
+window.saveFinanceGoal = saveFinanceGoal;
+window.loadFinanceSummary = loadFinanceSummary;
 window.setDivisaEstadoFilter = setDivisaEstadoFilter;
 window.showMoreDivisaRows = showMoreDivisaRows;
 window.showMoreMarcasBars = showMoreMarcasBars;
