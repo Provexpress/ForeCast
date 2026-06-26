@@ -59,6 +59,7 @@ let MARCAS_BAR_LIMIT = MARCAS_BAR_INITIAL;
 
 const TRM_CACHE_KEY = 'trm_last';
 const FINANCE_GOAL_KEY_PREFIX = 'finance_sales_goal_';
+const FINANCE_PUBLIC_CACHE_URL = 'https://tableros-area-financiera.vercel.app/_cache/ventas-pbi.json';
 const FINANCE_CATEGORY_ORDER = ['Servicios','Renta de Equipos','PAC','Suministros','Tecnología','Licenciamiento'];
 const FINANCE_CATEGORY_COLORS = ['#0DBF82','#2ABFDF','#F0A020','#8B5FC8','#2D4FD6','#E84040','#40C8F0','#E040A0'];
 const FORECAST_CONNECTIONS_LIST_NAME = 'ForecastConexiones';
@@ -928,6 +929,143 @@ function getFinanceCategoryRows(data){
   return [...ordered, ...extras];
 }
 
+function shouldUseFinanceApi(){
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.vercel.app');
+}
+
+function parseFinanceNumber(value){
+  if(value === null || value === undefined || value === '') return 0;
+  const direct = Number(value);
+  if(Number.isFinite(direct)) return direct;
+  return parseMonto(value) || 0;
+}
+
+function normalizeFinanceCategory(value){
+  const raw = cleanDisplayText(value, '');
+  const normalized = raw
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .trim();
+  if(!normalized) return 'Ventas';
+  if(normalized.includes('renta')) return 'Renta de Equipos';
+  if(normalized.includes('servicio')) return 'Servicios';
+  if(normalized.includes('licenciamiento')) return 'Licenciamiento';
+  if(normalized.includes('suministro')) return 'Suministros';
+  if(normalized.includes('tecnolog')) return 'Tecnología';
+  if(normalized === 'pac' || normalized.includes('pac')) return 'PAC';
+  return raw || 'Ventas';
+}
+
+function extractFinanceCachePayload(candidate){
+  if(candidate && candidate.cacheVersion && candidate.payload) {
+    return {
+      rows: candidate.payload.data || [],
+      meta: candidate.payload.meta || {},
+      generatedAt: candidate.generatedAt || candidate.payload.meta && candidate.payload.meta.cacheGeneratedAt || null,
+    };
+  }
+  return {
+    rows: candidate && candidate.data || [],
+    meta: candidate && candidate.meta || {},
+    generatedAt: candidate && (candidate.generatedAt || candidate.meta && candidate.meta.cacheGeneratedAt) || null,
+  };
+}
+
+function normalizeFinanceCachedRows(rows){
+  return (rows || []).map(row => {
+    const sign = Number(row.signoDocumento || 1) < 0 ? -1 : 1;
+    const totalOriginal = Math.abs(parseFinanceNumber(row.totalOriginal ?? row.total));
+    const total = parseFinanceNumber(row.total || totalOriginal * sign);
+    const cost = sign >= 0 ? parseFinanceNumber(row.costoProducto) : 0;
+    return {
+      fechaIso: String(row.fechaIso || '').slice(0,10),
+      sign,
+      total,
+      totalOriginal,
+      cost,
+      category: normalizeFinanceCategory(row.categoria),
+    };
+  }).filter(row => row.fechaIso);
+}
+
+function summarizeFinanceDocuments(documents, range, sourceInfo){
+  const selected = documents.filter(row => row.fechaIso >= range.startDate && row.fechaIso <= range.endDate);
+  const positives = selected.filter(row => row.sign >= 0);
+  const credits = selected.filter(row => row.sign < 0);
+  const categoryMap = new Map();
+
+  positives.forEach(row => {
+    const category = row.category || 'Ventas';
+    if(!categoryMap.has(category)) {
+      categoryMap.set(category, { category, sales: 0, cost: 0, grossProfit: 0, marginPct: 0, documents: 0 });
+    }
+    const bucket = categoryMap.get(category);
+    bucket.sales += row.totalOriginal;
+    bucket.cost += row.cost;
+    bucket.documents += 1;
+  });
+
+  const categories = [...categoryMap.values()].map(row => ({
+    ...row,
+    grossProfit: row.sales - row.cost,
+    marginPct: row.sales ? (row.sales - row.cost) / row.sales : 0,
+  })).sort((a,b) => b.sales - a.sales);
+
+  const grossSales = positives.reduce((sum, row) => sum + row.totalOriginal, 0);
+  const creditNotes = credits.reduce((sum, row) => sum + row.totalOriginal, 0);
+  const netSales = selected.reduce((sum, row) => sum + row.total, 0);
+  const cost = positives.reduce((sum, row) => sum + row.cost, 0);
+  const grossProfit = grossSales - cost;
+
+  return {
+    ok: true,
+    period: range.period,
+    startDate: range.startDate,
+    endDate: range.endDate,
+    source: sourceInfo.source || 'cache-browser',
+    sourceName: sourceInfo.sourceName || 'Cache PBI ventas',
+    sourceGeneratedAt: sourceInfo.generatedAt || null,
+    sourceRange: sourceInfo.range || null,
+    totalAvailableDocuments: documents.length,
+    rows: selected.length,
+    positiveDocuments: positives.length,
+    creditDocuments: credits.length,
+    totals: {
+      grossSales,
+      creditNotes,
+      netSales,
+      cost,
+      grossProfit,
+      marginPct: grossSales ? grossProfit / grossSales : 0,
+    },
+    categories,
+  };
+}
+
+async function requestFinanceSummaryFromApi(params){
+  const response = await fetch(`/api/finance-summary?${params.toString()}`, { cache: 'no-store' });
+  const payload = await response.json().catch(() => ({}));
+  if(!response.ok || !payload.ok) {
+    throw new Error(payload.error || `HTTP ${response.status}`);
+  }
+  return payload;
+}
+
+async function requestFinanceSummaryFromCache(range){
+  const response = await fetch(FINANCE_PUBLIC_CACHE_URL, { cache: 'no-store' });
+  if(!response.ok) throw new Error(`Cache PBI HTTP ${response.status}`);
+  const candidate = await response.json();
+  const payload = extractFinanceCachePayload(candidate);
+  const documents = normalizeFinanceCachedRows(payload.rows);
+  return summarizeFinanceDocuments(documents, range, {
+    source: 'cache-browser',
+    sourceName: payload.meta && payload.meta.sourceName || 'Cache PBI ventas',
+    generatedAt: payload.generatedAt,
+    range: payload.meta && payload.meta.range || null,
+  });
+}
+
 async function loadFinanceSummary(force){
   ensureFinanceStateDefaults();
   if(FINANCE_STATE.isLoading) return;
@@ -944,11 +1082,20 @@ async function loadFinanceSummary(force){
       startDate: `${FINANCE_STATE.period}-01`,
       endDate: FINANCE_STATE.endDate
     });
-    const response = await fetch(`/api/finance-summary?${params.toString()}`, { cache: 'no-store' });
-    const payload = await response.json().catch(() => ({}));
-    if(!response.ok || !payload.ok) {
-      throw new Error(payload.error || `HTTP ${response.status}`);
+    const range = {
+      period: FINANCE_STATE.period,
+      startDate: `${FINANCE_STATE.period}-01`,
+      endDate: FINANCE_STATE.endDate
+    };
+    let payload = null;
+    if(shouldUseFinanceApi()) {
+      try {
+        payload = await requestFinanceSummaryFromApi(params);
+      } catch(apiError) {
+        console.warn('[FINANCE] API local no disponible, usando cache publico', apiError);
+      }
     }
+    if(!payload) payload = await requestFinanceSummaryFromCache(range);
     FINANCE_STATE.data = payload;
   } catch(error) {
     FINANCE_STATE.error = error instanceof Error ? error.message : 'No fue posible cargar el resumen financiero.';
