@@ -5,6 +5,16 @@ const PBI_ENDPOINTS = {
   ventas: "/consultas/api/consultaVentasDashboardPBI",
 };
 
+const FINANCE_CATEGORY_MARGINS = {
+  "Servicios": 0.3435,
+  "Renta de Equipos": 0.2412,
+  PAC: 0.2349,
+  Suministros: 0.1558,
+  "Tecnología": 0.1206,
+  Licenciamiento: 0.1065,
+};
+const FINANCE_FALLBACK_MARGIN_CATEGORY = "Servicios";
+
 function getEnv(name, fallback = "") {
   return process.env[name] || fallback;
 }
@@ -96,6 +106,16 @@ function normalizeCategory(value) {
   if (normalized.includes("tecnolog")) return "Tecnología";
   if (normalized === "pac" || normalized.includes("pac")) return "PAC";
   return cleanText(value) || "Ventas";
+}
+
+function getFinanceMarginConfig(category) {
+  const hasExplicitMargin = Object.prototype.hasOwnProperty.call(FINANCE_CATEGORY_MARGINS, category);
+  const marginSource = hasExplicitMargin ? category : FINANCE_FALLBACK_MARGIN_CATEGORY;
+  return {
+    marginPct: FINANCE_CATEGORY_MARGINS[marginSource] || 0,
+    marginSource,
+    marginIsFallback: !hasExplicitMargin,
+  };
 }
 
 function parseSpreadsheetDate(value) {
@@ -306,37 +326,55 @@ function summarizeDocuments(documents, range) {
   const credits = selected.filter((row) => row.sign < 0);
   const categoryMap = new Map();
 
-  positives.forEach((row) => {
+  selected.forEach((row) => {
     const category = row.category || "Ventas";
     if (!categoryMap.has(category)) {
       categoryMap.set(category, {
         category,
+        grossSales: 0,
+        creditNotes: 0,
+        netSales: 0,
         sales: 0,
         cost: 0,
+        pbiCost: 0,
         grossProfit: 0,
         marginPct: 0,
         documents: 0,
+        creditDocuments: 0,
       });
     }
     const bucket = categoryMap.get(category);
-    bucket.sales += row.totalOriginal;
-    bucket.cost += row.cost;
-    bucket.documents += 1;
+    bucket.netSales += row.total;
+    bucket.sales = bucket.netSales;
+    if (row.sign >= 0) {
+      bucket.grossSales += row.totalOriginal;
+      bucket.pbiCost += row.cost;
+      bucket.documents += 1;
+    } else {
+      bucket.creditNotes += row.totalOriginal;
+      bucket.creditDocuments += 1;
+    }
   });
 
   const categories = [...categoryMap.values()]
     .map((row) => ({
       ...row,
-      grossProfit: row.sales - row.cost,
-      marginPct: row.sales ? (row.sales - row.cost) / row.sales : 0,
+      ...getFinanceMarginConfig(row.category),
     }))
-    .sort((a, b) => b.sales - a.sales);
+    .map((row) => ({
+      ...row,
+      sales: row.netSales,
+      grossProfit: row.netSales * row.marginPct,
+      cost: row.netSales - row.netSales * row.marginPct,
+    }))
+    .sort((a, b) => b.netSales - a.netSales);
 
   const grossSales = positives.reduce((sum, row) => sum + row.totalOriginal, 0);
   const creditNotes = credits.reduce((sum, row) => sum + row.totalOriginal, 0);
   const netSales = selected.reduce((sum, row) => sum + row.total, 0);
-  const cost = positives.reduce((sum, row) => sum + row.cost, 0);
-  const grossProfit = grossSales - cost;
+  const pbiCost = positives.reduce((sum, row) => sum + row.cost, 0);
+  const grossProfit = categories.reduce((sum, row) => sum + row.grossProfit, 0);
+  const cost = netSales - grossProfit;
 
   return {
     rows: selected.length,
@@ -347,8 +385,14 @@ function summarizeDocuments(documents, range) {
       creditNotes,
       netSales,
       cost,
+      pbiCost,
       grossProfit,
-      marginPct: grossSales ? grossProfit / grossSales : 0,
+      marginPct: netSales ? grossProfit / netSales : 0,
+    },
+    assumptions: {
+      marginSource: "Felipe.xlsx",
+      fallbackMarginCategory: FINANCE_FALLBACK_MARGIN_CATEGORY,
+      categoryMargins: FINANCE_CATEGORY_MARGINS,
     },
     categories,
   };

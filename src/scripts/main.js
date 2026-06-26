@@ -61,6 +61,15 @@ const TRM_CACHE_KEY = 'trm_last';
 const FINANCE_GOAL_KEY_PREFIX = 'finance_sales_goal_';
 const FINANCE_PUBLIC_CACHE_URL = 'https://tableros-area-financiera.vercel.app/_cache/ventas-pbi.json';
 const FINANCE_CATEGORY_ORDER = ['Servicios','Renta de Equipos','PAC','Suministros','Tecnología','Licenciamiento'];
+const FINANCE_CATEGORY_MARGINS = {
+  'Servicios': 0.3435,
+  'Renta de Equipos': 0.2412,
+  'PAC': 0.2349,
+  'Suministros': 0.1558,
+  'Tecnología': 0.1206,
+  'Licenciamiento': 0.1065
+};
+const FINANCE_FALLBACK_MARGIN_CATEGORY = 'Servicios';
 const FINANCE_CATEGORY_COLORS = ['#0DBF82','#2ABFDF','#F0A020','#8B5FC8','#2D4FD6','#E84040','#40C8F0','#E040A0'];
 const FORECAST_CONNECTIONS_LIST_NAME = 'ForecastConexiones';
 const PREVENTA_FOLDER_NAME = 'Grupo preventa';
@@ -915,16 +924,36 @@ function formatFinancePct(value){
   }) + '%';
 }
 
-function getFinanceCategoryRows(data){
-  const byCategory = new Map((data && data.categories || []).map(row => [row.category, row]));
-  const ordered = FINANCE_CATEGORY_ORDER.map(category => byCategory.get(category) || {
+function getFinanceMarginConfig(category){
+  const hasExplicitMargin = Object.prototype.hasOwnProperty.call(FINANCE_CATEGORY_MARGINS, category);
+  const marginSource = hasExplicitMargin ? category : FINANCE_FALLBACK_MARGIN_CATEGORY;
+  return {
+    marginPct: FINANCE_CATEGORY_MARGINS[marginSource] || 0,
+    marginSource,
+    marginIsFallback: !hasExplicitMargin
+  };
+}
+
+function createFinanceEmptyCategoryRow(category){
+  const marginConfig = getFinanceMarginConfig(category);
+  return {
     category,
+    grossSales: 0,
+    creditNotes: 0,
+    netSales: 0,
     sales: 0,
     cost: 0,
+    pbiCost: 0,
     grossProfit: 0,
-    marginPct: null,
-    documents: 0
-  });
+    documents: 0,
+    creditDocuments: 0,
+    ...marginConfig
+  };
+}
+
+function getFinanceCategoryRows(data){
+  const byCategory = new Map((data && data.categories || []).map(row => [row.category, row]));
+  const ordered = FINANCE_CATEGORY_ORDER.map(category => byCategory.get(category) || createFinanceEmptyCategoryRow(category));
   const extras = (data && data.categories || []).filter(row => !FINANCE_CATEGORY_ORDER.includes(row.category));
   return [...ordered, ...extras];
 }
@@ -995,28 +1024,55 @@ function summarizeFinanceDocuments(documents, range, sourceInfo){
   const credits = selected.filter(row => row.sign < 0);
   const categoryMap = new Map();
 
-  positives.forEach(row => {
+  selected.forEach(row => {
     const category = row.category || 'Ventas';
     if(!categoryMap.has(category)) {
-      categoryMap.set(category, { category, sales: 0, cost: 0, grossProfit: 0, marginPct: 0, documents: 0 });
+      categoryMap.set(category, {
+        category,
+        grossSales: 0,
+        creditNotes: 0,
+        netSales: 0,
+        sales: 0,
+        cost: 0,
+        pbiCost: 0,
+        grossProfit: 0,
+        marginPct: 0,
+        documents: 0,
+        creditDocuments: 0
+      });
     }
     const bucket = categoryMap.get(category);
-    bucket.sales += row.totalOriginal;
-    bucket.cost += row.cost;
-    bucket.documents += 1;
+    bucket.netSales += row.total;
+    bucket.sales = bucket.netSales;
+    if(row.sign >= 0) {
+      bucket.grossSales += row.totalOriginal;
+      bucket.pbiCost += row.cost;
+      bucket.documents += 1;
+    } else {
+      bucket.creditNotes += row.totalOriginal;
+      bucket.creditDocuments += 1;
+    }
   });
 
   const categories = [...categoryMap.values()].map(row => ({
     ...row,
-    grossProfit: row.sales - row.cost,
-    marginPct: row.sales ? (row.sales - row.cost) / row.sales : 0,
-  })).sort((a,b) => b.sales - a.sales);
+    ...getFinanceMarginConfig(row.category)
+  })).map(row => {
+    const grossProfit = row.netSales * row.marginPct;
+    return {
+      ...row,
+      sales: row.netSales,
+      grossProfit,
+      cost: row.netSales - grossProfit
+    };
+  }).sort((a,b) => b.netSales - a.netSales);
 
   const grossSales = positives.reduce((sum, row) => sum + row.totalOriginal, 0);
   const creditNotes = credits.reduce((sum, row) => sum + row.totalOriginal, 0);
   const netSales = selected.reduce((sum, row) => sum + row.total, 0);
-  const cost = positives.reduce((sum, row) => sum + row.cost, 0);
-  const grossProfit = grossSales - cost;
+  const pbiCost = positives.reduce((sum, row) => sum + row.cost, 0);
+  const grossProfit = categories.reduce((sum, row) => sum + row.grossProfit, 0);
+  const cost = netSales - grossProfit;
 
   return {
     ok: true,
@@ -1036,8 +1092,14 @@ function summarizeFinanceDocuments(documents, range, sourceInfo){
       creditNotes,
       netSales,
       cost,
+      pbiCost,
       grossProfit,
-      marginPct: grossSales ? grossProfit / grossSales : 0,
+      marginPct: netSales ? grossProfit / netSales : 0,
+    },
+    assumptions: {
+      marginSource: 'Felipe.xlsx',
+      fallbackMarginCategory: FINANCE_FALLBACK_MARGIN_CATEGORY,
+      categoryMargins: FINANCE_CATEGORY_MARGINS
     },
     categories,
   };
@@ -1127,7 +1189,13 @@ function renderFinanceSourceNote(data){
   const range = data.sourceRange && data.sourceRange.start && data.sourceRange.end
     ? `Rango fuente: ${data.sourceRange.start} a ${data.sourceRange.end}.`
     : '';
-  note.textContent = `Fuente: ${data.sourceName || 'PBI ventas'} (${data.source || 'api'}). Corte consultado: ${data.startDate} a ${data.endDate}. Cache/fuente: ${generated}. ${range}`;
+  const fallbackCategories = (data.categories || [])
+    .filter(row => row.marginIsFallback && Number(row.netSales || row.sales || 0))
+    .map(row => row.category);
+  const fallbackText = fallbackCategories.length
+    ? ` Categorías fuera del Excel: ${fallbackCategories.join(', ')} con margen ${data.assumptions && data.assumptions.fallbackMarginCategory || FINANCE_FALLBACK_MARGIN_CATEGORY}.`
+    : '';
+  note.textContent = `Fuente: ${data.sourceName || 'PBI ventas'} (${data.source || 'api'}). Corte consultado: ${data.startDate} a ${data.endDate}. Cache/fuente: ${generated}. ${range} Utilidad según % del Excel.${fallbackText}`;
 }
 
 function renderFinanceSummary(){
@@ -1161,8 +1229,8 @@ function renderFinanceSummary(){
   const data = FINANCE_STATE.data;
   if(!data) {
     kpis.innerHTML = `<div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div><div class="kpi-label">Finanzas</div><div class="kpi-val">Listo</div><div class="kpi-sub">Define la meta y actualiza el resumen.</div></div>`;
-    formulaProfit.textContent = 'Ventas acumuladas - Costo PBI = Utilidad bruta';
-    formulaMargin.textContent = 'Utilidad bruta / Ventas acumuladas = Margen bruto';
+    formulaProfit.textContent = 'Ventas netas - Costo estimado = Utilidad bruta';
+    formulaMargin.textContent = 'Utilidad bruta / Ventas netas = Margen bruto';
     table.innerHTML = '<div style="padding:18px;color:var(--text2)">Aún no hay datos cargados.</div>';
     renderFinanceSourceNote(null);
     return;
@@ -1170,7 +1238,9 @@ function renderFinanceSummary(){
 
   const goal = readFinanceGoal(FINANCE_STATE.period);
   const totals = data.totals || {};
-  const sales = Number(totals.grossSales || 0);
+  const sales = Number(totals.netSales || totals.grossSales || 0);
+  const grossSales = Number(totals.grossSales || 0);
+  const creditNotes = Number(totals.creditNotes || 0);
   const cost = Number(totals.cost || 0);
   const grossProfit = Number(totals.grossProfit || 0);
   const marginPct = Number(totals.marginPct || 0);
@@ -1183,24 +1253,24 @@ function renderFinanceSummary(){
       <div class="kpi-sub">${goal ? fmtCOP(goal) : 'Meta pendiente'}</div>
     </div>
     <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
-      <div class="kpi-label">Ventas 01 al ${escHtml(FINANCE_STATE.endDate.slice(8,10))}</div>
+      <div class="kpi-label">Ventas netas 01 al ${escHtml(FINANCE_STATE.endDate.slice(8,10))}</div>
       <div class="kpi-val">${abr(sales)}</div>
-      <div class="kpi-sub">${fmtCOP(sales)} · ${fmtNum(data.positiveDocuments || 0)} FV</div>
+      <div class="kpi-sub">${fmtCOP(sales)} · Bruto ${abr(grossSales)} · NC ${abr(creditNotes)}</div>
     </div>
     <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
       <div class="kpi-label">Cumplimiento</div>
       <div class="kpi-val">${fulfillment === null ? '—' : formatFinancePct(fulfillment)}</div>
-      <div class="kpi-sub">Ventas acumuladas / meta</div>
+      <div class="kpi-sub">Ventas netas / meta</div>
     </div>
     <div class="kpi" style="--ac:var(--corp-amber)"><div class="kpi-accent"></div>
       <div class="kpi-label">Utilidad bruta total</div>
       <div class="kpi-val">${abr(grossProfit)}</div>
-      <div class="kpi-sub">${fmtCOP(grossProfit)}</div>
+      <div class="kpi-sub">${fmtCOP(grossProfit)} · % Excel</div>
     </div>
     <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
       <div class="kpi-label">Margen bruto del mes</div>
       <div class="kpi-val">${formatFinancePct(marginPct)}</div>
-      <div class="kpi-sub">Utilidad bruta / ventas</div>
+      <div class="kpi-sub">Utilidad bruta / ventas netas</div>
     </div>
   `;
 
@@ -1210,14 +1280,16 @@ function renderFinanceSummary(){
   const rows = getFinanceCategoryRows(data);
   table.innerHTML = `<table class="responsive-table">
     <thead>
-      <tr><th>Categoría</th><th>Documentos</th><th>Ventas</th><th>Costo PBI</th><th>Utilidad</th><th>% Utilidad</th></tr>
+      <tr><th>Categoría</th><th>Documentos</th><th>Venta bruta</th><th>NC</th><th>Venta neta</th><th>% Utilidad</th><th>Utilidad</th></tr>
     </thead>
     <tbody>${rows.map((row, index) => {
       const color = FINANCE_CATEGORY_COLORS[index % FINANCE_CATEGORY_COLORS.length];
-      const rowSales = Number(row.sales || 0);
-      const rowCost = Number(row.cost || 0);
-      const rowProfit = Number(row.grossProfit || rowSales - rowCost || 0);
-      const rowMargin = rowSales ? rowProfit / rowSales : null;
+      const rowGross = Number(row.grossSales || 0);
+      const rowCredit = Number(row.creditNotes || 0);
+      const rowSales = Number(row.netSales ?? row.sales ?? 0);
+      const rowProfit = Number(row.grossProfit || 0);
+      const rowMargin = Number.isFinite(Number(row.marginPct)) ? Number(row.marginPct) : null;
+      const marginSuffix = row.marginIsFallback && rowSales ? ' *' : '';
       return `<tr>
         <td data-label="Categoría">
           <div class="finance-category-cell">
@@ -1226,10 +1298,11 @@ function renderFinanceSummary(){
           </div>
         </td>
         <td class="td-mono" data-label="Documentos">${fmtNum(row.documents || 0)}</td>
-        <td class="td-mono td-cop" data-label="Ventas">${rowSales ? fmtCOP(rowSales) : '—'}</td>
-        <td class="td-mono" data-label="Costo PBI">${rowCost ? fmtCOP(rowCost) : '—'}</td>
+        <td class="td-mono td-cop" data-label="Venta bruta">${rowGross ? fmtCOP(rowGross) : '—'}</td>
+        <td class="td-mono" data-label="NC">${rowCredit ? fmtCOP(rowCredit) : '—'}</td>
+        <td class="td-mono td-cop" data-label="Venta neta">${rowSales ? fmtCOP(rowSales) : '—'}</td>
+        <td class="td-mono" data-label="% Utilidad">${rowMargin === null ? '—' : `${formatFinancePct(rowMargin)}${marginSuffix}`}</td>
         <td class="td-mono" data-label="Utilidad">${rowSales ? fmtCOP(rowProfit) : '—'}</td>
-        <td class="td-mono" data-label="% Utilidad">${rowMargin === null ? '—' : formatFinancePct(rowMargin)}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;

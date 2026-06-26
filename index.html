@@ -474,7 +474,7 @@
     <section class="finance-control-panel">
       <div>
         <div class="finance-control-title">Meta del mes</div>
-        <p class="finance-control-copy">Gerencia define la meta; las ventas, costos y utilidad se calculan con datos PBI.</p>
+        <p class="finance-control-copy">Gerencia define la meta; las ventas netas salen de PBI y la utilidad usa los porcentajes del Excel.</p>
       </div>
       <div class="finance-controls">
         <label class="finance-field">
@@ -502,16 +502,16 @@
     <section class="finance-formula-grid">
       <article class="finance-formula-card">
         <div class="finance-formula-label">Utilidad bruta total</div>
-        <div id="finance-profit-formula" class="finance-formula-main">Ventas - Costo = Utilidad</div>
+        <div id="finance-profit-formula" class="finance-formula-main">Ventas netas - Costo estimado = Utilidad</div>
       </article>
       <article class="finance-formula-card">
         <div class="finance-formula-label">Margen bruto del mes</div>
-        <div id="finance-margin-formula" class="finance-formula-main">Utilidad / Ventas = Margen</div>
+        <div id="finance-margin-formula" class="finance-formula-main">Utilidad / Ventas netas = Margen</div>
       </article>
     </section>
 
     <section class="chart-card">
-      <div class="chart-hd">Utilidad por categoría <span>% utilidad calculado con costo PBI</span></div>
+      <div class="chart-hd">Utilidad por categoría <span>% utilidad según Excel</span></div>
       <div class="tbl-wrap" id="finance-category-table"></div>
     </section>
   </div>
@@ -519,7 +519,7 @@
 
 </main>
 
-<script src="src/scripts/main.js?v=20260626-finanzas2"></script>
+<script src="src/scripts/main.js?v=20260626-finanzas3"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->
