@@ -1,3 +1,5 @@
+import { getGoal } from './goals-store.js';
+
 const DEFAULT_CACHE_URL = "https://tableros-area-financiera.vercel.app/_cache/ventas-pbi.json";
 const DEFAULT_PBI_BASE_URL = "http://152.200.146.226:50010";
 
@@ -73,15 +75,35 @@ function normalizeDateRange(req) {
 function parseFlexibleNumber(value, fallback = 0) {
   if (value === null || value === undefined || value === "") return fallback;
   if (typeof value === "number") return Number.isFinite(value) ? value : fallback;
-  const text = String(value)
-    .trim()
-    .replace(/\s/g, "")
-    .replace(/\$/g, "");
-  if (!text) return fallback;
-  const normalized = text.includes(",") && text.includes(".")
-    ? text.replace(/\./g, "").replace(",", ".")
-    : text.replace(",", ".");
-  const parsed = Number(normalized);
+  
+  let s = String(value).trim().replace(/[$\s]/g, "");
+  if (!s) return fallback;
+
+  // Detectar formato: colombiano "98.544.430" o americano "98,544.43" o decimal "33262.55"
+  const dots = (s.match(/\./g) || []).length;
+  const commas = (s.match(/,/g) || []).length;
+  
+  if (dots > 1) {
+    // Múltiples puntos = separadores de miles colombianos: "98.544.430" → 98544430
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else if (commas > 1) {
+    // Múltiples comas = separadores de miles americanos: "98,544,430" → 98544430
+    s = s.replace(/,/g, "");
+  } else if (dots === 1 && commas === 1) {
+    // Ambos: puede ser "1.234,56" (EU/CO) o "1,234.56" (US)
+    const dotPos = s.indexOf(".");
+    const commaPos = s.indexOf(",");
+    if (commaPos < dotPos) {
+      s = s.replace(/,/g, ""); // US
+    } else {
+      s = s.replace(/\./g, "").replace(",", "."); // EU/CO
+    }
+  } else {
+    // Un solo punto o coma — es separador decimal
+    s = s.replace(",", ".");
+  }
+  
+  const parsed = parseFloat(s);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
@@ -285,10 +307,14 @@ function normalizeRawPbiRows(rows) {
     const number = cleanText(row.Numero) || cleanText(row.Numero_Documento) || String(index + 1);
     const client = cleanText(row.Empresa || row.Identificacion || "Sin cliente");
     const key = [client, prefix, number, date].join("|");
+    
+    const sign = amount < 0 || prefix.toUpperCase().startsWith("NC") ? -1 : 1;
+    const signedAmount = Math.abs(amount) * sign;
+    
     const current =
       buckets.get(key) || {
         fechaIso: date,
-        sign: amount < 0 || prefix.toUpperCase().startsWith("NC") ? -1 : 1,
+        sign: sign,
         total: 0,
         totalOriginal: 0,
         cost: 0,
@@ -296,12 +322,12 @@ function normalizeRawPbiRows(rows) {
         document: [prefix, number].filter(Boolean).join("-"),
         client,
       };
-    current.total += amount;
+    current.total += signedAmount;
     current.totalOriginal += Math.abs(amount);
     if (amount >= 0) current.cost += parseFlexibleNumber(row.Costo_Producto, 0) || 0;
     const category = normalizeCategory(row.Categoria);
     current.categoryTotals.set(category, (current.categoryTotals.get(category) || 0) + Math.abs(amount));
-    if (amount < 0) current.sign = -1;
+    if (sign === -1) current.sign = -1;
     buckets.set(key, current);
   });
 
@@ -399,20 +425,45 @@ function summarizeDocuments(documents, range) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // Configuración de CORS segura basada en orígenes autorizados
+  const origin = req.headers.origin || req.headers.referer || "";
+  const allowedOrigins = [
+    "https://tableros-area-financiera.vercel.app",
+    "https://provexpress.sharepoint.com",
+    "http://localhost",
+    "http://127.0.0.1"
+  ];
+  
+  const isAllowed = allowedOrigins.some(o => origin.startsWith(o)) || 
+                    /https?:\/\/localhost(:\d+)?/.test(origin) || 
+                    /https?:\/\/127\.0\.0\.1(:\d+)?/.test(origin) || 
+                    origin.endsWith(".vercel.app");
+                    
+  if (isAllowed) {
+    res.setHeader("Access-Control-Allow-Origin", origin.startsWith("http") ? origin.replace(/\/$/, "") : "*");
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "https://tableros-area-financiera.vercel.app");
+  }
+
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Cache-Control", "s-maxage=900, stale-while-revalidate=1800");
+  
   if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method !== "GET") return res.status(405).json({ ok: false, error: "Metodo no permitido" });
+  if (req.method !== "GET") return res.status(405).json({ ok: false, error: "Método no permitido" });
 
   try {
     const range = normalizeDateRange(req);
     const source = await loadRows();
     const documents = normalizeRows(source.rows);
     const summary = summarizeDocuments(documents, range);
+    
+    // Cargar la meta mensual del periodo
+    const goal = await getGoal(range.period);
+
     return res.json({
       ok: true,
       ...range,
+      goal,
       source: source.source,
       sourceName: source.meta?.sourceName || (source.source === "cache" ? "Cache PBI ventas" : "API ventas PBI"),
       sourceGeneratedAt: source.generatedAt,

@@ -1,4 +1,4 @@
-﻿/* ══════════════════════════════════════
+/* ══════════════════════════════════════
    DATA & STATE
 ══════════════════════════════════════ */
 let ALL_DATA = [];
@@ -62,7 +62,6 @@ let MARCAS_BAR_LIMIT = MARCAS_BAR_INITIAL;
 
 const TRM_CACHE_KEY = 'trm_last';
 const FINANCE_GOAL_KEY_PREFIX = 'finance_sales_goal_';
-const FINANCE_PUBLIC_CACHE_URL = 'https://tableros-area-financiera.vercel.app/_cache/ventas-pbi.json';
 const FINANCE_CATEGORY_ORDER = ['Servicios','Renta de Equipos','PAC','Suministros','Tecnología','Licenciamiento'];
 const FINANCE_CATEGORY_MARGINS = {
   'Servicios': 0.3435,
@@ -900,19 +899,31 @@ function getFinanceGoalKey(period){
 }
 
 function readFinanceGoal(period){
-  try {
-    const raw = localStorage.getItem(getFinanceGoalKey(period));
-    const value = parseFloat(raw);
-    return Number.isFinite(value) && value > 0 ? value : 0;
-  } catch(_) {
-    return 0;
-  }
+  return FINANCE_STATE.goal || 0;
 }
 
-function writeFinanceGoal(period, value){
+async function writeFinanceGoal(period, value){
+  const numValue = Math.max(0, parseFloat(value) || 0);
+  FINANCE_STATE.goal = numValue;
+  
+  const host = window.location.hostname;
+  const baseUrl = host.endsWith('.vercel.app') || host === 'localhost' || host === '127.0.0.1'
+    ? ''
+    : 'https://tableros-area-financiera.vercel.app';
+    
   try {
-    localStorage.setItem(getFinanceGoalKey(period), String(Math.max(0, Number(value || 0))));
-  } catch(_) {}
+    const response = await fetch(`${baseUrl}/api/finance-goal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ period, goal: numValue })
+    });
+    const resData = await response.json().catch(() => ({}));
+    if(!response.ok || !resData.ok) {
+      console.error('Error guardando la meta en el servidor:', resData.error || response.statusText);
+    }
+  } catch(e) {
+    console.error('Error de conexión al guardar la meta:', e);
+  }
 }
 
 function ensureFinanceStateDefaults(){
@@ -1016,8 +1027,7 @@ function getFinanceCategoryRows(data){
 }
 
 function shouldUseFinanceApi(){
-  const host = window.location.hostname;
-  return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.vercel.app');
+  return true;
 }
 
 function parseFinanceNumber(value){
@@ -1163,26 +1173,17 @@ function summarizeFinanceDocuments(documents, range, sourceInfo){
 }
 
 async function requestFinanceSummaryFromApi(params){
-  const response = await fetch(`/api/finance-summary?${params.toString()}`, { cache: 'no-store' });
+  const host = window.location.hostname;
+  const baseUrl = host.endsWith('.vercel.app') || host === 'localhost' || host === '127.0.0.1'
+    ? ''
+    : 'https://tableros-area-financiera.vercel.app';
+  
+  const response = await fetch(`${baseUrl}/api/finance-summary?${params.toString()}`, { cache: 'no-store' });
   const payload = await response.json().catch(() => ({}));
   if(!response.ok || !payload.ok) {
     throw new Error(payload.error || `HTTP ${response.status}`);
   }
   return payload;
-}
-
-async function requestFinanceSummaryFromCache(range){
-  const response = await fetch(FINANCE_PUBLIC_CACHE_URL, { cache: 'no-store' });
-  if(!response.ok) throw new Error(`Cache PBI HTTP ${response.status}`);
-  const candidate = await response.json();
-  const payload = extractFinanceCachePayload(candidate);
-  const documents = normalizeFinanceCachedRows(payload.rows);
-  return summarizeFinanceDocuments(documents, range, {
-    source: 'cache-browser',
-    sourceName: payload.meta && payload.meta.sourceName || 'Cache PBI ventas',
-    generatedAt: payload.generatedAt,
-    range: payload.meta && payload.meta.range || null,
-  });
 }
 
 async function loadFinanceSummary(force){
@@ -1201,20 +1202,11 @@ async function loadFinanceSummary(force){
       startDate: `${FINANCE_STATE.period}-01`,
       endDate: FINANCE_STATE.endDate
     });
-    const range = {
-      period: FINANCE_STATE.period,
-      startDate: `${FINANCE_STATE.period}-01`,
-      endDate: FINANCE_STATE.endDate
-    };
-    let payload = null;
-    if(shouldUseFinanceApi()) {
-      try {
-        payload = await requestFinanceSummaryFromApi(params);
-      } catch(apiError) {
-        console.warn('[FINANCE] API local no disponible, usando cache publico', apiError);
-      }
-    }
-    if(!payload) payload = await requestFinanceSummaryFromCache(range);
+    
+    const payload = await requestFinanceSummaryFromApi(params);
+    
+    // Almacenar la meta cargada desde el servidor
+    FINANCE_STATE.goal = payload.goal || 0;
     FINANCE_STATE.data = payload;
   } catch(error) {
     FINANCE_STATE.error = error instanceof Error ? error.message : 'No fue posible cargar el resumen financiero.';
