@@ -11,7 +11,8 @@
 <link rel="stylesheet" href="src/styles/main.css?v=20260706-ejecutivo1">
 
 <!-- Microsoft Authentication Library -->
-<script src="src/scripts/auth.js?v=20260601-redirect1"></script>
+<script src="src/config/estructura-comercial-2026.js?v=20260706-redist1"></script>
+<script src="src/scripts/auth.js?v=20260706-redist1"></script>
 
 </head>
 <body>
@@ -50,23 +51,14 @@
         <div id="user-name" style="font-size:10px;font-family:var(--font-display);font-weight:700;color:var(--text)"></div>
         <div id="user-role-badge" style="font-size:9px;color:var(--text2)"></div>
       </div>
-      <!-- Botón de vista (solo para especialista.preventa) -->
+      <!-- Botón de vista -->
       <button id="view-switcher-btn" onclick="toggleViewPanel()" style="display:none;margin-left:4px;background:rgba(107,63,160,.2);border:1px solid rgba(107,63,160,.4);color:var(--corp-purple2);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:12px;transition:var(--transition)" title="Cambiar vista">⚙</button>
     </div>
 
     <!-- Panel de cambio de vista -->
     <div id="view-panel" class="view-panel" style="display:none;position:fixed;top:70px;right:16px;z-index:500;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:16px;min-width:220px;box-shadow:var(--shadow-lg)">
       <div style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text2);margin-bottom:12px;text-transform:uppercase">Vista activa</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <button onclick="switchView(this,'gerencia')" class="view-opt-btn" data-view="gerencia">👑 Gerencia General</button>
-        <button onclick="switchView(this,'director','Juan David Novoa')" class="view-opt-btn" data-view="dir-jd">📊 Director — Juan David</button>
-        <button onclick="switchView(this,'director','Maria Angelica Caballero')" class="view-opt-btn" data-view="dir-ma">📊 Director — María Angélica</button>
-        <button onclick="switchView(this,'director','Oscar Beltran')" class="view-opt-btn" data-view="dir-ob">📊 Director — Oscar Beltrán</button>
-        <button onclick="switchView(this,'director','Miller Romero')" class="view-opt-btn" data-view="dir-mr">📊 Director — Miller Romero</button>
-        <div style="height:1px;background:var(--border);margin:4px 0"></div>
-        <button onclick="switchView(this,'ejecutivo',null,'César Cespedes')" class="view-opt-btn" data-view="ej-cc">👤 Ejecutivo — César Cespedes</button>
-        <button onclick="switchView(this,'ejecutivo',null,'Diana Catalina Castro')" class="view-opt-btn" data-view="ej-dc">👤 Ejecutivo — Diana Catalina Castro</button>
-      </div>
+      <div id="view-panel-options" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
   </div>
 </header>
@@ -530,7 +522,7 @@
 
 </main>
 
-<script src="src/scripts/main.js?v=20260706-ejecutivo1"></script>
+<script src="src/scripts/main.js?v=20260706-redist1"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->

@@ -16,6 +16,7 @@ let LOADED_SALES_BY_SUPPORT = {};
 let LOADED_PREVENTA_FILES = [];
 let SALES_VIEW_MODE = 'reporte';
 let SALES_PENDING_VALUE_ONLY = false;
+let REDIST_SCOPE_LOGGED = false;
 let FINANCE_STATE = {
   isLoading: false,
   data: null,
@@ -76,6 +77,59 @@ const FINANCE_CATEGORY_COLORS = ['#0DBF82','#2ABFDF','#F0A020','#8B5FC8','#2D4FD
 const FORECAST_CONNECTIONS_LIST_NAME = 'ForecastConexiones';
 const PREVENTA_FOLDER_NAME = 'Grupo preventa';
 const FORECAST_BASE_FALLBACK = 'COMERCIAL/FORECAST 2026';
+
+function getForecastStructure(){
+  return window.FORECAST_STRUCTURE || {};
+}
+
+function normalizeAppEmail(value){
+  const structure = getForecastStructure();
+  return structure.normalizeEmail
+    ? structure.normalizeEmail(value)
+    : String(value || '').toLowerCase().trim();
+}
+
+function getCurrentUserSupportedExecutiveEmails(){
+  if(!CURRENT_USER) return [];
+  const structure = getForecastStructure();
+  if(structure.getEjecutivosBySupport) {
+    return structure.getEjecutivosBySupport(CURRENT_USER.email);
+  }
+  return CURRENT_USER.supportedExecutives || [];
+}
+
+function getExecutiveMatchNamesByEmail(email){
+  const structure = getForecastStructure();
+  if(structure.getExecutiveMatchNamesByEmail) return structure.getExecutiveMatchNamesByEmail(email);
+  const normalized = normalizeAppEmail(email);
+  const map = window.EXECUTIVO_BY_EMAIL || {};
+  const displayMap = window.EXECUTIVO_DISPLAY_BY_EMAIL || {};
+  return [...new Set([map[normalized], displayMap[normalized]].filter(Boolean))];
+}
+
+function getSupportedExecutiveMatchNames(){
+  return [...new Set(getCurrentUserSupportedExecutiveEmails().flatMap(getExecutiveMatchNamesByEmail))];
+}
+
+function rowMatchesAnyExecutiveName(value, names){
+  const label = cleanDisplayText(value, '');
+  return (names || []).some(name => namesMatch(label, name));
+}
+
+function rowMatchesSupportedExecutives(row, getters){
+  const names = getSupportedExecutiveMatchNames();
+  if(!names.length) return false;
+  const fields = getters || [
+    r => r && r['COMERCIAL'],
+    r => getSalesSoportaName(r),
+    r => getSalesPendingCommercial(r)
+  ];
+  return fields.some(getter => rowMatchesAnyExecutiveName(getter(row), names));
+}
+
+function isSalesSupportRole(role){
+  return role === 'sales_support' || role === 'sales_support_comercial';
+}
 
 function loadCachedTRM(){
   try {
@@ -225,7 +279,8 @@ function getRoleLabel(role) {
     gerencia_director: 'Gerencia · Director',
     director: 'Director',
     ejecutivo: 'Ejecutivo',
-    sales_support: 'Sales Support'
+    sales_support: 'Sales Support',
+    sales_support_comercial: 'Sales Support · Comercial'
   })[role] || role || '';
 }
 function formatLastConnection(value) {
@@ -2289,8 +2344,7 @@ function todayStr(){
    FILE LOADING
 ══════════════════════════════════════ */
 
-// Extrae el nombre del director desde el path de la carpeta
-// Ej: "FORECAST 2026/Grupo Juan David Novoa/Freddy.xlsx" → "Juan David Novoa"
+// Extrae el nombre del director desde el path de la carpeta Forecast.
 function directorFromPath(path){
   const parts = path.split('/');
   // Buscar la parte que empiece con "Grupo" o "Gupo" (typo en sharepoint)
@@ -2325,7 +2379,7 @@ function finalizeLoad(){
     const nSalesFiles = Object.values(LOADED_SALES_BY_SUPPORT).reduce((s,a)=>s+a.length,0);
     const nPreventaFiles = LOADED_PREVENTA_FILES.length;
     const nDirs = Object.keys(LOADED_FILES_BY_DIR).length;
-    reloadInfo.textContent = CURRENT_USER && CURRENT_USER.role === 'sales_support'
+    reloadInfo.textContent = CURRENT_USER && isSalesSupportRole(CURRENT_USER.role)
       ? nSalesFiles + ' archivos sales · Última carga: ' + new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})
       : nFiles + ' archivos cargados · ' + nDirs + ' equipos' + (nSalesFiles ? ' · '+nSalesFiles+' sales' : '') + (nPreventaFiles ? ' · '+nPreventaFiles+' preventa' : '') + ' · Última carga: ' + new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
   }
@@ -2351,7 +2405,7 @@ function finalizeLoad(){
   ])];
   const salesTargets = [...new Set(visibleSales.map(r=>getSalesSoportaName(r)).filter(Boolean))];
   document.getElementById('file-count-hd').textContent =
-    CURRENT_USER && CURRENT_USER.role === 'sales_support'
+    CURRENT_USER && isSalesSupportRole(CURRENT_USER.role)
       ? `${visibleSales.length} registros sales · ${visibleSalesPending.length} pendientes · ${salesSupports.length} support · ${salesTargets.length} apoyos`
       : `${visibleData.length} negocios · ${dirs.length} dir · ${execsWithData.length} ejecutivos${visibleSales.length ? ' · '+visibleSales.length+' sales' : ''}${visibleSalesPending.length ? ' · '+visibleSalesPending.length+' pendientes' : ''}${visiblePreventa.length ? ' · '+visiblePreventa.length+' preventa' : ''}`;
   const now = new Date();
@@ -2385,25 +2439,40 @@ function finalizeLoad(){
   refreshForecastMonthFilters();
 
   // Aplicar pestañas y badge según rol una vez que los selects ya están listos
+  if(!REDIST_SCOPE_LOGGED) {
+    REDIST_SCOPE_LOGGED = true;
+    console.log('[REDIST CHECK] vistas independientes', {
+      forecast: visibleData.length,
+      sales: visibleSales.length,
+      preventa: visiblePreventa.length,
+      marcas: getVisibleMarcasData().length
+    });
+  }
   applyRoleTabs();
   showUserBadge();
 }
 
 function getVisibleData() {
   if(!CURRENT_USER) return ALL_DATA;
-  const { role, directorGroup, name } = CURRENT_USER;
-  if(role === 'sales_support') return [];
+  const { role, directorGroup } = CURRENT_USER;
+  if(role === 'sales_support') {
+    return CURRENT_USER.supportScope === 'unit'
+      ? ALL_DATA
+      : ALL_DATA.filter(row => rowMatchesSupportedExecutives(row, [r => r && r['COMERCIAL']]));
+  }
+  if(role === 'sales_support_comercial') {
+    return ALL_DATA.filter(row => rowMatchesSupportedExecutives(row, [r => r && r['COMERCIAL']]));
+  }
   if(role === 'director') {
     const targetDirector = normalizePersonName(directorGroup);
     return ALL_DATA.filter(r => normalizePersonName(r['DIRECTOR']) === targetDirector);
   }
   if(role === 'ejecutivo') {
-    const targetName = getExecTargetName();
-    const targetNorm = normalizePersonName(targetName);
+    const targetNames = getExecutiveMatchNamesByEmail(CURRENT_USER.email);
+    if(!targetNames.length) targetNames.push(getExecTargetName());
     return ALL_DATA.filter(r => {
       const execName = (r['COMERCIAL']||'').trim();
-      const execNorm = normalizePersonName(execName);
-      return execNorm === targetNorm || namesMatch(execName, targetName);
+      return targetNames.some(targetName => namesMatch(execName, targetName));
     });
   }
   return ALL_DATA; // gerencia ve todo
@@ -2561,7 +2630,7 @@ function togglePreventaEstadoFilter(value){
 
 function isOscarMarcasGlobalScope(){
   if(!CURRENT_USER || CURRENT_USER.role !== 'director') return false;
-  return normalizePersonName(CURRENT_USER.directorGroup) === normalizePersonName('Oscar Beltran');
+  return Number(CURRENT_USER.group) === 3;
 }
 
 function getVisibleMarcasData(){
@@ -2570,7 +2639,12 @@ function getVisibleMarcasData(){
 }
 
 function getSalesSupportTargetName() {
-  const email = (CURRENT_USER && CURRENT_USER.email || '').toLowerCase().trim();
+  const email = normalizeAppEmail(CURRENT_USER && CURRENT_USER.email || '');
+  const structure = getForecastStructure();
+  if(structure.getSupportDisplayNameByEmail) {
+    const configured = structure.getSupportDisplayNameByEmail(email);
+    if(configured) return canonicalizeSalesSupportName(configured);
+  }
   const map = window.SALES_SUPPORT_BY_EMAIL || {};
   return canonicalizeSalesSupportName((map[email] || CURRENT_USER && CURRENT_USER.name || '').trim());
 }
@@ -2578,9 +2652,13 @@ function getSalesSupportTargetName() {
 function getVisibleSalesData() {
   if(!CURRENT_USER) return SALES_DATA;
   const { role, directorGroup } = CURRENT_USER;
-  if(role === 'sales_support') {
+  if(isSalesSupportRole(role)) {
     const targetName = getSalesSupportTargetName();
-    return SALES_DATA.filter(r => namesMatch(getSalesSupportName(r), targetName));
+    let rows = SALES_DATA.filter(r => namesMatch(getSalesSupportName(r), targetName));
+    if(role === 'sales_support_comercial') {
+      rows = rows.filter(row => rowMatchesSupportedExecutives(row, [r => getSalesSoportaName(r), r => r && r['COMERCIAL']]));
+    }
+    return rows;
   }
   if(role === 'director') {
     const targetDirector = normalizePersonName(directorGroup);
@@ -2593,9 +2671,13 @@ function getVisibleSalesData() {
 function getVisibleSalesPendingData() {
   if(!CURRENT_USER) return SALES_PENDING_DATA;
   const { role, directorGroup } = CURRENT_USER;
-  if(role === 'sales_support') {
+  if(isSalesSupportRole(role)) {
     const targetName = getSalesSupportTargetName();
-    return SALES_PENDING_DATA.filter(r => namesMatch(getSalesPendingSupportName(r), targetName));
+    let rows = SALES_PENDING_DATA.filter(r => namesMatch(getSalesPendingSupportName(r), targetName));
+    if(role === 'sales_support_comercial') {
+      rows = rows.filter(row => rowMatchesSupportedExecutives(row, [r => getSalesPendingCommercial(r), r => r && r['SOPORTA']]));
+    }
+    return rows;
   }
   if(role === 'director') {
     const targetDirector = normalizePersonName(directorGroup);
@@ -2611,7 +2693,7 @@ function getPreventaName(row){
 
 function getVisiblePreventaData() {
   if(!CURRENT_USER) return PREVENTA_DATA;
-  if(CURRENT_USER.role === 'sales_support' || CURRENT_USER.role === 'ejecutivo' || CURRENT_USER.role === 'director') return [];
+  if(isSalesSupportRole(CURRENT_USER.role) || CURRENT_USER.role === 'ejecutivo' || CURRENT_USER.role === 'director') return [];
   return PREVENTA_DATA;
 }
 
@@ -5441,12 +5523,25 @@ function buildSalesPendingTable(data){
   </table>`;
 }
 
+function buildSalesSupportScopeBadge(){
+  if(!CURRENT_USER || !isSalesSupportRole(CURRENT_USER.role)) return '';
+  if(CURRENT_USER.role === 'sales_support' && CURRENT_USER.supportScope === 'unit') {
+    return '<span class="section-tag">APOYO A TODA LA UNIDAD</span>';
+  }
+  if(CURRENT_USER.role === 'sales_support_comercial') {
+    const names = getSupportedExecutiveMatchNames()
+      .filter((name, idx, arr) => arr.findIndex(other => namesMatch(other, name)) === idx);
+    return `<span class="section-tag">${escHtml(names.length ? names.join(', ') : 'APOYO COMERCIAL')}</span>`;
+  }
+  return '';
+}
+
 function renderSales(){
   const allSales = getVisibleSalesData();
   const allPending = getVisibleSalesPendingData();
   const mode = getSalesViewMode();
   const role = CURRENT_USER ? CURRENT_USER.role : null;
-  const targetName = role === 'sales_support' ? getSalesSupportTargetName() : '';
+  const targetName = isSalesSupportRole(role) ? getSalesSupportTargetName() : '';
   const host = document.getElementById('sales-content');
   const grid = document.getElementById('sales-support-grid');
   const selSupport = document.getElementById('sel-sales-support');
@@ -5465,7 +5560,7 @@ function renderSales(){
   const supportsFromFiles = Object.keys(LOADED_SALES_BY_SUPPORT || {}).map(canonicalizeSalesSupportName).filter(Boolean);
   const allSupports = [...new Set([...supportsFromData, ...supportsFromFiles])].sort((a,b)=>a.localeCompare(b,'es'));
 
-  if(role === 'sales_support' && targetName) {
+  if(isSalesSupportRole(role) && targetName) {
     selSupport.innerHTML = optionHtml(targetName, targetName, false);
     selSupport.value = targetName;
   } else {
@@ -5481,7 +5576,7 @@ function renderSales(){
     return;
   }
 
-  const selectedSupport = role === 'sales_support' && targetName ? targetName : selSupport.value;
+  const selectedSupport = isSalesSupportRole(role) && targetName ? targetName : selSupport.value;
 
   if(mode === 'reporte') {
     const monthValues = [...new Set(allSales.map(r=>getMonth(getRowDateValue(r))).filter(Boolean))].sort();
@@ -5578,7 +5673,7 @@ function renderSales(){
     })).filter(item=>item.val>0);
 
     host.innerHTML = `
-      <div class="section-hd" style="margin-top:16px"><h2>${escHtml(selectedSupport)}</h2><span class="section-tag">PENDIENTES</span></div>
+      <div class="section-hd" style="margin-top:16px"><h2>${escHtml(selectedSupport)}</h2><span class="section-tag">PENDIENTES</span>${buildSalesSupportScopeBadge()}</div>
       <div class="kpi-grid kpi-grid-3" style="margin-bottom:16px">
         <div class="kpi exec-card ${pendingType === 'Pedido' ? 'selected' : ''}" style="--ac:var(--corp-cyan)" onclick="${escAttr(jsCall('setSalesPendingFilter', 'pendiente', 'Pedido'))}"><div class="kpi-accent"></div>
           <div class="kpi-label">Pedidos / Compras</div>
@@ -5663,7 +5758,7 @@ function renderSales(){
   }));
 
   host.innerHTML = `
-    <div class="section-hd" style="margin-top:16px"><h2>${escHtml(selectedSupport)}</h2><span class="section-tag">SALES SUPPORT</span></div>
+    <div class="section-hd" style="margin-top:16px"><h2>${escHtml(selectedSupport)}</h2><span class="section-tag">SALES SUPPORT</span>${buildSalesSupportScopeBadge()}</div>
     ${buildVisualCrossfilterBar('sales', salesBaseData.length, data.length, [['soporta','Soporta']])}
     <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
       <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
@@ -6377,7 +6472,8 @@ async function loadFolderFromSharePoint() {
   }
   showLoadingOverlay('Conectando con Microsoft 365...');
   try {
-    await spLogin();
+    const canAccess = await spLogin();
+    if(!canAccess) return;
   } catch(e) {
     if(typeof isAuthRedirectInProgress === 'function' && isAuthRedirectInProgress(e)) return;
     hideLoadingOverlay();
@@ -6398,8 +6494,13 @@ async function loadFolderFromSharePoint() {
     LOADED_SALES_BY_SUPPORT = {};
     LOADED_PREVENTA_FILES = [];
 
-    if(role === 'sales_support') {
-      await loadSalesSupportFiles(siteId, filesToken);
+    if(isSalesSupportRole(role)) {
+      await loadForecastDataForSupport(siteId, filesToken);
+      try {
+        await loadSalesSupportFiles(siteId, filesToken);
+      } catch(salesError) {
+        console.warn('[SALES SUPPORT] no se pudo cargar archivo operativo', salesError);
+      }
     } else if(role === 'ejecutivo') {
       await loadEjecutivoFile(siteId, filesToken);
     } else if(role === 'director') {
@@ -6693,6 +6794,40 @@ function normalizeFolderName(value){
     .trim();
 }
 
+// TODO: remover fallback legacy después del 2026-08-01.
+const LEGACY_FORECAST_FOLDERS = [
+  'Grupo Juan David Novoa',
+  'Grupo Maria Angelica Caballero'
+];
+
+function isLegacyForecastFolderName(value){
+  const target = normalizeFolderName(value);
+  return LEGACY_FORECAST_FOLDERS.some(folder => normalizeFolderName(folder) === target);
+}
+
+function warnLegacyForecastFolders(folders){
+  (folders || []).forEach(folder => {
+    if(isLegacyForecastFolderName(folder)) {
+      console.warn('[LEGACY FOLDER]', folder, 'se mantiene solo como compatibilidad temporal');
+    }
+  });
+}
+
+function getConfiguredForecastFolders(){
+  const structure = getForecastStructure();
+  return structure.getAllCarpetas ? structure.getAllCarpetas() : [];
+}
+
+function getLegacyFolderForGroup(grupo, folders){
+  const legacyByGroup = {
+    1: LEGACY_FORECAST_FOLDERS[0],
+    2: LEGACY_FORECAST_FOLDERS[1]
+  };
+  const legacy = legacyByGroup[Number(grupo)];
+  if(!legacy) return '';
+  return (folders || []).find(folder => normalizeFolderName(folder) === normalizeFolderName(legacy)) || '';
+}
+
 function isPreventaFolderName(value){
   return normalizeFolderName(value) === normalizeFolderName(PREVENTA_FOLDER_NAME);
 }
@@ -6707,20 +6842,34 @@ async function getForecastFolders(siteId, token){
     .map(item => item.name)
     .filter(name => /^(Grupo|Gupo)\s+/i.test(name) && !isPreventaFolderName(name));
   if(folders.length) {
+    warnLegacyForecastFolders(folders);
     _forecastFolders = folders;
-    console.log('[FORECAST FOLDERS]', folders);
+    console.log('[FORECAST FOLDERS]', { source: 'graph', folders });
     return folders;
   }
-  const fallback = ['Grupo Juan David Novoa','Grupo Maria Angelica Caballero','Grupo Oscar Beltran','Gupo Miller Romero'];
-  console.warn('[FORECAST FOLDERS] usando fallback', d);
+  const fallback = getConfiguredForecastFolders();
+  console.warn('[FORECAST FOLDERS] usando fallback config', d);
   _forecastFolders = fallback;
+  console.log('[FORECAST FOLDERS]', { source: 'fallback config', folders: fallback });
   return fallback;
 }
 
 async function getDirectorFolderName(siteId, directorGroup, token){
   const folders = await getForecastFolders(siteId, token);
-  const target = normalizeFolderName(directorGroup);
-  return folders.find(name => normalizeFolderName(name) === target) || (directorGroup.includes('Miller') ? 'Gupo Miller Romero' : 'Grupo ' + directorGroup);
+  const structure = getForecastStructure();
+  const configured = (CURRENT_USER && CURRENT_USER.group && structure.getFolderByGroup)
+    ? structure.getFolderByGroup(CURRENT_USER.group)
+    : (structure.getDirectorFolderByName ? structure.getDirectorFolderByName(directorGroup) : '');
+  const target = normalizeFolderName(configured || directorGroup);
+  const currentGroup = CURRENT_USER && CURRENT_USER.group;
+  const legacyFolder = getLegacyFolderForGroup(currentGroup, folders);
+  const configuredMatch = folders.find(name => normalizeFolderName(name) === target);
+  if(configuredMatch) return configuredMatch;
+  if(legacyFolder) {
+    console.warn('[LEGACY FOLDER]', legacyFolder, 'usada temporalmente para grupo', currentGroup);
+    return legacyFolder;
+  }
+  return configured || ('Grupo ' + directorGroup);
 }
 
 async function getPreventaFolderName(siteId, token){
@@ -6768,8 +6917,9 @@ async function loadDirectorFolder(siteId, folderName, token) {
   const r = await fetch(driveBase, { headers: { Authorization: 'Bearer ' + authToken } });
   const d = await r.json();
   if(!d.value) { console.warn('Sin archivos en', folderName, d); return; }
-  const dirName = normalizeDirectorName(folderName.replace(/^(Grupo|Gupo)\s+/i,'').trim());
-  if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
+  const folderDirName = normalizeDirectorName(folderName.replace(/^(Grupo|Gupo)\s+/i,'').trim());
+  const parseDirectorHint = isLegacyForecastFolderName(folderName) ? '' : folderDirName;
+  if(!LOADED_FILES_BY_DIR[folderDirName]) LOADED_FILES_BY_DIR[folderDirName] = [];
   const files = (d.value || []).filter(item =>
     item &&
     item.name &&
@@ -6779,8 +6929,12 @@ async function loadDirectorFolder(siteId, folderName, token) {
   );
   await runWithConcurrencyLimit(files, FILE_LOAD_CONCURRENCY, async item => {
     updateLoadingStatus('Leyendo: ' + item.name);
-    const bundle = await loadSpFileBundle(item, dirName);
+    const bundle = await loadSpFileBundle(item, parseDirectorHint);
     const recs = bundle.records || [];
+    const dirName = isLegacyForecastFolderName(folderName) && recs[0] && recs[0]['DIRECTOR']
+      ? normalizeDirectorName(recs[0]['DIRECTOR'])
+      : folderDirName;
+    if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
     if(isSalesSupportFile(item.name)) {
       const meta = parseSalesSupportFileName(item.name) || {};
       const supportName = canonicalizeSalesSupportName(cleanNameSegment(meta.supportName || 'Sales Support'));
@@ -6846,7 +7000,9 @@ async function loadPreventaFolder(siteId, token) {
 }
 
 function getExecTargetName() {
-  const email = (CURRENT_USER && CURRENT_USER.email || '').toLowerCase().trim();
+  const email = normalizeAppEmail(CURRENT_USER && CURRENT_USER.email || '');
+  const configured = getExecSearchTargetNameForEmail(email);
+  if(configured) return configured;
   const map = window.EXECUTIVO_BY_EMAIL || {};
   return (map[email] || CURRENT_USER.name || '').trim();
 }
@@ -6873,6 +7029,129 @@ function findBestExecFile(items, targetName) {
   if(!file) file = cand.find(f => namesMatch(f.name, targetName));
   if(!file && targetNorm) file = cand.find(f => normalizePersonName(f.name).includes(targetNorm));
   return file || null;
+}
+
+function getExecSearchTargetNameForEmail(email){
+  const structure = getForecastStructure();
+  if(structure.getExecutiveFileBaseByEmail) {
+    const fileBase = structure.getExecutiveFileBaseByEmail(email);
+    if(fileBase) return fileBase;
+  }
+  if(structure.getExecutiveDisplayNameByEmail) {
+    const display = structure.getExecutiveDisplayNameByEmail(email);
+    if(display) return display;
+  }
+  const normalized = normalizeAppEmail(email);
+  const map = window.EXECUTIVO_BY_EMAIL || {};
+  return (map[normalized] || '').trim();
+}
+
+function getExecSearchTargetNamesForEmail(email){
+  const primary = getExecSearchTargetNameForEmail(email);
+  return [...new Set([primary, ...getExecutiveMatchNamesByEmail(email)].map(cleanNameSegment).filter(Boolean))];
+}
+
+function getConfiguredFolderForExecutiveEmail(email, folders){
+  const structure = getForecastStructure();
+  const group = structure.getGroupByEmail ? structure.getGroupByEmail(email) : null;
+  const configured = group && structure.getFolderByGroup ? structure.getFolderByGroup(group) : '';
+  if(!configured) return '';
+  const match = (folders || []).find(folder => normalizeFolderName(folder) === normalizeFolderName(configured));
+  return match || configured;
+}
+
+function getConfiguredDirectorNameForEmail(email, fallback){
+  const structure = getForecastStructure();
+  const group = structure.getGroupByEmail ? structure.getGroupByEmail(email) : null;
+  const director = group && structure.getDirectorNameByGroup ? structure.getDirectorNameByGroup(group) : '';
+  return normalizeDirectorName(director || fallback || '');
+}
+
+function findBestExecFileByTargets(items, targetNames){
+  for(const targetName of targetNames || []) {
+    const file = findBestExecFile(items, targetName);
+    if(file) return file;
+  }
+  return null;
+}
+
+async function loadExecutiveForecastByEmail(siteId, executiveEmail, token, options){
+  const opts = options || {};
+  const filesToken = token || await getToken(['Files.Read.All']);
+  const targetNames = getExecSearchTargetNamesForEmail(executiveEmail);
+  const targetName = targetNames[0] || '';
+  if(!targetName) {
+    const message = 'No hay nombre de archivo configurado para ' + (executiveEmail || 'ejecutivo');
+    if(opts.optional) { console.warn('[EJECUTIVO]', message); return false; }
+    throw new Error(message);
+  }
+
+  const forecastBasePath = await getForecastBasePath(siteId, filesToken);
+  const folders = await getForecastFolders(siteId, filesToken);
+  const preferredFolder = getConfiguredFolderForExecutiveEmail(executiveEmail, folders);
+  const foldersToTry = [...new Set([preferredFolder, ...folders].filter(Boolean))];
+
+  for(const folder of foldersToTry) {
+    try {
+      const folderPath = joinGraphPath(forecastBasePath, folder);
+      const r = await fetch(buildGraphRootUrl(siteId, folderPath, 'children?$top=50'), { headers: { Authorization: 'Bearer ' + filesToken } });
+      const d = await r.json();
+      if(!d.value) continue;
+      const file = findBestExecFileByTargets(d.value, targetNames);
+      if(file) {
+        const readyFile = await ensureDriveItemDownloadUrl(file, filesToken);
+        const dirName = getConfiguredDirectorNameForEmail(executiveEmail, folder.replace(/^(Grupo|Gupo)\s+/i,'').trim());
+        if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
+        const recs = await loadSpFile(readyFile, dirName);
+        ALL_DATA.push(...recs);
+        LOADED_FILES_BY_DIR[dirName].push(buildLoadedExcelFileMeta(readyFile, dirName));
+        return true;
+      }
+    } catch(e) {
+      console.warn('[EJECUTIVO] error leyendo folder', folder, e);
+    }
+  }
+
+  for(const candidateName of targetNames) {
+    const fallback = await searchExecFileInForecast(siteId, candidateName, filesToken, executiveEmail);
+    if(fallback) {
+      const readyFallback = await ensureDriveItemDownloadUrl(fallback, filesToken);
+      const fallbackDirector = directorFromPath((fallback.parentReference && fallback.parentReference.path) || '');
+      const dirName = getConfiguredDirectorNameForEmail(executiveEmail, fallbackDirector);
+      if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
+      const recs = await loadSpFile(readyFallback, dirName);
+      ALL_DATA.push(...recs);
+      LOADED_FILES_BY_DIR[dirName].push(buildLoadedExcelFileMeta(readyFallback, dirName));
+      return true;
+    }
+  }
+
+  const message = 'No se encontró el Excel de ' + targetName + '. Verifica el nombre del archivo en FORECAST 2026.';
+  if(opts.optional) {
+    console.warn('[EJECUTIVO]', message, executiveEmail);
+    return false;
+  }
+  throw new Error(message);
+}
+
+async function loadForecastDataForSupport(siteId, token){
+  const filesToken = token || await getToken(['Files.Read.All']);
+  if(CURRENT_USER && CURRENT_USER.role === 'sales_support' && CURRENT_USER.supportScope === 'unit') {
+    const folders = await getForecastFolders(siteId, filesToken);
+    await runWithConcurrencyLimit(folders, FOLDER_LOAD_CONCURRENCY, folderName =>
+      loadDirectorFolder(siteId, folderName, filesToken)
+    );
+    return;
+  }
+
+  const executiveEmails = [...new Set(getCurrentUserSupportedExecutiveEmails().map(normalizeAppEmail).filter(Boolean))];
+  if(!executiveEmails.length) {
+    console.warn('[SALES SUPPORT] sin ejecutivos configurados para', CURRENT_USER && CURRENT_USER.email);
+    return;
+  }
+  await runWithConcurrencyLimit(executiveEmails, FILE_LOAD_CONCURRENCY, executiveEmail =>
+    loadExecutiveForecastByEmail(siteId, executiveEmail, filesToken, { optional: true })
+  );
 }
 
 function buildSalesSupportSearchQueries(targetName, targetNames) {
@@ -7092,8 +7371,8 @@ async function loadSalesSupportFiles(siteId, token) {
   }
 }
 
-async function searchExecFileInForecast(siteId, targetName, token) {
-  const email = (CURRENT_USER && CURRENT_USER.email || '').toLowerCase().trim();
+async function searchExecFileInForecast(siteId, targetName, token, emailOverride) {
+  const email = normalizeAppEmail(emailOverride || (CURRENT_USER && CURRENT_USER.email || ''));
   const queries = buildExecSearchQueries(targetName, email);
   if(!queries.length) return null;
   const authToken = token || await getToken(['Files.Read.All']);
@@ -7109,44 +7388,7 @@ async function searchExecFileInForecast(siteId, targetName, token) {
 }
 
 async function loadEjecutivoFile(siteId, token) {
-  const filesToken = token || await getToken(['Files.Read.All']);
-  const forecastBasePath = await getForecastBasePath(siteId, filesToken);
-  const folders = await getForecastFolders(siteId, filesToken);
-  const targetName = getExecTargetName();
-  let found = false;
-  for(const folder of folders) {
-    try {
-      const folderPath = joinGraphPath(forecastBasePath, folder);
-      const r = await fetch(buildGraphRootUrl(siteId, folderPath, 'children?$top=50'), { headers: { Authorization: 'Bearer ' + filesToken } });
-      const d = await r.json();
-      if(!d.value) continue;
-      const file = findBestExecFile(d.value, targetName);
-      if(file) {
-        const readyFile = await ensureDriveItemDownloadUrl(file, filesToken);
-        const dirName = normalizeDirectorName(folder.replace(/^(Grupo|Gupo)\s+/i,'').trim());
-        if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
-        const recs = await loadSpFile(readyFile, dirName);
-        ALL_DATA.push(...recs);
-        LOADED_FILES_BY_DIR[dirName].push(buildLoadedExcelFileMeta(readyFile, dirName));
-        found = true;
-        return true;
-      }
-    } catch(e) { continue; }
-  }
-  // Fallback: search in FORECAST 2026 if file is nested or renamed
-  const fallback = await searchExecFileInForecast(siteId, targetName, filesToken);
-  if(fallback) {
-    const readyFallback = await ensureDriveItemDownloadUrl(fallback, filesToken);
-    const dirName = normalizeDirectorName(directorFromPath((fallback.parentReference && fallback.parentReference.path) || '') || '');
-    if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
-    const recs = await loadSpFile(readyFallback, dirName);
-    ALL_DATA.push(...recs);
-    LOADED_FILES_BY_DIR[dirName].push(buildLoadedExcelFileMeta(readyFallback, dirName));
-    return true;
-  }
-  if(!found) {
-    throw new Error('No se encontró el Excel de ' + (targetName || 'este usuario') + '. Verifica el nombre del archivo en FORECAST 2026.');
-  }
+  return loadExecutiveForecastByEmail(siteId, CURRENT_USER && CURRENT_USER.email, token);
 }
 
 function parseWorkbookMainRecords(wb, item, dirName, datasetType){
@@ -7241,7 +7483,9 @@ function applyRoleTabs() {
   // Reset — mostrar todas
   Object.values(tabs).forEach(t => { if(t) t.style.display = ''; });
 
-  if(role === 'sales_support') {
+  if(!role) {
+    Object.values(tabs).forEach(t => { if(t) t.style.display = 'none'; });
+  } else if(isSalesSupportRole(role)) {
     tabs.gerencia && (tabs.gerencia.style.display = 'none');
     tabs.director && (tabs.director.style.display = 'none');
     tabs.ejecutivo && (tabs.ejecutivo.style.display = 'none');

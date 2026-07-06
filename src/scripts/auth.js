@@ -125,109 +125,36 @@ async function spLogin() {
     headers: { Authorization: 'Bearer ' + token }
   });
   const profile = await res.json();
-  const { email, role, directorGroup, candidates } = resolveUserIdentity(profile, account);
-  CURRENT_USER = { email, name: profile.displayName, role, directorGroup };
+  const identity = resolveUserIdentity(profile, account);
+  const { email, role, directorGroup, group, supportScope, supportedExecutives, candidates } = identity;
+  CURRENT_USER = {
+    email,
+    name: identity.name || profile.displayName || email || 'Usuario',
+    role,
+    directorGroup,
+    group,
+    supportScope,
+    supportedExecutives,
+    noPermissions: !role
+  };
   sessionStorage.setItem('forecast_user', JSON.stringify(CURRENT_USER));
   console.log('[AUTH]', email, role, candidates);
+  if(!role) {
+    showNoPermissionScreen(email);
+    return false;
+  }
   return true;
 }
 
-const ROLES = {
-  gerencia: [
-    'juannovoa@provexpress.com.co',
-    'oscar.beltran@provexpress.com.co',
-    'rafaelnovoa@provexpress.com.co',
-    'c.estrategica@provexpress.com.co',
-    'maribel.virguez@provexpress.com.co',
-    'especialista.preventa@provexpress.com.co',
-    'preventa.software@provexpress.com.co',
-  ],
-  directores: {
-    'juannovoa@provexpress.com.co':          'Juan David Novoa',
-    'angelica.caballero@provexpress.com.co': 'Maria Angelica Caballero',
-    'oscar.beltran@provexpress.com.co':      'Oscar Beltran',
-    'miller.romero@provexpress.com.co':      'Miller Romero',
-  }
-};
-
-// Mapea correo -> nombre de archivo Excel del ejecutivo
-const EXECUTIVO_BY_EMAIL = {
-  'dafne.ruiz@provexpress.com.co': 'Dafne Lizeth Ruiz',
-  'diana.castro@provexpress.com.co': 'Diana Catalina Castro',
-  'jessica.valencia@provexpress.com.co': 'Jessica Lorena Valencia',
-  'jhonatan.acevedo@provexpress.com.co': 'Jhonatan Acevedo',
-  'camilo.hernandez@provexpress.com.co': 'Jhonatan Camilo Hernández',
-  'juan.velasquez@provexpress.com.co': 'Juan Camilo Velásquez',
-  'astrid.jimenez@provexpress.com.co': 'Leidy Astrid Jiménez',
-  'maria.briceno@provexpress.com.co': 'María Paola Briceño',
-  'yeison.urrego@provexpress.com.co': 'Yeison Urrego',
-  'alejandra.velasquez@provexpress.com.co': 'Alejandra Velásquez',
-  'angela.torres@provexpress.com.co': 'Angela Torres',
-  'cesar.cespedes@provexpress.com.co': 'César Cespedes',
-  'fernando.quinonez@provexpress.com.co': 'Fernando Alberto Quiñonez',
-  'jenny.gonzalez@provexpress.com.co': 'Jenny González',
-  'johanna.jaime@provexpress.com.co': 'Johanna Jaime Murcia',
-  'juan.martinez@provexpress.com.co': 'Juan David Martínez',
-  'mariela.ramirez@provexpress.com.co': 'Mariela Ramírez',
-  'rosa.mendoza@provexpress.com.co': 'Rosa María Mendoza',
-  'wilson.sanchez@provexpress.com.co': 'Wilson Fernando Sánchez',
-  'tatiana.parra@provexpress.com.co': 'Angie Tatiana Parra',
-  'claudia.triana@provexpress.com.co': 'Claudia Patricia Triana',
-  'dilma.cuesta@provexpress.com.co': 'Dilma Cuesta',
-  'andres.pena@provexpress.com.co': 'Freddy Andrés Peña',
-  'paola.garcia@provexpress.com.co': 'Gina Paola García',
-  'javier.cortes@provexpress.com.co': 'Javier Antonio Cortés',
-  'julieth.galindo@provexpress.com.co': 'Juliet Milena Galindo Fino',
-  'karen.carrillo@provexpress.com.co': 'Karent Carrillo',
-  'lington.linares@provexpress.com.co': 'Lington Linares',
-  'maria.cruz@provexpress.com.co': 'María Eugenia Cruz',
-  'mario.reyes@provexpress.com.co': 'Mario Reyes',
-  'daniel.galindo@provexpress.com.co': 'Daniel Galindo Girón',
-  'dayana.chala@provexpress.com.co': 'Dayana Chala',
-  'angelica.alvarez@provexpress.com.co': 'María Angélica Alvarez',
-  'rosmira.rojas@provexpress.com.co': 'Rosmira Rojas',
-  'yovanny.herrera@provexpress.com.co': 'Yovanny Herrera',
-  'andrea.vargas@provexpress.com.co': 'Yurany Andrea Vargas',
-};
-
-const SALES_SUPPORT_BY_EMAIL = {
-  'soporte.comercial5@provexpress.com.co': 'Johana Edith Alcocer Palomino',
-  'soporte.comercial4@provexpress.com.co': 'Erika Gabriela Mieles Ortiz',
-  'soporte.comercial6@provexpress.com.co': 'Nury Marcela Vargas Suarez',
-  'soporte.comercial3@provexpress.com.co': 'Janira Alejandra Maldonado Prieto',
-  'soporte.comercial@provexpress.com.co': 'Karen Cagua',
-  'soporte.comercial2@provexpress.com.co': 'Alexandra Julieth Vargas Charris',
-};
-
-const SALES_SUPPORT_NAME_ALIASES = {
-  'Johana Edith Alcocer Palomino': ['Isleni Yasmin Vasquez Pastrana']
-};
-
-window.EXECUTIVO_BY_EMAIL = EXECUTIVO_BY_EMAIL;
-window.SALES_SUPPORT_BY_EMAIL = SALES_SUPPORT_BY_EMAIL;
-window.SALES_SUPPORT_NAME_ALIASES = SALES_SUPPORT_NAME_ALIASES;
-
-const SPECIAL_ROLE_IDENTITIES = [
-  { email:'juannovoa@provexpress.com.co', name:'Juan David Novoa', role:'gerencia_director', directorGroup:'Juan David Novoa' },
-  { email:'oscar.beltran@provexpress.com.co', name:'Oscar Beltran', role:'gerencia_director', directorGroup:'Oscar Beltran' },
-];
-
-function normalizeEmail(value) {
-  return String(value || '').toLowerCase().trim();
+function getForecastStructure(){
+  return window.FORECAST_STRUCTURE || {};
 }
 
-function normalizeIdentityName(value) {
-  return String(value || '')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function getSpecialRoleByName(name) {
-  const target = normalizeIdentityName(name);
-  if(!target) return null;
-  return SPECIAL_ROLE_IDENTITIES.find(item => normalizeIdentityName(item.name) === target) || null;
+function normalizeAuthEmail(value) {
+  const structure = getForecastStructure();
+  return structure.normalizeEmail
+    ? structure.normalizeEmail(value)
+    : String(value || '').toLowerCase().trim();
 }
 
 function getIdentityCandidates(profile, account) {
@@ -236,68 +163,149 @@ function getIdentityCandidates(profile, account) {
     profile && profile.userPrincipalName,
     account && account.username,
     ...((profile && profile.otherMails) || [])
-  ].map(normalizeEmail).filter(Boolean);
+  ].map(normalizeAuthEmail).filter(Boolean);
   return [...new Set(candidates)];
 }
 
 function resolveUserIdentity(profile, account) {
   const candidates = getIdentityCandidates(profile, account);
-  const execMap = window.EXECUTIVO_BY_EMAIL || EXECUTIVO_BY_EMAIL || {};
-
   for(const candidate of candidates) {
     const roleInfo = getUserRole(candidate);
-    if(roleInfo.role !== 'ejecutivo') {
-      return { email: candidate, role: roleInfo.role, directorGroup: roleInfo.directorGroup, candidates };
+    if(roleInfo.role) {
+      return {
+        email: candidate,
+        name: getConfiguredUserName(candidate, roleInfo.role) || profile && profile.displayName || '',
+        role: roleInfo.role,
+        directorGroup: roleInfo.directorGroup,
+        group: roleInfo.group,
+        supportScope: roleInfo.supportScope,
+        supportedExecutives: roleInfo.supportedExecutives,
+        candidates
+      };
     }
-  }
-
-  for(const candidate of candidates) {
-    if(execMap[candidate]) {
-      const roleInfo = getUserRole(candidate);
-      return { email: candidate, role: roleInfo.role, directorGroup: roleInfo.directorGroup, candidates };
-    }
-  }
-
-  const specialRole = getSpecialRoleByName(profile && profile.displayName);
-  if(specialRole) {
-    const email = candidates[0] || specialRole.email;
-    return { email, role: specialRole.role, directorGroup: specialRole.directorGroup, candidates };
   }
 
   const email = candidates[0] || '';
-  const roleInfo = getUserRole(email);
-  return { email, role: roleInfo.role, directorGroup: roleInfo.directorGroup, candidates };
+  return {
+    email,
+    name: profile && profile.displayName || email,
+    role: null,
+    directorGroup: null,
+    group: null,
+    supportScope: '',
+    supportedExecutives: [],
+    candidates
+  };
 }
 
 function getUserRole(email) {
-  const e = (email||'').toLowerCase().trim();
-  const isGerencia = ROLES.gerencia.includes(e);
-  const isDirector = e in ROLES.directores;
-  const isSalesSupport = e in SALES_SUPPORT_BY_EMAIL;
-  const dirGroup   = ROLES.directores[e] || null;
-  if(isGerencia && isDirector) return { role:'gerencia_director', directorGroup: dirGroup };
-  if(isGerencia)  return { role:'gerencia',  directorGroup: null };
-  if(isDirector)  return { role:'director',  directorGroup: dirGroup };
-  if(isSalesSupport) return { role:'sales_support', directorGroup: null };
-  return { role:'ejecutivo', directorGroup: null };
+  const structure = getForecastStructure();
+  const e = normalizeAuthEmail(email);
+  const role = structure.getRoleByEmail ? structure.getRoleByEmail(e) : null;
+  const group = structure.getGroupByEmail ? structure.getGroupByEmail(e) : null;
+  const directorGroup = group && structure.getDirectorNameByGroup ? structure.getDirectorNameByGroup(group) : null;
+  const supportScope = structure.getSupportScopeByEmail ? structure.getSupportScopeByEmail(e) : '';
+  const supportedExecutives = structure.getEjecutivosBySupport ? structure.getEjecutivosBySupport(e) : [];
+  return {
+    role,
+    directorGroup,
+    group,
+    supportScope,
+    supportedExecutives
+  };
+}
+
+function getConfiguredUserName(email, role){
+  const structure = getForecastStructure();
+  if(role === 'director' && structure.getDirectorByEmail) {
+    const director = structure.getDirectorByEmail(email);
+    return director && director.nombre || '';
+  }
+  if(role === 'ejecutivo' && structure.getExecutiveDisplayNameByEmail) {
+    return structure.getExecutiveDisplayNameByEmail(email) || '';
+  }
+  if((role === 'sales_support' || role === 'sales_support_comercial') && structure.getSupportDisplayNameByEmail) {
+    return structure.getSupportDisplayNameByEmail(email) || '';
+  }
+  return '';
+}
+
+function escapeAuthHtml(value){
+  return String(value || '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function showNoPermissionScreen(email){
+  hideLoadingOverlay();
+  showUserBadge();
+  const nav = document.querySelector('nav');
+  const main = document.querySelector('main');
+  if(nav) nav.style.display = 'none';
+  if(main) main.style.display = 'none';
+  let panel = document.getElementById('no-permission-panel');
+  if(!panel) {
+    panel = document.createElement('div');
+    panel.id = 'no-permission-panel';
+    panel.className = 'auth-loading-overlay';
+    panel.innerHTML = `
+      <section class="auth-loading-card" aria-label="Sin permisos">
+        <div class="auth-loading-brand">
+          <img src="src/Logo.webp" alt="Provexpress">
+          <span>Forecast 2026</span>
+        </div>
+        <div class="auth-loading-pill">Acceso restringido</div>
+        <h2>Sin permisos</h2>
+        <p>Tu correo corporativo no esta configurado en la estructura comercial 2026.</p>
+        <div class="auth-loading-status">${escapeAuthHtml(email || 'Usuario sin correo detectado')}</div>
+      </section>`;
+    document.body.appendChild(panel);
+  }
+  panel.style.display = 'flex';
 }
 
 function showUserBadge() {
   if(!CURRENT_USER) return;
   const badge = document.getElementById('user-badge');
   if(badge) badge.style.display = 'flex';
+  const displayName = CURRENT_USER.name || CURRENT_USER.email || 'Usuario';
   const av = document.getElementById('user-avatar');
-  if(av) av.textContent = CURRENT_USER.name.split(' ').slice(0,2).map(w=>w[0]).join('');
+  if(av) av.textContent = displayName.split(' ').slice(0,2).map(w=>w[0]).join('');
   const nm = document.getElementById('user-name');
-  if(nm) nm.textContent = CURRENT_USER.name.split(' ')[0];
+  if(nm) nm.textContent = displayName.split(' ')[0];
   const rb = document.getElementById('user-role-badge');
-  const roleLabels = {gerencia:'Gerencia',gerencia_director:'Gerencia · Director',director:'Director',ejecutivo:'Ejecutivo',sales_support:'Sales Support'};
-  if(rb) rb.textContent = roleLabels[CURRENT_USER.role]||CURRENT_USER.role;
-  // Mostrar botón de cambio de vista solo para especialista.preventa
+  const roleLabels = {
+    gerencia: 'Gerencia',
+    gerencia_director: 'Gerencia · Director',
+    director: 'Director',
+    ejecutivo: 'Ejecutivo',
+    sales_support: 'Sales Support',
+    sales_support_comercial: 'Sales Support · Comercial'
+  };
+  let roleText = roleLabels[CURRENT_USER.role] || CURRENT_USER.role || 'Sin permisos';
+  if(CURRENT_USER.role === 'sales_support' && CURRENT_USER.supportScope === 'unit') roleText = 'Sales Support · Unidad';
+  if(rb) rb.textContent = roleText;
   const gearBtn = document.getElementById('view-switcher-btn');
-  if(gearBtn && CURRENT_USER.email === 'especialista.preventa@provexpress.com.co') {
+  if(gearBtn && (CURRENT_USER.role === 'gerencia' || CURRENT_USER.role === 'gerencia_director')) {
+    renderViewPanelOptions();
     gearBtn.style.display = 'block';
   }
+}
+
+function renderViewPanelOptions(){
+  const host = document.getElementById('view-panel-options');
+  const structure = getForecastStructure();
+  if(!host || !structure.getAllDirectorNames) return;
+  const directorNames = structure.getAllDirectorNames();
+  const directorButtons = directorNames.map(name =>
+    `<button onclick="switchView(this,'director','${name.replace(/'/g, "\\'")}')" class="view-opt-btn" data-view="dir-${name.replace(/\s+/g, '-').toLowerCase()}">Director - ${name}</button>`
+  ).join('');
+  host.innerHTML = `
+    <button onclick="switchView(this,'gerencia')" class="view-opt-btn" data-view="gerencia">Gerencia General</button>
+    ${directorButtons}`;
 }
 
 function toggleViewPanel() {
@@ -325,6 +333,7 @@ function switchView(buttonEl, role, directorGroup, nameOverride) {
     ...prev,
     role,
     directorGroup: directorGroup||null,
+    group: role === 'director' ? null : prev.group,
     name: viewName,
     _realName: realName,
     _realEmail: realEmail
@@ -332,11 +341,11 @@ function switchView(buttonEl, role, directorGroup, nameOverride) {
   applyRoleTabs();
   // Update role badge
   const rb = document.getElementById('user-role-badge');
-  const roleLabels = {gerencia:'Gerencia',director:'Director',ejecutivo:'Ejecutivo',sales_support:'Sales Support'};
+  const roleLabels = {gerencia:'Gerencia',director:'Director',ejecutivo:'Ejecutivo',sales_support:'Sales Support',sales_support_comercial:'Sales Support · Comercial'};
   let tail = '';
   if(role === 'director' && directorGroup) tail = ' · '+directorGroup.split(' ')[0];
   if(role === 'ejecutivo' && viewName) tail = ' · '+viewName.split(' ')[0];
-  if(role === 'sales_support' && viewName) tail = ' · '+viewName.split(' ')[0];
+  if((role === 'sales_support' || role === 'sales_support_comercial') && viewName) tail = ' · '+viewName.split(' ')[0];
   if(rb) rb.textContent = (roleLabels[role]||role) + tail + ' ⚙';
   // Highlight active button
   document.querySelectorAll('.view-opt-btn').forEach(b => b.classList.remove('active'));
