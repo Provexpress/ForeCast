@@ -899,31 +899,14 @@ function getFinanceGoalKey(period){
 }
 
 function readFinanceGoal(period){
-  return FINANCE_STATE.goal || 0;
+  const str = localStorage.getItem('fc_finance_goal_'+period);
+  return str ? Number(str) : (FINANCE_STATE.goal || 0);
 }
 
-async function writeFinanceGoal(period, value){
+function writeFinanceGoal(period, value){
   const numValue = Math.max(0, parseFloat(value) || 0);
   FINANCE_STATE.goal = numValue;
-  
-  const host = window.location.hostname;
-  const baseUrl = host.endsWith('.vercel.app') || host === 'localhost' || host === '127.0.0.1'
-    ? ''
-    : 'https://tableros-area-financiera.vercel.app';
-    
-  try {
-    const response = await fetch(`${baseUrl}/api/finance-goal`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ period, goal: numValue })
-    });
-    const resData = await response.json().catch(() => ({}));
-    if(!response.ok || !resData.ok) {
-      console.error('Error guardando la meta en el servidor:', resData.error || response.statusText);
-    }
-  } catch(e) {
-    console.error('Error de conexión al guardar la meta:', e);
-  }
+  localStorage.setItem('fc_finance_goal_'+period, numValue);
 }
 
 function ensureFinanceStateDefaults(){
@@ -1173,17 +1156,27 @@ function summarizeFinanceDocuments(documents, range, sourceInfo){
 }
 
 async function requestFinanceSummaryFromApi(params){
-  const host = window.location.hostname;
-  const baseUrl = host.endsWith('.vercel.app') || host === 'localhost' || host === '127.0.0.1'
-    ? ''
-    : 'https://tableros-area-financiera.vercel.app';
-  
-  const response = await fetch(`${baseUrl}/api/finance-summary?${params.toString()}`, { cache: 'no-store' });
-  const payload = await response.json().catch(() => ({}));
-  if(!response.ok || !payload.ok) {
-    throw new Error(payload.error || `HTTP ${response.status}`);
+  const response = await fetch('https://tableros-area-financiera.vercel.app/_cache/ventas-pbi.json', { cache: 'no-store' });
+  const rawPayload = await response.json().catch(() => ({}));
+  if(!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
   }
-  return payload;
+  
+  const cachePayload = extractFinanceCachePayload(rawPayload);
+  const rows = normalizeFinanceCachedRows(cachePayload.rows);
+  const range = {
+    period: params.get('period'),
+    startDate: params.get('startDate'),
+    endDate: params.get('endDate')
+  };
+  
+  const summary = summarizeFinanceDocuments(rows, range, {
+    source: cachePayload.source || 'cache-json',
+    sourceName: 'Cache PBI',
+    generatedAt: cachePayload.generatedAt
+  });
+  
+  return summary;
 }
 
 async function loadFinanceSummary(force){
@@ -1205,8 +1198,8 @@ async function loadFinanceSummary(force){
     
     const payload = await requestFinanceSummaryFromApi(params);
     
-    // Almacenar la meta cargada desde el servidor
-    FINANCE_STATE.goal = payload.goal || 0;
+    // Almacenar la meta cargada localmente
+    FINANCE_STATE.goal = readFinanceGoal(FINANCE_STATE.period);
     FINANCE_STATE.data = payload;
   } catch(error) {
     FINANCE_STATE.error = error instanceof Error ? error.message : 'No fue posible cargar el resumen financiero.';
