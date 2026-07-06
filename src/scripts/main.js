@@ -25,7 +25,8 @@ let FINANCE_STATE = {
 };
 let FORECAST_CONNECTIONS_LIST_ID = null;
 let FORECAST_CONNECTIONS = { byEmail: {}, byName: {} };
-let GERENCIA_CROSSFILTERS = { estado:'', director:'', ejecutivo:'', linea:'' };
+let GERENCIA_CROSSFILTERS = { mes:'', estado:'', director:'', ejecutivo:'', linea:'' };
+let GERENCIA_MONTH_INITIALIZED = false;
 let EXCELJS_EXPORT_LOAD_PROMISE = null;
 let VISUAL_CROSSFILTERS = {
   ejecutivo: { linea:'' },
@@ -48,6 +49,7 @@ const GERENCIA_ESTADO_COLORS = {
   PERDIDA: '#2D4FD6',
   APLAZADO: '#E84040'
 };
+const GERENCIA_ESTADO_FALLBACK_COLOR = '#8A9ACC';
 const GERENCIA_COMITE_THRESHOLD_COP = 1000000000;
 const GERENCIA_EXCEL_DETAIL_COLS = 21;
 const DIVISAS_DETAIL_STEP = 10;
@@ -1606,6 +1608,7 @@ const LINE_NAME_ALIASES = {
   tecnolgia: 'TECNOLOGIA',
   tcnologia: 'TECNOLOGIA'
 };
+const LINE_CATEGORY_ONLY_KEYS = new Set(['servicio','servicios']);
 
 function normalizeLineName(value){
   const raw = cleanDisplayText(value, '');
@@ -1616,6 +1619,7 @@ function normalizeLineName(value){
     .trim()
     .toUpperCase();
   const aliasKey = normalizeCategoryValue(display);
+  if(LINE_CATEGORY_ONLY_KEYS.has(aliasKey)) return '';
   return LINE_NAME_ALIASES[aliasKey] || display;
 }
 
@@ -1855,6 +1859,27 @@ function normalizeEstado(v){
   if(s === 'PERDIDO' || s === 'PEDIDA') return 'PERDIDA';
   if(s === 'APLAZADA') return 'APLAZADO';
   return s;
+}
+
+function getGerenciaEstadoValue(row){
+  return normalizeEstado(row && row['ESTADO']) || 'SIN ESTADO';
+}
+
+function getGerenciaEstadoRank(estado){
+  const idx = GERENCIA_ESTADOS.indexOf(estado);
+  return idx >= 0 ? idx : GERENCIA_ESTADOS.length;
+}
+
+function getGerenciaEstadoColor(estado){
+  return GERENCIA_ESTADO_COLORS[estado] || GERENCIA_ESTADO_FALLBACK_COLOR;
+}
+
+function getGerenciaEstadosForRows(rows){
+  const present = [...new Set((rows || []).map(getGerenciaEstadoValue))].filter(Boolean);
+  const extras = present
+    .filter(estado => !GERENCIA_ESTADOS.includes(estado))
+    .sort((a,b) => a.localeCompare(b, 'es'));
+  return [...GERENCIA_ESTADOS, ...extras];
 }
 
 function getEstadoBadgeClass(value){
@@ -2214,6 +2239,10 @@ function getMonthLongLabel(monthKey){
   return idx >= 0 ? MONTH_LABELS_LONG[idx] : monthKey;
 }
 
+function getCurrentForecastMonth(){
+  return getBogotaDateKey().slice(0,7);
+}
+
 function syncMonthSelectOptions(selectId, months){
   const sel = document.getElementById(selectId);
   if(!sel) return '';
@@ -2226,16 +2255,34 @@ function syncMonthSelectOptions(selectId, months){
   return sel.value;
 }
 
+function syncGerenciaMonthFilter(rows){
+  const sel = document.getElementById('sel-gerencia-mes');
+  const months = getForecastMonths(rows || getVisibleData());
+  if(!GERENCIA_MONTH_INITIALIZED) {
+    const currentMonth = getCurrentForecastMonth();
+    GERENCIA_CROSSFILTERS.mes = months.includes(currentMonth) ? currentMonth : '';
+    GERENCIA_MONTH_INITIALIZED = true;
+  }
+  if(!sel) return GERENCIA_CROSSFILTERS.mes || '';
+  const current = GERENCIA_CROSSFILTERS.mes || '';
+  sel.innerHTML = optionHtml('', 'Todos los meses', false) + buildOptionList(months, {
+    getLabel: month => `${getMonthLongLabel(month)} ${String(month).slice(0,4)}`
+  });
+  sel.value = current && months.includes(current) ? current : '';
+  GERENCIA_CROSSFILTERS.mes = sel.value;
+  return sel.value;
+}
+
 function refreshForecastMonthFilters(){
   const months = getForecastMonths(getVisibleData());
+  syncGerenciaMonthFilter(getVisibleData());
   syncMonthSelectOptions('sel-dir-mes', months);
   syncMonthSelectOptions('sel-ej-mes', months);
 }
 
 /* Today string */
 function todayStr(){
-  const n = new Date();
-  return n.toISOString().substring(0,10);
+  return getBogotaDateKey();
 }
 
 /* ══════════════════════════════════════
@@ -2369,12 +2416,21 @@ function hasGerenciaCrossfilters(){
 function applyGerenciaCrossfilters(rows){
   const f = GERENCIA_CROSSFILTERS;
   return (rows || []).filter(row => {
-    if(f.estado && cleanDisplayText(row['ESTADO'],'').toUpperCase() !== f.estado) return false;
+    if(f.mes && getMonth(getRowDateValue(row)) !== f.mes) return false;
+    if(f.estado && getGerenciaEstadoValue(row) !== f.estado) return false;
     if(f.director && normalizePersonName(row['DIRECTOR']) !== normalizePersonName(f.director)) return false;
     if(f.ejecutivo && !namesMatch(row['COMERCIAL'] || '', f.ejecutivo)) return false;
     if(f.linea && getRowLineName(row) !== f.linea) return false;
     return true;
   });
+}
+
+function setGerenciaMonthFilter(value){
+  const selected = String(value || '').trim();
+  GERENCIA_MONTH_INITIALIZED = true;
+  GERENCIA_CROSSFILTERS.mes = /^\d{4}-\d{2}$/.test(selected) ? selected : '';
+  Object.keys(GERENCIA_ESTADO_LIMITS).forEach(estado => { GERENCIA_ESTADO_LIMITS[estado] = 30; });
+  renderGerencia();
 }
 
 function setGerenciaCrossfilter(type, value){
@@ -2388,15 +2444,22 @@ function clearGerenciaCrossfilter(type){
   if(type && Object.prototype.hasOwnProperty.call(GERENCIA_CROSSFILTERS, type)) {
     GERENCIA_CROSSFILTERS[type] = '';
   } else {
-    GERENCIA_CROSSFILTERS = { estado:'', director:'', ejecutivo:'', linea:'' };
+    GERENCIA_CROSSFILTERS = { mes:'', estado:'', director:'', ejecutivo:'', linea:'' };
+    GERENCIA_MONTH_INITIALIZED = true;
   }
   renderGerencia();
+}
+
+function formatGerenciaFilterValue(key, value){
+  if(key === 'mes') return `${getMonthLongLabel(value)} ${String(value).slice(0,4)}`;
+  return value;
 }
 
 function renderGerenciaCrossfilterBar(totalRows, visibleRows){
   const el = document.getElementById('gerencia-crossfilters');
   if(!el) return;
   const labels = [
+    ['mes','Mes'],
     ['estado','Estado'],
     ['director','Director'],
     ['ejecutivo','Ejecutivo'],
@@ -2405,7 +2468,7 @@ function renderGerenciaCrossfilterBar(totalRows, visibleRows){
   const chips = labels
     .filter(([key]) => GERENCIA_CROSSFILTERS[key])
     .map(([key,label]) => `<button type="button" class="crossfilter-chip" onclick="${escAttr(jsCall('clearGerenciaCrossfilter', key))}" title="Quitar filtro ${escAttr(label)}">
-      <span>${escHtml(label)}</span>${escHtml(GERENCIA_CROSSFILTERS[key])}<strong>×</strong>
+      <span>${escHtml(label)}</span>${escHtml(formatGerenciaFilterValue(key, GERENCIA_CROSSFILTERS[key]))}<strong>×</strong>
     </button>`)
     .join('');
   if(!chips) {
@@ -3281,19 +3344,31 @@ function renderEvoChart(containerId, dataByDir, months, opts){
 function renderGerencia(){
   const BASE_DATA = getVisibleData();
   if(!BASE_DATA.length) return;
+  syncGerenciaMonthFilter(BASE_DATA);
   const ALL_DATA = applyGerenciaCrossfilters(BASE_DATA);
   renderGerenciaCrossfilterBar(BASE_DATA.length, ALL_DATA.length);
   const trm=getTRM();
   const today=todayStr();
+  const activeMonth = GERENCIA_CROSSFILTERS.mes || '';
+  const currentMonth = getCurrentForecastMonth();
+  const showMonthStrip = activeMonth && activeMonth !== currentMonth;
   
   // Hoy strip
-  const hoy=ALL_DATA.filter(r=>{
+  const hoy=showMonthStrip ? ALL_DATA : ALL_DATA.filter(r=>{
     const f=r['FECHA DIA/MES/AÑO'];
     if(!f) return false;
     const d=f instanceof Date?f.toISOString().substring(0,10):(typeof f==='number'?new Date(Math.round((f-25569)*86400*1000)).toISOString().substring(0,10):String(f)).substring(0,10);
     return d===today;
   });
-  document.getElementById('hoy-fecha').textContent=new Date().toLocaleDateString('es-CO',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const mainLabel = document.getElementById('hoy-main-label');
+  const countLabel = document.getElementById('hoy-count-label');
+  const usdLabel = document.getElementById('hoy-usd-label');
+  if(mainLabel) mainLabel.textContent = showMonthStrip ? 'Total del mes' : '📅 Monto del Día';
+  if(countLabel) countLabel.textContent = showMonthStrip ? 'Negocios del mes' : 'Negocios HOY';
+  if(usdLabel) usdLabel.textContent = showMonthStrip ? 'USD mes (liquidado)' : 'USD Hoy (liquidado)';
+  document.getElementById('hoy-fecha').textContent=showMonthStrip
+    ? `${getMonthLongLabel(activeMonth)} ${String(activeMonth).slice(0,4)}`
+    : new Date().toLocaleDateString('es-CO',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const hoyCOP=hoy.filter(r=>(r['MONEDA 2']||'').trim()==='COP').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   const hoyUSD=hoy.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   document.getElementById('hoy-cop').textContent=fmtCOP(hoyCOP);
@@ -3305,7 +3380,7 @@ function renderGerencia(){
   const totalCOP=ALL_DATA.reduce((s,r)=>s+toCOP(r),0);
   const totalUSD=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   const totalCOPonly=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='COP').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
-  const ganadas=ALL_DATA.filter(r=>r['ESTADO']==='GANADA');
+  const ganadas=ALL_DATA.filter(r=>getGerenciaEstadoValue(r)==='GANADA');
   const totalGanada=ganadas.reduce((s,r)=>s+toCOP(r),0);
   
   document.getElementById('kpi-gerencia').innerHTML=`
@@ -3375,8 +3450,8 @@ function renderGerencia(){
   });
   
   // Donuts
-  const estados=['GANADA','PENDIENTE','PERDIDA','APLAZADO'];
-  const estData=estados.map(e=>({name:e,val:ALL_DATA.filter(r=>r['ESTADO']===e).reduce((s,r)=>s+toCOP(r),0)}));
+  const estados=getGerenciaEstadosForRows(ALL_DATA);
+  const estData=estados.map(e=>({name:e,val:ALL_DATA.filter(r=>getGerenciaEstadoValue(r)===e).reduce((s,r)=>s+toCOP(r),0)}));
   renderDonut('donut-estado','leg-estado',estData,{
     hasActive: Boolean(GERENCIA_CROSSFILTERS.estado),
     getOnClick: item => jsCall('setGerenciaCrossfilter', 'estado', item.name),
@@ -3401,19 +3476,19 @@ function renderGerencia(){
 function renderGerenciaEstadoTables(data) {
   const el = document.getElementById('gerencia-estado-tables');
   if(!el) return;
-  const estados = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'];
-  const colores = {GANADA:'#0DBF82',PENDIENTE:'#F0A020',PERDIDA:'#2D4FD6',APLAZADO:'#E84040'};
+  const estados = getGerenciaEstadosForRows(data);
 
   el.innerHTML = estados.map(estado => {
+    const color = getGerenciaEstadoColor(estado);
     const rows = data
-      .filter(r => cleanDisplayText(r['ESTADO'], '').toUpperCase() === estado)
+      .filter(r => getGerenciaEstadoValue(r) === estado)
       .sort((a,b) => toCOP(b) - toCOP(a));
     const total = rows.reduce((s,r) => s + toCOP(r), 0);
     const visible = GERENCIA_ESTADO_LIMITS[estado] || 30;
 
     if(!rows.length) return `
-      <div class="estado-card estado-card-empty" style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${colores[estado]};border-radius:12px;padding:16px">
-        <div style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:${colores[estado]};margin-bottom:6px">${estado}</div>
+      <div class="estado-card estado-card-empty" style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${color};border-radius:12px;padding:16px">
+        <div style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:${color};margin-bottom:6px">${escHtml(estado)}</div>
         <div style="font-size:11px;color:var(--text3)">Sin registros</div>
       </div>`;
 
@@ -3428,21 +3503,21 @@ function renderGerenciaEstadoTables(data) {
           <td style="padding:5px 8px;font-size:10px;color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(cliente)}">${escHtml(cliente)}</td>
           <td style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap">${escHtml(comercial)}</td>
           <td style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:500;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis" title="${escAttr(linea)}">${escHtml(linea)}</td>
-          <td style="padding:5px 8px;font-size:10px;color:${colores[estado]};text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap">${abr(valor)}</td>
+          <td style="padding:5px 8px;font-size:10px;color:${color};text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap">${abr(valor)}</td>
         </tr>`;
     }).join('');
 
     const remaining = Math.max(rows.length - visible, 0);
     const more = remaining > 0 ? `
       <div class="table-more-wrap">
-        <button type="button" class="table-more-btn" onclick="showMoreEstadoRows('${estado}')">Ver mas (${remaining})</button>
+        <button type="button" class="table-more-btn" onclick="${escAttr(jsCall('showMoreEstadoRows', estado))}">Ver mas (${remaining})</button>
       </div>` : '';
 
     return `
-      <div class="estado-card" style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${colores[estado]};border-radius:12px;overflow:hidden">
+      <div class="estado-card" style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${color};border-radius:12px;overflow:hidden">
         <div class="estado-card-head" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">
           <div>
-            <span style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:${colores[estado]}">${estado}</span>
+            <span style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:${color}">${escHtml(estado)}</span>
             <span style="font-size:9px;color:var(--text3);margin-left:8px;font-family:var(--font-body)">${rows.length} negocio${rows.length!==1?'s':''}</span>
           </div>
           <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--text)">${abr(total)}</span>
@@ -3461,7 +3536,7 @@ function renderGerenciaEstadoTables(data) {
             <tfoot style="background:var(--bg2);border-top:1px solid var(--border)">
               <tr>
                 <td colspan="3" style="padding:6px 8px;font-size:9px;font-family:var(--font-display);color:var(--text);font-weight:700">TOTAL ${rows.length} NEGOCIOS</td>
-                <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:var(--font-mono);color:${colores[estado]};font-weight:700">${abr(total)}</td>
+                <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:var(--font-mono);color:${color};font-weight:700">${abr(total)}</td>
               </tr>
             </tfoot>
           </table>
@@ -3493,6 +3568,30 @@ function excelSafeSheetName(name){
   return (clean || 'Hoja').substring(0, 31);
 }
 
+function excelUniqueSheetName(workbook, preferredName){
+  const used = new Set((workbook.worksheets || []).map(ws => ws.name));
+  const base = excelSafeSheetName(preferredName || 'Hoja').substring(0, 28) || 'Hoja';
+  let candidate = excelSafeSheetName(base);
+  let index = 2;
+  while(used.has(candidate)){
+    const suffix = ` ${index}`;
+    candidate = excelSafeSheetName(base.substring(0, 31 - suffix.length) + suffix);
+    index += 1;
+  }
+  return candidate;
+}
+
+function excelSafeTableName(name){
+  const clean = String(name || 'Tabla')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^([^A-Za-z_])/, 'T_$1')
+    .replace(/^_+$/, 'Tabla')
+    .substring(0, 200);
+  return clean || 'Tabla';
+}
+
 function excelSafeText(value, fallback){
   const text = cleanDisplayText(value, fallback || '');
   if(!text) return '';
@@ -3516,10 +3615,9 @@ function excelMoneyFormat(moneda, withDecimals){
 
 function getGerenciaEstadoExportData(){
   return applyGerenciaCrossfilters(getVisibleData())
-    .filter(row => GERENCIA_ESTADOS.includes(cleanDisplayText(row['ESTADO'], '').toUpperCase()))
     .sort((a,b) => {
-      const stateA = GERENCIA_ESTADOS.indexOf(cleanDisplayText(a['ESTADO'], '').toUpperCase());
-      const stateB = GERENCIA_ESTADOS.indexOf(cleanDisplayText(b['ESTADO'], '').toUpperCase());
+      const stateA = getGerenciaEstadoRank(getGerenciaEstadoValue(a));
+      const stateB = getGerenciaEstadoRank(getGerenciaEstadoValue(b));
       if(stateA !== stateB) return stateA - stateB;
       return toCOP(b) - toCOP(a);
     });
@@ -3527,6 +3625,7 @@ function getGerenciaEstadoExportData(){
 
 function getGerenciaEstadoFilterText(){
   const labels = {
+    mes: 'Mes',
     estado: 'Estado',
     director: 'Director',
     ejecutivo: 'Ejecutivo',
@@ -3534,7 +3633,7 @@ function getGerenciaEstadoFilterText(){
   };
   const filters = Object.entries(GERENCIA_CROSSFILTERS || {})
     .filter(([,value]) => value)
-    .map(([key,value]) => `${labels[key] || key}: ${value}`);
+    .map(([key,value]) => `${labels[key] || key}: ${formatGerenciaFilterValue(key, value)}`);
   const role = CURRENT_USER ? getRoleLabel(CURRENT_USER.role) : 'Sin usuario';
   return [`Vista: ${role}`, ...filters].join(' | ') || 'Sin filtros';
 }
@@ -3567,7 +3666,7 @@ function getGerenciaExportRowValues(row){
   const numero = firstFilled(row, ['NUMERO DE COTIZACION']) || getRowPartNumber(row);
 
   return [
-    excelSafeText(cleanDisplayText(row['ESTADO'], 'Sin estado').toUpperCase()),
+    excelSafeText(getGerenciaEstadoValue(row)),
     excelSafeText(getRowClientName(row), 'Sin cliente'),
     excelSafeText(row['DIRECTOR'], 'Sin director'),
     excelSafeText(row['COMERCIAL'], 'Sin ejecutivo'),
@@ -3593,8 +3692,8 @@ function getGerenciaExportRowValues(row){
 
 function getGerenciaEstadoSummaryRows(rows){
   const grandTotal = rows.reduce((sum,row) => sum + toCOP(row), 0);
-  return GERENCIA_ESTADOS.map(estado => {
-    const stateRows = rows.filter(row => cleanDisplayText(row['ESTADO'], '').toUpperCase() === estado);
+  return getGerenciaEstadosForRows(rows).map(estado => {
+    const stateRows = rows.filter(row => getGerenciaEstadoValue(row) === estado);
     const totalCOP = stateRows.reduce((sum,row) => sum + toCOP(row), 0);
     const totalUSD = stateRows
       .filter(row => cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
@@ -3616,7 +3715,7 @@ function getGerenciaDirectorSummaryRows(rows){
       .filter(row => cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
       .reduce((sum,row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
     const counts = GERENCIA_ESTADOS.reduce((acc, estado) => {
-      acc[estado] = directorRows.filter(row => cleanDisplayText(row['ESTADO'], '').toUpperCase() === estado).length;
+      acc[estado] = directorRows.filter(row => getGerenciaEstadoValue(row) === estado).length;
       return acc;
     }, {});
     return [
@@ -3755,7 +3854,7 @@ function styleExcelTable(ws, startRow, rowCount, colCount, options){
   if(opts.statusColumn){
     for(let rowNumber = startRow + 1; rowNumber <= startRow + rowCount; rowNumber++){
       const statusCell = ws.getCell(rowNumber, opts.statusColumn);
-      const color = GERENCIA_ESTADO_COLORS[String(statusCell.value || '').toUpperCase()];
+      const color = getGerenciaEstadoColor(String(statusCell.value || '').toUpperCase());
       if(color){
         statusCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: excelArgb(color) } };
         statusCell.font = { name:'Aptos', size:9, bold:true, color:{ argb:'FFFFFFFF' } };
@@ -3894,7 +3993,7 @@ function addResumenExcelSheet(workbook, rows){
     statusColumn: 1,
     rightColumns: [2,3,4,5,6]
   });
-  for(let rowNumber = 10; rowNumber <= 14; rowNumber++){
+  for(let rowNumber = 10; rowNumber <= 10 + summaryRows.length; rowNumber++){
     ws.getCell(rowNumber, 2).numFmt = '#,##0';
     ws.getCell(rowNumber, 3).numFmt = excelMoneyFormat('COP', false);
     ws.getCell(rowNumber, 4).numFmt = excelMoneyFormat('USD', false);
@@ -3902,7 +4001,7 @@ function addResumenExcelSheet(workbook, rows){
     ws.getCell(rowNumber, 6).numFmt = '0.##%';
   }
 
-  const directorStart = 17;
+  const directorStart = summaryRows.length + 13;
   styleExcelSectionLabel(ws, directorStart - 1, 'Resumen por director', 8);
   const directorColumns = [
     { name:'Director', totalsRowLabel:'Total' },
@@ -3953,7 +4052,7 @@ function addEstadoExcelSheet(workbook, estado, rows){
     ws.getRow(6).height = 24;
     return;
   }
-  addDetailExcelTable(ws, rows, `Detalle${estado}`, 6);
+  addDetailExcelTable(ws, rows, excelSafeTableName(`Detalle_${estado}`), 6);
 }
 
 function addDetalleGeneralExcelSheet(workbook, rows){
@@ -4012,10 +4111,137 @@ function buildGerenciaEstadoWorkbook(rows){
   addResumenExcelSheet(workbook, rows);
   addComiteGerenciaExcelSheet(workbook, rows);
   addDetalleGeneralExcelSheet(workbook, rows);
-  GERENCIA_ESTADOS.forEach(estado => {
-    const stateRows = rows.filter(row => cleanDisplayText(row['ESTADO'], '').toUpperCase() === estado);
+  getGerenciaEstadosForRows(rows).forEach(estado => {
+    const stateRows = rows.filter(row => getGerenciaEstadoValue(row) === estado);
     addEstadoExcelSheet(workbook, estado, stateRows);
   });
+  return workbook;
+}
+
+function getGerenciaExecutiveForecastExportData(){
+  return applyGerenciaCrossfilters(getVisibleData())
+    .sort((a,b) => {
+      const execA = cleanDisplayText(a['COMERCIAL'], 'Sin ejecutivo');
+      const execB = cleanDisplayText(b['COMERCIAL'], 'Sin ejecutivo');
+      const dirA = cleanDisplayText(a['DIRECTOR'], 'Sin director');
+      const dirB = cleanDisplayText(b['DIRECTOR'], 'Sin director');
+      const dateA = formatDateValue(getRowDateValue(a));
+      const dateB = formatDateValue(getRowDateValue(b));
+      return execA.localeCompare(execB, 'es', { sensitivity:'base' })
+        || dirA.localeCompare(dirB, 'es', { sensitivity:'base' })
+        || dateA.localeCompare(dateB)
+        || toCOP(b) - toCOP(a);
+    });
+}
+
+function getGerenciaExecutiveSummaryRows(rows){
+  const executives = [...new Set((rows || []).map(row => cleanDisplayText(row['COMERCIAL'], 'Sin ejecutivo')))].sort((a,b) =>
+    a.localeCompare(b, 'es', { sensitivity:'base' })
+  );
+  return executives.map(executive => {
+    const execRows = rows.filter(row => cleanDisplayText(row['COMERCIAL'], 'Sin ejecutivo') === executive);
+    const director = getTopGroupedLabel(execRows, row => cleanDisplayText(row['DIRECTOR'], 'Sin director'), 'Sin director');
+    const totalCOP = execRows.reduce((sum,row) => sum + toCOP(row), 0);
+    const totalUSD = execRows
+      .filter(row => cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
+      .reduce((sum,row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
+    const counts = GERENCIA_ESTADOS.reduce((acc, estado) => {
+      acc[estado] = execRows.filter(row => getGerenciaEstadoValue(row) === estado).length;
+      return acc;
+    }, {});
+    const otherStates = execRows.filter(row => !GERENCIA_ESTADOS.includes(getGerenciaEstadoValue(row))).length;
+    return [
+      executive,
+      director,
+      execRows.length,
+      totalCOP,
+      totalUSD,
+      counts.GANADA,
+      counts.PENDIENTE,
+      counts.PERDIDA,
+      counts.APLAZADO,
+      otherStates,
+      getTopGroupedLabel(execRows, row => getRowLineName(row), 'Sin linea') || 'Sin linea'
+    ];
+  }).sort((a,b) => b[3] - a[3]);
+}
+
+function addExecutiveForecastSummarySheet(workbook, rows){
+  const ws = workbook.addWorksheet('Resumen Ejecutivos');
+  setupExcelWorksheet(ws, 11, 9);
+  styleExcelTitle(
+    ws,
+    'Forecast 2026 - Forecast por ejecutivo',
+    `Generado: ${getBogotaTimestampLabel()} | Registros exportados: ${rows.length}`,
+    getGerenciaEstadoFilterText(),
+    11
+  );
+  styleExcelKpis(ws, rows);
+  styleExcelSectionLabel(ws, 8, 'Resumen por ejecutivo', 11);
+  const columns = [
+    { name:'Ejecutivo', totalsRowLabel:'Total' },
+    { name:'Director' },
+    { name:'Negocios', totalsRowFunction:'sum' },
+    { name:'Total COP', totalsRowFunction:'sum' },
+    { name:'Total USD original', totalsRowFunction:'sum' },
+    { name:'Ganada', totalsRowFunction:'sum' },
+    { name:'Pendiente', totalsRowFunction:'sum' },
+    { name:'Perdida', totalsRowFunction:'sum' },
+    { name:'Aplazado', totalsRowFunction:'sum' },
+    { name:'Otros estados', totalsRowFunction:'sum' },
+    { name:'Top linea' }
+  ];
+  const summaryRows = getGerenciaExecutiveSummaryRows(rows);
+  [28,24,12,18,18,11,12,11,11,13,20].forEach((width, idx) => { ws.getColumn(idx + 1).width = width; });
+  addExcelTable(ws, {
+    name: 'ResumenEjecutivos',
+    ref: 'A9',
+    columns,
+    rows: summaryRows,
+    theme: 'TableStyleMedium9'
+  });
+  styleExcelTable(ws, 9, summaryRows.length, columns.length, {
+    rightColumns: [3,4,5,6,7,8,9,10]
+  });
+  for(let rowNumber = 10; rowNumber <= 10 + summaryRows.length; rowNumber++){
+    ws.getCell(rowNumber, 3).numFmt = '#,##0';
+    ws.getCell(rowNumber, 4).numFmt = excelMoneyFormat('COP', false);
+    ws.getCell(rowNumber, 5).numFmt = excelMoneyFormat('USD', false);
+    [6,7,8,9,10].forEach(col => { ws.getCell(rowNumber, col).numFmt = '#,##0'; });
+  }
+}
+
+function addExecutiveForecastDetailSheets(workbook, rows){
+  const executives = getGerenciaExecutiveSummaryRows(rows).map(row => row[0]);
+  executives.forEach((executive, index) => {
+    const execRows = rows
+      .filter(row => cleanDisplayText(row['COMERCIAL'], 'Sin ejecutivo') === executive)
+      .sort((a,b) => toCOP(b) - toCOP(a));
+    const ws = workbook.addWorksheet(excelUniqueSheetName(workbook, executive));
+    setupExcelWorksheet(ws, GERENCIA_EXCEL_DETAIL_COLS, 6);
+    styleExcelTitle(
+      ws,
+      `Forecast ejecutivo - ${executive}`,
+      `Generado: ${getBogotaTimestampLabel()} | Registros: ${execRows.length}`,
+      getGerenciaEstadoFilterText(),
+      GERENCIA_EXCEL_DETAIL_COLS
+    );
+    addDetailExcelTable(ws, execRows, `ForecastEjecutivo${index + 1}`, 6);
+  });
+}
+
+function buildGerenciaExecutiveForecastWorkbook(rows){
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Forecast 2026 Provexpress';
+  workbook.created = new Date();
+  workbook.modified = new Date();
+  workbook.company = 'Provexpress';
+  workbook.subject = 'Forecast por ejecutivo';
+  workbook.title = 'Forecast 2026 - Forecast por ejecutivo';
+  workbook.calcProperties = { fullCalcOnLoad: true };
+
+  addExecutiveForecastSummarySheet(workbook, rows);
+  addExecutiveForecastDetailSheets(workbook, rows);
   return workbook;
 }
 
@@ -4048,6 +4274,29 @@ function setGerenciaEstadoExportButtonBusy(isBusy){
     : '<span class="export-excel-icon" aria-hidden="true">↓</span><span>Excel</span>';
 }
 
+function setGerenciaExecutiveExportButtonBusy(isBusy){
+  const btn = document.getElementById('btn-export-gerencia-ejecutivos');
+  if(!btn) return;
+  btn.disabled = Boolean(isBusy);
+  btn.innerHTML = isBusy
+    ? '<span class="export-excel-icon" aria-hidden="true">...</span><span>Generando</span>'
+    : '<span class="export-excel-icon" aria-hidden="true">↓</span><span>Forecast ejecutivos</span>';
+}
+
+function downloadWorkbookBuffer(buffer, fileName){
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
 async function downloadGerenciaEstadoExcel(){
   const rows = getGerenciaEstadoExportData();
   if(!rows.length){
@@ -4060,22 +4309,33 @@ async function downloadGerenciaEstadoExcel(){
     await loadExcelJsForExport();
     const workbook = buildGerenciaEstadoWorkbook(rows);
     const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Forecast_Detalle_Negocios_Estado_${getBogotaTimestampForFile()}.xlsx`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    downloadWorkbookBuffer(buffer, `Forecast_Detalle_Negocios_Estado_${getBogotaTimestampForFile()}.xlsx`);
   } catch(error){
     console.error('[EXPORT GERENCIA ESTADO]', error);
     alert('No se pudo generar el Excel. Intenta nuevamente o revisa la consola para mas detalle.');
   } finally {
     setGerenciaEstadoExportButtonBusy(false);
+  }
+}
+
+async function downloadGerenciaExecutiveForecastExcel(){
+  const rows = getGerenciaExecutiveForecastExportData();
+  if(!rows.length){
+    alert('No hay Forecast de ejecutivos para descargar con los filtros actuales.');
+    return;
+  }
+
+  setGerenciaExecutiveExportButtonBusy(true);
+  try{
+    await loadExcelJsForExport();
+    const workbook = buildGerenciaExecutiveForecastWorkbook(rows);
+    const buffer = await workbook.xlsx.writeBuffer();
+    downloadWorkbookBuffer(buffer, `Forecast_Por_Ejecutivo_${getBogotaTimestampForFile()}.xlsx`);
+  } catch(error){
+    console.error('[EXPORT GERENCIA EJECUTIVOS]', error);
+    alert('No se pudo generar el Forecast por ejecutivo. Intenta nuevamente o revisa la consola para mas detalle.');
+  } finally {
+    setGerenciaExecutiveExportButtonBusy(false);
   }
 }
 
@@ -6889,6 +7149,7 @@ window.setFinancePeriod = setFinancePeriod;
 window.setFinanceEndDate = setFinanceEndDate;
 window.saveFinanceGoal = saveFinanceGoal;
 window.loadFinanceSummary = loadFinanceSummary;
+window.setGerenciaMonthFilter = setGerenciaMonthFilter;
 window.setDivisaEstadoFilter = setDivisaEstadoFilter;
 window.showMoreDivisaRows = showMoreDivisaRows;
 window.showMoreMarcasBars = showMoreMarcasBars;
@@ -6899,6 +7160,7 @@ window.renderPreventa = renderPreventa;
 window.setSalesView = setSalesView;
 window.setSalesPendingFilter = setSalesPendingFilter;
 window.renderMarcas = renderMarcas;
+window.downloadGerenciaExecutiveForecastExcel = downloadGerenciaExecutiveForecastExcel;
 window.downloadMarcasLineasExcel = downloadMarcasLineasExcel;
 window.downloadExecutiveExcelMetadataReport = downloadExecutiveExcelMetadataReport;
 window.selectEjecutivo = selectEjecutivo;

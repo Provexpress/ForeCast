@@ -645,6 +645,13 @@ tr:hover td{background:rgba(255,255,255,.025);color:var(--text)}
   font-family:var(--font-display);font-size:11px;font-weight:700;
   letter-spacing:1.5px;color:var(--text2);text-transform:uppercase;
 }
+.gerencia-period-controls{
+  grid-template-columns:minmax(180px,260px);
+  margin:-8px 0 18px;
+}
+.gerencia-export-actions{
+  display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;
+}
 .estado-grid{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;
 }
@@ -811,6 +818,7 @@ tr:hover td{background:rgba(255,255,255,.025);color:var(--text)}
   .sales-subnav-btn{width:100%}
   .gerencia-estado-section{padding:0 0 18px}
   .gerencia-estado-toolbar{align-items:stretch}
+  .gerencia-export-actions{width:100%}
   .export-excel-btn{width:100%}
   .section-export-btn{margin-left:0}
   .metadata-export-btn{width:auto}

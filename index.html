@@ -93,19 +93,19 @@
   <div id="hoy-strip" style="display:none">
     <div class="hoy-strip">
       <div>
-        <div class="hoy-label">📅 Monto del Día — <span id="hoy-fecha"></span></div>
+        <div class="hoy-label"><span id="hoy-main-label">📅 Monto del Día</span> — <span id="hoy-fecha"></span></div>
         <div class="hoy-val" id="hoy-cop">$ —</div>
         <div class="hoy-badge"><div class="hoy-dot" style="background:var(--cop-color)"></div>COP</div>
       </div>
       <div class="hoy-sep"></div>
       <div>
-        <div class="hoy-label">Negocios HOY</div>
+        <div class="hoy-label" id="hoy-count-label">Negocios HOY</div>
         <div class="hoy-val" id="hoy-count" style="font-size:22px">—</div>
         <div class="hoy-badge"><div class="hoy-dot" style="background:var(--corp-green)"></div>Registros</div>
       </div>
       <div class="hoy-sep"></div>
       <div>
-        <div class="hoy-label">USD Hoy (liquidado)</div>
+        <div class="hoy-label" id="hoy-usd-label">USD Hoy (liquidado)</div>
         <div class="hoy-val" id="hoy-usd" style="font-size:20px">$ —</div>
         <div class="hoy-badge"><div class="hoy-dot" style="background:var(--usd-color)"></div>USD → COP</div>
       </div>
@@ -120,6 +120,15 @@
 
   <div id="gerencia-content" style="display:none">
     <div class="section-hd"><h2>Visión General</h2><span class="section-tag">TODOS LOS DIRECTORES</span></div>
+
+    <div class="filters gerencia-period-controls">
+      <div class="filter-group">
+        <div class="filter-label">Mes gerencia</div>
+        <select id="sel-gerencia-mes" onchange="setGerenciaMonthFilter(this.value)">
+          <option value="">Todos los meses</option>
+        </select>
+      </div>
+    </div>
     
     <!-- KPIs -->
     <div class="kpi-grid kpi-grid-5" id="kpi-gerencia"></div>
@@ -165,10 +174,16 @@
   <div class="gerencia-estado-section">
     <div class="gerencia-estado-toolbar">
       <div class="gerencia-estado-title">DETALLE NEGOCIOS POR ESTADO</div>
-      <button id="btn-export-gerencia-estado" class="export-excel-btn" type="button" onclick="downloadGerenciaEstadoExcel()" title="Descargar detalle por estado en Excel">
-        <span class="export-excel-icon" aria-hidden="true">↓</span>
-        <span>Excel</span>
-      </button>
+      <div class="gerencia-export-actions">
+        <button id="btn-export-gerencia-ejecutivos" class="export-excel-btn" type="button" onclick="downloadGerenciaExecutiveForecastExcel()" title="Descargar Forecast por ejecutivo en Excel">
+          <span class="export-excel-icon" aria-hidden="true">↓</span>
+          <span>Forecast ejecutivos</span>
+        </button>
+        <button id="btn-export-gerencia-estado" class="export-excel-btn" type="button" onclick="downloadGerenciaEstadoExcel()" title="Descargar detalle por estado en Excel">
+          <span class="export-excel-icon" aria-hidden="true">↓</span>
+          <span>Excel</span>
+        </button>
+      </div>
     </div>
     <div class="estado-grid" id="gerencia-estado-tables"></div>
   </div>
