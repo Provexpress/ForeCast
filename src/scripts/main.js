@@ -2031,8 +2031,13 @@ function cleanNameSegment(value){
 }
 
 function normalizeDirectorName(value){
-  const normalized = normalizePersonName(value);
+  let normalized = normalizePersonName(value);
   if(!normalized) return '';
+  
+  if(normalized === 'maria angelica caballero' || normalized === 'maria angelica') {
+    normalized = 'angelica caballero';
+  }
+
   return normalized
     .split(' ')
     .filter(Boolean)

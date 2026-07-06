@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Forecast 2026 · Provexpress</title>
+<title>Forecast 2026 Â· Provexpress</title>
 <link rel="icon" type="image/png" href="src/icono-provexpress.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
@@ -11,8 +11,8 @@
 <link rel="stylesheet" href="src/styles/main.css?v=20260706-ejecutivo1">
 
 <!-- Microsoft Authentication Library -->
-<script src="src/config/estructura-comercial-2026.js?v=20260706-redist2"></script>
-<script src="src/scripts/auth.js?v=20260706-redist2"></script>
+<script src="src/config/estructura-comercial-2026.js?v=20260706-redist3"></script>
+<script src="src/scripts/auth.js?v=20260706-redist3"></script>
 
 </head>
 <body>
@@ -30,10 +30,10 @@
 
   <div class="trm-bar">
     <div class="trm-pill">
-      <span class="trm-label">TRM Día</span>
+      <span class="trm-label">TRM DÃ­a</span>
       <div class="trm-input-wrap">
         <span style="font-size:11px;color:var(--text2)">$</span>
-        <input class="trm-input" id="trm-input" type="number" value="" placeholder="—" step="0.01" min="1000" inputmode="decimal">
+        <input class="trm-input" id="trm-input" type="number" value="" placeholder="â€”" step="0.01" min="1000" inputmode="decimal">
       </div>
       <span class="trm-label" style="margin-left:2px">COP/USD</span>
     </div>
@@ -46,13 +46,13 @@
     </div>
     <div id="user-badge" style="display:none;align-items:center;gap:8px;padding:5px 12px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid var(--border);position:relative">
       <div id="user-avatar" style="width:26px;height:26px;border-radius:50%;background:var(--corp-blue2);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:10px;font-weight:700;color:#fff"></div>
-      <button id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleAppTheme()" type="button" title="Cambiar tema" aria-label="Cambiar tema">☾</button>
+      <button id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleAppTheme()" type="button" title="Cambiar tema" aria-label="Cambiar tema">â˜¾</button>
       <div>
         <div id="user-name" style="font-size:10px;font-family:var(--font-display);font-weight:700;color:var(--text)"></div>
         <div id="user-role-badge" style="font-size:9px;color:var(--text2)"></div>
       </div>
-      <!-- Botón de vista -->
-      <button id="view-switcher-btn" onclick="toggleViewPanel()" style="display:none;margin-left:4px;background:rgba(107,63,160,.2);border:1px solid rgba(107,63,160,.4);color:var(--corp-purple2);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:12px;transition:var(--transition)" title="Cambiar vista">⚙</button>
+      <!-- BotÃ³n de vista -->
+      <button id="view-switcher-btn" onclick="toggleViewPanel()" style="display:none;margin-left:4px;background:rgba(107,63,160,.2);border:1px solid rgba(107,63,160,.4);color:var(--corp-purple2);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:12px;transition:var(--transition)" title="Cambiar vista">âš™</button>
     </div>
 
     <!-- Panel de cambio de vista -->
@@ -65,53 +65,53 @@
 
 <!-- NAV -->
 <nav>
-  <button id="tab-gerencia" class="nav-btn active" onclick="showPage('gerencia',this)">🏢 Gerencia General</button>
-  <button id="tab-director" class="nav-btn" onclick="showPage('director',this)">👔 Por Director</button>
-  <button id="tab-ejecutivo" class="nav-btn" onclick="showPage('ejecutivo',this)">👤 Por Ejecutivo</button>
-  <button id="tab-sales" class="nav-btn" onclick="showPage('sales',this)">🤝 Sales</button>
+  <button id="tab-gerencia" class="nav-btn active" onclick="showPage('gerencia',this)">ðŸ¢ Gerencia General</button>
+  <button id="tab-director" class="nav-btn" onclick="showPage('director',this)">ðŸ‘” Por Director</button>
+  <button id="tab-ejecutivo" class="nav-btn" onclick="showPage('ejecutivo',this)">ðŸ‘¤ Por Ejecutivo</button>
+  <button id="tab-sales" class="nav-btn" onclick="showPage('sales',this)">ðŸ¤ Sales</button>
   <button id="tab-preventa" class="nav-btn" onclick="showPage('preventa',this)">Preventa</button>
-  <button id="tab-divisas" class="nav-btn" onclick="showPage('divisas',this)">💱 COP / USD</button>
-  <button id="tab-marcas" class="nav-btn" onclick="showPage('marcas',this)">🏷 Marcas & Líneas</button>
-  <button id="tab-resumen" class="nav-btn" onclick="showPage('resumen',this)">📊 Resumen Total</button>
+  <button id="tab-divisas" class="nav-btn" onclick="showPage('divisas',this)">ðŸ’± COP / USD</button>
+  <button id="tab-marcas" class="nav-btn" onclick="showPage('marcas',this)">ðŸ· Marcas & LÃ­neas</button>
+  <button id="tab-resumen" class="nav-btn" onclick="showPage('resumen',this)">ðŸ“Š Resumen Total</button>
   <button id="tab-finanzas" class="nav-btn" onclick="showPage('finanzas',this)">Finanzas</button>
 </nav>
 
 <main class="app">
-<!-- ══════════════════════════════════
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      PAGE: GERENCIA GENERAL
-══════════════════════════════════ -->
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="page active" id="page-gerencia">
-  <!-- Monto del día -->
+  <!-- Monto del dÃ­a -->
   <div id="hoy-strip" style="display:none">
     <div class="hoy-strip">
       <div>
-        <div class="hoy-label"><span id="hoy-main-label">📅 Monto del Día</span> — <span id="hoy-fecha"></span></div>
-        <div class="hoy-val" id="hoy-cop">$ —</div>
+        <div class="hoy-label"><span id="hoy-main-label">ðŸ“… Monto del DÃ­a</span> â€” <span id="hoy-fecha"></span></div>
+        <div class="hoy-val" id="hoy-cop">$ â€”</div>
         <div class="hoy-badge"><div class="hoy-dot" style="background:var(--cop-color)"></div>COP</div>
       </div>
       <div class="hoy-sep"></div>
       <div>
         <div class="hoy-label" id="hoy-count-label">Negocios HOY</div>
-        <div class="hoy-val" id="hoy-count" style="font-size:22px">—</div>
+        <div class="hoy-val" id="hoy-count" style="font-size:22px">â€”</div>
         <div class="hoy-badge"><div class="hoy-dot" style="background:var(--corp-green)"></div>Registros</div>
       </div>
       <div class="hoy-sep"></div>
       <div>
         <div class="hoy-label" id="hoy-usd-label">USD Hoy (liquidado)</div>
-        <div class="hoy-val" id="hoy-usd" style="font-size:20px">$ —</div>
-        <div class="hoy-badge"><div class="hoy-dot" style="background:var(--usd-color)"></div>USD → COP</div>
+        <div class="hoy-val" id="hoy-usd" style="font-size:20px">$ â€”</div>
+        <div class="hoy-badge"><div class="hoy-dot" style="background:var(--usd-color)"></div>USD â†’ COP</div>
       </div>
       <div class="hoy-sep"></div>
       <div>
         <div class="hoy-label">TRM Aplicada</div>
-        <div class="hoy-val" id="hoy-trm" style="font-size:20px;color:var(--corp-cyan)">—</div>
+        <div class="hoy-val" id="hoy-trm" style="font-size:20px;color:var(--corp-cyan)">â€”</div>
         <div class="hoy-badge">COP por USD</div>
       </div>
     </div>
   </div>
 
   <div id="gerencia-content" style="display:none">
-    <div class="section-hd"><h2>Visión General</h2><span class="section-tag">TODOS LOS DIRECTORES</span></div>
+    <div class="section-hd"><h2>VisiÃ³n General</h2><span class="section-tag">TODOS LOS DIRECTORES</span></div>
 
     <div class="filters gerencia-period-controls">
       <div class="filter-group">
@@ -126,15 +126,15 @@
     <div class="kpi-grid kpi-grid-5" id="kpi-gerencia"></div>
     <div id="gerencia-crossfilters" class="crossfilter-bar" aria-live="polite"></div>
 
-    <!-- Evolución mensual por director -->
-    <div class="section-hd" style="margin-top:10px"><h2>Evolución Mensual</h2><span class="section-tag">POR DIRECTOR</span></div>
+    <!-- EvoluciÃ³n mensual por director -->
+    <div class="section-hd" style="margin-top:10px"><h2>EvoluciÃ³n Mensual</h2><span class="section-tag">POR DIRECTOR</span></div>
     <div class="g2b">
       <div class="chart-card">
         <div class="chart-hd">Ventas por Director / Mes <span>en COP (USD liquidado)</span></div>
         <div id="evo-dir-chart"></div>
       </div>
       <div class="chart-card">
-        <div class="chart-hd">Directores — Total COP</div>
+        <div class="chart-hd">Directores â€” Total COP</div>
         <div class="bar-list" id="bar-directores"></div>
       </div>
     </div>
@@ -153,7 +153,7 @@
         </div>
       </div>
       <div class="chart-card">
-        <div class="chart-hd">Top Líneas</div>
+        <div class="chart-hd">Top LÃ­neas</div>
         <div class="donut-wrap">
           <svg id="donut-linea" viewBox="0 0 100 100" style="width:160px;height:160px;flex-shrink:0"></svg>
           <div class="donut-leg" id="leg-linea"></div>
@@ -168,7 +168,7 @@
       <div class="gerencia-estado-title">DETALLE NEGOCIOS POR ESTADO</div>
       <div class="gerencia-export-actions">
         <button id="btn-export-gerencia-estado" class="export-excel-btn" type="button" onclick="downloadGerenciaEstadoExcel()" title="Descargar detalle por estado en Excel">
-          <span class="export-excel-icon" aria-hidden="true">↓</span>
+          <span class="export-excel-icon" aria-hidden="true">â†“</span>
           <span>Excel</span>
         </button>
       </div>
@@ -177,9 +177,9 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      PAGE: POR DIRECTOR
-══════════════════════════════════ -->
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="page" id="page-director">
   <div class="filters">
     <div class="filter-group">
@@ -205,7 +205,7 @@
     <div class="filter-group filter-action">
       <a class="matrix-app-link" href="https://provexpress.github.io/Matriz-Comercial-PX/" target="_blank" rel="noopener">
         <span>Matriz comercial</span>
-        <strong>↗</strong>
+        <strong>â†—</strong>
       </a>
     </div>
   </div>
@@ -213,15 +213,15 @@
   <div id="director-content"></div>
 </div>
 
-<!-- ══════════════════════════════════
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      PAGE: POR EJECUTIVO
-══════════════════════════════════ -->
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="page" id="page-ejecutivo">
   <div class="section-hd">
     <h2>Estado por Persona</h2>
     <span class="section-tag">EJECUTIVOS COMERCIALES</span>
     <button id="btn-export-ejecutivo-excel-meta" class="export-excel-btn metadata-export-btn" type="button" onclick="downloadExecutiveExcelMetadataReport('ejecutivo')" title="Descargar ultima actualizacion de Excel por ejecutivo">
-      <span class="export-excel-icon" aria-hidden="true">↓</span>
+      <span class="export-excel-icon" aria-hidden="true">â†“</span>
       <span>Excel</span>
     </button>
   </div>
@@ -252,9 +252,9 @@
   <div id="ejecutivo-content"></div>
 </div>
 
-<!-- ══════════════════════════════════
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      PAGE: SALES SUPPORT
-══════════════════════════════════ -->
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="page" id="page-sales">
   <div class="section-hd"><h2>Sales Support</h2><span class="section-tag">REPORTE OPERATIVO</span></div>
   <div class="sales-subnav" role="tablist" aria-label="Vista Sales Support">
@@ -339,11 +339,11 @@
   <div id="preventa-content"></div>
 </div>
 
-<!-- ══════════════════════════════════
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      PAGE: DIVISAS
-══════════════════════════════════ -->
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="page" id="page-divisas">
-  <div class="section-hd"><h2>Panel Divisas</h2><span class="section-tag">COP · USD · TRM</span></div>
+  <div class="section-hd"><h2>Panel Divisas</h2><span class="section-tag">COP Â· USD Â· TRM</span></div>
   
   <div class="kpi-grid kpi-grid-5" id="divisas-total-cards" style="margin-bottom:16px"></div>
   <div class="divisas-grid" id="divisas-cards"></div>
@@ -363,31 +363,31 @@
 
   <div class="g2">
     <div class="chart-card">
-      <div class="chart-hd">Negocios COP — Detalle</div>
+      <div class="chart-hd">Negocios COP â€” Detalle</div>
       <div class="tbl-wrap" id="tbl-cop"></div>
     </div>
     <div class="chart-card">
-      <div class="chart-hd">Negocios USD — Detalle <span>valor + liquidado en COP</span></div>
+      <div class="chart-hd">Negocios USD â€” Detalle <span>valor + liquidado en COP</span></div>
       <div class="tbl-wrap" id="tbl-usd"></div>
     </div>
   </div>
 
   <!-- Tabla resumen total -->
   <div class="chart-card g1">
-    <div class="chart-hd">📊 Tabla Resumen Total — COP + USD Liquidado</div>
+    <div class="chart-hd">ðŸ“Š Tabla Resumen Total â€” COP + USD Liquidado</div>
     <div class="tbl-wrap" id="tbl-resumen-divisas"></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     PAGE: MARCAS & LÍNEAS
-══════════════════════════════════ -->
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+     PAGE: MARCAS & LÃNEAS
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="page" id="page-marcas">
   <div class="section-hd">
-    <h2>Marcas & Líneas</h2>
-    <span class="section-tag">TOP POR CATEGORÍA</span>
-    <button id="btn-export-marcas-lineas" class="export-excel-btn section-export-btn" type="button" onclick="downloadMarcasLineasExcel()" title="Descargar marcas y líneas en Excel">
-      <span class="export-excel-icon" aria-hidden="true">↓</span>
+    <h2>Marcas & LÃ­neas</h2>
+    <span class="section-tag">TOP POR CATEGORÃA</span>
+    <button id="btn-export-marcas-lineas" class="export-excel-btn section-export-btn" type="button" onclick="downloadMarcasLineasExcel()" title="Descargar marcas y lÃ­neas en Excel">
+      <span class="export-excel-icon" aria-hidden="true">â†“</span>
       <span>Excel</span>
     </button>
   </div>
@@ -407,7 +407,7 @@
       </div>
     </div>
     <div class="chart-card lineas-donut-card">
-      <div class="chart-hd">% por Línea</div>
+      <div class="chart-hd">% por LÃ­nea</div>
       <div class="donut-wrap">
         <svg id="donut-linea2" viewBox="0 0 100 100" style="width:160px;height:160px;flex-shrink:0"></svg>
         <div class="donut-leg" id="leg-linea2"></div>
@@ -417,7 +417,7 @@
 
   <div class="g2 marcas-support">
     <div class="chart-card lineas-bar-card">
-      <div class="chart-hd">Líneas por Valor</div>
+      <div class="chart-hd">LÃ­neas por Valor</div>
       <div class="bar-list" id="bar-lineas"></div>
     </div>
     <div class="chart-card marca-ej-card">
@@ -434,43 +434,43 @@
 
 </div>
 
-<!-- ══════════════════════════════════
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      PAGE: RESUMEN TOTAL
-══════════════════════════════════ -->
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="page" id="page-resumen">
-  <div class="section-hd"><h2>Resumen Financiero Total</h2><span class="section-tag">COP · USD</span></div>
+  <div class="section-hd"><h2>Resumen Financiero Total</h2><span class="section-tag">COP Â· USD</span></div>
   
   <div class="kpi-grid kpi-grid-3" id="kpi-resumen-top" style="margin-bottom:18px"></div>
 
   <div class="summary-table-title" style="margin-bottom:12px">
-    <span style="font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--cop-color)">💰 TOTAL COP</span>
+    <span style="font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--cop-color)">ðŸ’° TOTAL COP</span>
   </div>
   <div class="chart-card g1">
     <div class="tbl-wrap" id="tbl-total-cop"></div>
   </div>
 
   <div class="summary-table-title" style="margin-top:20px;margin-bottom:12px">
-    <span style="font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--usd-color)">💵 TOTAL USD (con liquidación a COP)</span>
+    <span style="font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--usd-color)">ðŸ’µ TOTAL USD (con liquidaciÃ³n a COP)</span>
   </div>
   <div class="chart-card g1">
     <div class="tbl-wrap" id="tbl-total-usd"></div>
   </div>
 
   <div class="summary-table-title" style="margin-top:20px;margin-bottom:12px">
-    <span style="font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--corp-cyan)">📋 CONSOLIDADO FINAL — COP + USD Liquidado</span>
+    <span style="font-size:10px;font-family:var(--font-display);font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--corp-cyan)">ðŸ“‹ CONSOLIDADO FINAL â€” COP + USD Liquidado</span>
   </div>
   <div class="chart-card g1">
     <div class="tbl-wrap" id="tbl-consolidado"></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      PAGE: FINANZAS
-══════════════════════════════════ -->
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <div class="page" id="page-finanzas">
   <div class="section-hd">
-    <h2>Ejecución financiera</h2>
-    <span class="section-tag">META · API PBI · EXCEL</span>
+    <h2>EjecuciÃ³n financiera</h2>
+    <span class="section-tag">META Â· API PBI Â· EXCEL</span>
   </div>
 
   <div class="finance-shell">
@@ -514,7 +514,7 @@
     </section>
 
     <section class="chart-card">
-      <div class="chart-hd">Utilidad por categoría <span>% utilidad según Excel</span></div>
+      <div class="chart-hd">Utilidad por categorÃ­a <span>% utilidad segÃºn Excel</span></div>
       <div class="tbl-wrap" id="finance-category-table"></div>
     </section>
   </div>
@@ -525,7 +525,7 @@
 <script src="src/scripts/main.js?v=20260706-redist1"></script>
 
 
-<!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->
+<!-- Sin datos precargados â€” cargar carpeta FORECAST 2026 -->
 
 </body>
 </html>
