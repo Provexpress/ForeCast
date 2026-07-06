@@ -1,6 +1,15 @@
 // Fuente unica de estructura comercial y permisos Forecast 2026.
 (function(){
   const ESTRUCTURA_COMERCIAL_2026 = {
+    gerencia: [
+      'juannovoa@provexpress.com.co',
+      'oscar.beltran@provexpress.com.co',
+      'rafael.novoa@provexpress.com.co',
+      'c.estrategica@provexpress.com.co',
+      'maribel.virguez@provexpress.com.co',
+      'especialista.preventa@provexpress.com.co',
+      'preventa.software@provexpress.com.co'
+    ],
     directores: {
       'rafael.novoa@provexpress.com.co': {
         grupo: 1,
@@ -292,6 +301,10 @@
 
   function getRoleByEmail(email){
     const normalized = normalizeEmail(email);
+    const isGerencia = ESTRUCTURA_COMERCIAL_2026.gerencia.includes(normalized);
+    const isDirector = !!ESTRUCTURA_COMERCIAL_2026.directores[normalized];
+    if(isGerencia && isDirector) return 'gerencia_director';
+    if(isGerencia) return 'gerencia';
     if(ESTRUCTURA_COMERCIAL_2026.directores[normalized]) return 'director';
     if(ESTRUCTURA_COMERCIAL_2026.ejecutivos[normalized]) return 'ejecutivo';
     if(ESTRUCTURA_COMERCIAL_2026.salesSupport[normalized]) return 'sales_support';

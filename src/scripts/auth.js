@@ -217,7 +217,7 @@ function getUserRole(email) {
 
 function getConfiguredUserName(email, role){
   const structure = getForecastStructure();
-  if(role === 'director' && structure.getDirectorByEmail) {
+  if((role === 'director' || role === 'gerencia_director') && structure.getDirectorByEmail) {
     const director = structure.getDirectorByEmail(email);
     return director && director.nombre || '';
   }
