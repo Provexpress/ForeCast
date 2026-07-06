@@ -10,7 +10,7 @@
       'angelica.caballero@provexpress.com.co': {
         grupo: 2,
         nombre: 'Angélica Caballero',
-        carpeta: 'Grupo Angelica Caballero'
+        carpeta: 'Grupo Maria Angelica caballero'
       },
       'oscar.beltran@provexpress.com.co': {
         grupo: 3,
@@ -20,7 +20,7 @@
       'miller.romero@provexpress.com.co': {
         grupo: 4,
         nombre: 'Miller Romero',
-        carpeta: 'Grupo Miller Romero'
+        carpeta: 'Gupo Miller Romero'
       }
     },
     ejecutivos: {

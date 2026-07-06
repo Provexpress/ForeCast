@@ -37,7 +37,7 @@ $EstructuraComercial = @(
     # GRUPO 2: Angélica Caballero
     @{
         DirectorEmail = "angelica.caballero@provexpress.com.co"
-        FolderName    = "Grupo Angelica Caballero"
+        FolderName    = "Grupo Maria Angelica caballero"
         Executives    = @{
             "angela.torres@provexpress.com.co"       = "Ángela Torres.xlsx"
             "andrea.vargas@provexpress.com.co"       = "Yurani Vargas.xlsx"
@@ -72,7 +72,7 @@ $EstructuraComercial = @(
     # GRUPO 4: Miller Romero
     @{
         DirectorEmail = "miller.romero@provexpress.com.co"
-        FolderName    = "Grupo Miller Romero"
+        FolderName    = "Gupo Miller Romero"
         Executives    = @{
             "astrid.jimenez@provexpress.com.co"   = "Astrid Jiménez.xlsx"
             "maria.briceno@provexpress.com.co"    = "María Paola Briceño.xlsx"
@@ -111,7 +111,7 @@ foreach ($grupo in $EstructuraComercial) {
     $folderName = $grupo.FolderName
     $executives = $grupo.Executives
     $unitSupports = $grupo.UnitSupport
-    $folderRelativePath = "$BasePath/$folderName"
+    $folderRelativePath = "$LibraryName/$BasePath/$folderName"
 
     Write-Host "`n=== PROCESANDO GRUPO: $folderName ===" -ForegroundColor Green
 
