@@ -171,8 +171,8 @@
       },
       'maria.briceno@provexpress.com.co': {
         grupo: 4,
-        nombre: 'Paola Briceño',
-        archivo: 'Paola Briceño.xlsx'
+        nombre: 'María Paola Briceño',
+        archivo: 'María Paola Briceño.xlsx'
       },
       'dafne.ruiz@provexpress.com.co': {
         grupo: 4,
