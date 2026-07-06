@@ -95,10 +95,56 @@ $SoporteComercialEspecifico = @{
 }
 
 # ── INICIALIZACIÓN Y CONEXIÓN ──────────────────────────────────────────────
-Write-Host "Verificando el módulo PnP.PowerShell..." -ForegroundColor Cyan
-if (-not (Get-Module -Name PnP.PowerShell -ListAvailable)) {
-    Write-Host "Instalando módulo PnP.PowerShell para el usuario actual..." -ForegroundColor Yellow
-    Install-Module -Name PnP.PowerShell -Scope CurrentUser -Force -AllowClobber
+$moduleLoaded = $false
+
+# 1. Intentar cargar PnP.PowerShell (compatible con PowerShell 7+)
+try {
+    Import-Module -Name PnP.PowerShell -ErrorAction SilentlyContinue
+    if (Get-Command Connect-PnPOnline -ErrorAction SilentlyContinue) {
+        $moduleLoaded = $true
+        Write-Host "Módulo PnP.PowerShell cargado con éxito (PowerShell 7+)." -ForegroundColor Green
+    }
+} catch {}
+
+# 2. Si no cargó, intentar cargar el módulo legacy SharePointPnPPowerShellOnline (compatible con PowerShell 5.1)
+if (-not $moduleLoaded) {
+    try {
+        Import-Module -Name SharePointPnPPowerShellOnline -ErrorAction SilentlyContinue
+        if (Get-Command Connect-PnPOnline -ErrorAction SilentlyContinue) {
+            $moduleLoaded = $true
+            Write-Host "Módulo SharePointPnPPowerShellOnline cargado con éxito (PowerShell 5.1)." -ForegroundColor Green
+        }
+    } catch {}
+}
+
+# 3. Si ninguno está cargado, instalar el compatible con la versión actual de PowerShell
+if (-not $moduleLoaded) {
+    if ($PSVersionTable.PSVersion.Major -ge 7) {
+        Write-Host "Instalando módulo PnP.PowerShell para PowerShell 7+..." -ForegroundColor Yellow
+        try {
+            Install-Module -Name PnP.PowerShell -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+            Import-Module -Name PnP.PowerShell -ErrorAction Stop
+            $moduleLoaded = $true
+        } catch {
+            Write-Error "No se pudo instalar PnP.PowerShell: $_"
+        }
+    } else {
+        Write-Host "Detectado PowerShell 5.1 (Windows PowerShell). Instalando módulo SharePointPnPPowerShellOnline..." -ForegroundColor Yellow
+        try {
+            # Habilitar TLS 1.2 para descargar de PSGallery en Windows PowerShell 5.1
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Install-Module -Name SharePointPnPPowerShellOnline -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+            Import-Module -Name SharePointPnPPowerShellOnline -ErrorAction Stop
+            $moduleLoaded = $true
+        } catch {
+            Write-Error "No se pudo instalar el módulo compatible para PowerShell 5.1: $_"
+        }
+    }
+}
+
+if (-not $moduleLoaded) {
+    Write-Error "No se pudo cargar ningún módulo compatible de PnP. Por favor abre PowerShell en versión 7, o instala manualmente el módulo correspondiente."
+    return
 }
 
 Write-Host "Conectando a SharePoint Online ($SiteUrl)..." -ForegroundColor Cyan
