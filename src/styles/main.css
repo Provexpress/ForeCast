@@ -493,6 +493,7 @@ select:hover,select:focus{border-color:var(--corp-blue2);color:var(--text);box-s
 .chart-card:nth-child(3){animation-delay:.2s}
 .chart-hd{font-family:var(--font-display);font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
 .chart-hd span{color:var(--text-soft);font-weight:600;text-transform:none;letter-spacing:0;font-size:9px}
+.chart-hd-actions .export-excel-btn{margin-left:auto}
 .evo-chart-wrap{width:100%;min-width:0;overflow:visible}
 .evo-chart-svg{display:block;width:100%;height:auto;overflow:visible}
 .evo-legend{

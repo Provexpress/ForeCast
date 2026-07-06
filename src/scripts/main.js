@@ -4339,6 +4339,147 @@ async function downloadGerenciaExecutiveForecastExcel(){
   }
 }
 
+function getEjecutivoForecastExportContext(){
+  const sourceRows = EJECUTIVO_BRAND_FOCUS ? getVisibleMarcasData() : getVisibleData();
+  const role = CURRENT_USER ? CURRENT_USER.role : null;
+  const targetName = role === 'ejecutivo' ? getExecTargetName() : '';
+  const selectedExecutive = targetName || (document.getElementById('sel-ejecutivo') ? document.getElementById('sel-ejecutivo').value : '');
+  const month = document.getElementById('sel-ej-mes') ? document.getElementById('sel-ej-mes').value : '';
+  const estado = document.getElementById('sel-ej-estado') ? document.getElementById('sel-ej-estado').value : '';
+  const focusedBrand = EJECUTIVO_BRAND_FOCUS ? EJECUTIVO_BRAND_FOCUS.brandName : '';
+  const focusedDirector = EJECUTIVO_BRAND_FOCUS ? EJECUTIVO_BRAND_FOCUS.directorName : '';
+  const line = getVisualCrossfilters('ejecutivo').linea || '';
+  const brandKey = normalizeCategoryValue(focusedBrand);
+
+  let rows = selectedExecutive
+    ? sourceRows.filter(row => namesMatch(row['COMERCIAL'] || '', selectedExecutive))
+    : [];
+  if(month) rows = rows.filter(row => getMonth(getRowDateValue(row)) === month);
+  if(estado) rows = rows.filter(row => normalizeEstado(row['ESTADO']) === estado);
+  if(focusedDirector) rows = rows.filter(row => cleanDisplayText(row['DIRECTOR'], '') === focusedDirector);
+  if(focusedBrand) rows = rows.filter(row => normalizeCategoryValue(getRowBrandName(row)) === brandKey);
+  if(line) rows = rows.filter(row => getRowLineName(row) === line);
+
+  rows = rows.slice().sort((a,b) => {
+    const dateA = formatDateValue(getRowDateValue(a));
+    const dateB = formatDateValue(getRowDateValue(b));
+    return dateA.localeCompare(dateB) || toCOP(b) - toCOP(a);
+  });
+
+  const filters = [`Vista: ${CURRENT_USER ? getRoleLabel(CURRENT_USER.role) : 'Sin usuario'}`];
+  filters.push(`Ejecutivo: ${selectedExecutive || 'Sin ejecutivo'}`);
+  filters.push(month ? `Mes: ${getMonthLongLabel(month)} ${String(month).slice(0,4)}` : 'Mes: Todos');
+  filters.push(estado ? `Estado: ${estado}` : 'Estado: Todos');
+  if(focusedDirector) filters.push(`Director: ${focusedDirector}`);
+  if(focusedBrand) filters.push(`Marca: ${focusedBrand}`);
+  if(line) filters.push(`Linea: ${line}`);
+
+  return {
+    executive: selectedExecutive,
+    rows,
+    filterText: filters.join(' | ')
+  };
+}
+
+function addEjecutivoForecastSummarySheet(workbook, context){
+  const rows = context.rows || [];
+  const ws = workbook.addWorksheet('Resumen');
+  setupExcelWorksheet(ws, 8, 9);
+  styleExcelTitle(
+    ws,
+    `Forecast ejecutivo - ${context.executive || 'Ejecutivo'}`,
+    `Generado: ${getBogotaTimestampLabel()} | Registros exportados: ${rows.length}`,
+    context.filterText,
+    8
+  );
+  styleExcelKpis(ws, rows);
+  styleExcelSectionLabel(ws, 8, 'Resumen por estado', 8);
+  const summaryColumns = [
+    { name:'Estado', totalsRowLabel:'Total' },
+    { name:'Negocios', totalsRowFunction:'sum' },
+    { name:'Total COP', totalsRowFunction:'sum' },
+    { name:'Total USD original', totalsRowFunction:'sum' },
+    { name:'Utilidad COP liq.', totalsRowFunction:'sum' },
+    { name:'Participacion', totalsRowFunction:'sum' }
+  ];
+  const summaryRows = getGerenciaEstadoSummaryRows(rows);
+  [16,12,18,18,18,14].forEach((width, idx) => { ws.getColumn(idx + 1).width = width; });
+  addExcelTable(ws, {
+    name: 'ResumenEjecutivoEstados',
+    ref: 'A9',
+    columns: summaryColumns,
+    rows: summaryRows,
+    theme: 'TableStyleMedium4'
+  });
+  styleExcelTable(ws, 9, summaryRows.length, summaryColumns.length, {
+    statusColumn: 1,
+    rightColumns: [2,3,4,5,6]
+  });
+  for(let rowNumber = 10; rowNumber <= 10 + summaryRows.length; rowNumber++){
+    ws.getCell(rowNumber, 2).numFmt = '#,##0';
+    ws.getCell(rowNumber, 3).numFmt = excelMoneyFormat('COP', false);
+    ws.getCell(rowNumber, 4).numFmt = excelMoneyFormat('USD', false);
+    ws.getCell(rowNumber, 5).numFmt = excelMoneyFormat('COP', false);
+    ws.getCell(rowNumber, 6).numFmt = '0.##%';
+  }
+}
+
+function buildEjecutivoForecastWorkbook(context){
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Forecast 2026 Provexpress';
+  workbook.created = new Date();
+  workbook.modified = new Date();
+  workbook.company = 'Provexpress';
+  workbook.subject = 'Forecast por ejecutivo';
+  workbook.title = `Forecast 2026 - ${context.executive || 'Ejecutivo'}`;
+  workbook.calcProperties = { fullCalcOnLoad: true };
+
+  addEjecutivoForecastSummarySheet(workbook, context);
+
+  const ws = workbook.addWorksheet(excelUniqueSheetName(workbook, context.executive || 'Detalle'));
+  setupExcelWorksheet(ws, GERENCIA_EXCEL_DETAIL_COLS, 6);
+  styleExcelTitle(
+    ws,
+    `Detalle forecast - ${context.executive || 'Ejecutivo'}`,
+    `Generado: ${getBogotaTimestampLabel()} | Registros: ${context.rows.length}`,
+    context.filterText,
+    GERENCIA_EXCEL_DETAIL_COLS
+  );
+  addDetailExcelTable(ws, context.rows, 'DetalleForecastEjecutivo', 6);
+  return workbook;
+}
+
+function setEjecutivoForecastExportButtonBusy(isBusy){
+  const btn = document.getElementById('btn-export-ejecutivo-forecast');
+  if(!btn) return;
+  btn.disabled = Boolean(isBusy);
+  btn.innerHTML = isBusy
+    ? '<span class="export-excel-icon" aria-hidden="true">...</span><span>Generando</span>'
+    : '<span class="export-excel-icon" aria-hidden="true">↓</span><span>Forecast</span>';
+}
+
+async function downloadEjecutivoForecastExcel(){
+  const context = getEjecutivoForecastExportContext();
+  if(!context.executive || !context.rows.length){
+    alert('No hay Forecast para descargar con los filtros actuales de este ejecutivo.');
+    return;
+  }
+
+  setEjecutivoForecastExportButtonBusy(true);
+  try{
+    await loadExcelJsForExport();
+    const workbook = buildEjecutivoForecastWorkbook(context);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const executiveSlug = normalizeCategoryValue(context.executive).replace(/\s+/g, '_') || 'ejecutivo';
+    downloadWorkbookBuffer(buffer, `Forecast_${executiveSlug}_${getBogotaTimestampForFile()}.xlsx`);
+  } catch(error){
+    console.error('[EXPORT EJECUTIVO FORECAST]', error);
+    alert('No se pudo generar el Forecast del ejecutivo. Intenta nuevamente o revisa la consola para mas detalle.');
+  } finally {
+    setEjecutivoForecastExportButtonBusy(false);
+  }
+}
+
 function getRowCostOriginalValue(row){
   return parseMonto(firstFilled(row, ['COSTO NEGOCIO','COSTO'])) || 0;
 }
@@ -5117,7 +5258,13 @@ function renderEjecutivo(){
     </div>
     
     <div class="chart-card g1">
-      <div class="chart-hd">Detalle de Negocios — ${escHtml(ej)}${focusedBrand ? ` <span>${escHtml(focusedBrand)}</span>` : ''}</div>
+      <div class="chart-hd chart-hd-actions">
+        Detalle de Negocios — ${escHtml(ej)}${focusedBrand ? ` <span>${escHtml(focusedBrand)}</span>` : ''}
+        <button id="btn-export-ejecutivo-forecast" class="export-excel-btn metadata-export-btn" type="button" onclick="downloadEjecutivoForecastExcel()" title="Descargar Forecast del ejecutivo en Excel"${data.length ? '' : ' disabled'}>
+          <span class="export-excel-icon" aria-hidden="true">↓</span>
+          <span>Forecast</span>
+        </button>
+      </div>
       ${buildTable(data, { clickable:true, sourcePage:'ejecutivo' })}
     </div>
   `;
@@ -7160,7 +7307,7 @@ window.renderPreventa = renderPreventa;
 window.setSalesView = setSalesView;
 window.setSalesPendingFilter = setSalesPendingFilter;
 window.renderMarcas = renderMarcas;
-window.downloadGerenciaExecutiveForecastExcel = downloadGerenciaExecutiveForecastExcel;
+window.downloadEjecutivoForecastExcel = downloadEjecutivoForecastExcel;
 window.downloadMarcasLineasExcel = downloadMarcasLineasExcel;
 window.downloadExecutiveExcelMetadataReport = downloadExecutiveExcelMetadataReport;
 window.selectEjecutivo = selectEjecutivo;
