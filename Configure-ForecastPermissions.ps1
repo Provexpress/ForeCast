@@ -105,13 +105,27 @@ Write-Host "Conectando a SharePoint Online ($SiteUrl)..." -ForegroundColor Cyan
 # Conexión interactiva (abrirá el navegador para autenticación de Microsoft 365)
 Connect-PnPOnline -Url $SiteUrl -Interactive
 
+# ── OBTENER URL DE LA BIBLIOTECA DE DOCUMENTOS ──────────────────────────────
+Write-Host "Obteniendo información de la biblioteca '$LibraryName'..." -ForegroundColor Cyan
+$List = Get-PnPList -Identity $LibraryName -Includes RootFolder -ErrorAction SilentlyContinue
+if (-not $List) {
+    # Intentar con el nombre en inglés por si acaso
+    $List = Get-PnPList -Identity "Documents" -Includes RootFolder -ErrorAction SilentlyContinue
+}
+if (-not $List) {
+    Write-Error "No se pudo encontrar la biblioteca de documentos '$LibraryName' ni 'Documents'."
+    return
+}
+$LibraryUrl = $List.RootFolder.ServerRelativeUrl
+Write-Host "Biblioteca detectada en la ruta del servidor: $LibraryUrl" -ForegroundColor Green
+
 # ── PROCESAMIENTO DE PERMISOS ──────────────────────────────────────────────
 foreach ($grupo in $EstructuraComercial) {
     $director = $grupo.DirectorEmail
     $folderName = $grupo.FolderName
     $executives = $grupo.Executives
     $unitSupports = $grupo.UnitSupport
-    $folderRelativePath = "$LibraryName/$BasePath/$folderName"
+    $folderRelativePath = "$LibraryUrl/$BasePath/$folderName"
 
     Write-Host "`n=== PROCESANDO GRUPO: $folderName ===" -ForegroundColor Green
 
