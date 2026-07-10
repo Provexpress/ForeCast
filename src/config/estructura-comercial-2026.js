@@ -85,8 +85,8 @@
       },
       'andrea.vargas@provexpress.com.co': {
         grupo: 2,
-        nombre: 'Yurani Vargas',
-        archivo: 'Yurani Vargas.xlsx'
+        nombre: 'Yurany Andrea Vargas',
+        archivo: 'Yurany Andrea Vargas.xlsx'
       },
       'alejandra.velasquez@provexpress.com.co': {
         grupo: 2,

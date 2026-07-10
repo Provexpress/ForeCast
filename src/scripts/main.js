@@ -6789,6 +6789,10 @@ const LEGACY_FORECAST_FOLDERS = [
   'Grupo Juan David Novoa',
   'Grupo Maria Angelica Caballero'
 ];
+const LEGACY_FORECAST_FOLDER_BY_GROUP = {
+  1: LEGACY_FORECAST_FOLDERS[0],
+  2: LEGACY_FORECAST_FOLDERS[1]
+};
 
 function isLegacyForecastFolderName(value){
   const target = normalizeFolderName(value);
@@ -6809,13 +6813,30 @@ function getConfiguredForecastFolders(){
 }
 
 function getLegacyFolderForGroup(grupo, folders){
-  const legacyByGroup = {
-    1: LEGACY_FORECAST_FOLDERS[0],
-    2: LEGACY_FORECAST_FOLDERS[1]
-  };
-  const legacy = legacyByGroup[Number(grupo)];
+  const legacy = LEGACY_FORECAST_FOLDER_BY_GROUP[Number(grupo)];
   if(!legacy) return '';
   return (folders || []).find(folder => normalizeFolderName(folder) === normalizeFolderName(legacy)) || '';
+}
+
+function getConfiguredDirectorNameForFolder(folderName){
+  const structure = getForecastStructure();
+  const normalizedFolder = normalizeFolderName(folderName);
+  const directors = structure.estructura && structure.estructura.directores
+    ? Object.values(structure.estructura.directores)
+    : [];
+  const configured = directors.find(director =>
+    normalizeFolderName(director.carpeta) === normalizedFolder
+  );
+  if(configured && configured.nombre) return normalizeDirectorName(configured.nombre);
+
+  const legacyEntry = Object.entries(LEGACY_FORECAST_FOLDER_BY_GROUP)
+    .find(([, legacyFolder]) => normalizeFolderName(legacyFolder) === normalizedFolder);
+  if(legacyEntry && structure.getDirectorNameByGroup) {
+    const directorName = structure.getDirectorNameByGroup(legacyEntry[0]);
+    if(directorName) return normalizeDirectorName(directorName);
+  }
+
+  return normalizeDirectorName(folderName.replace(/^(Grupo|Gupo)\s+/i,'').trim());
 }
 
 function isPreventaFolderName(value){
@@ -6907,8 +6928,8 @@ async function loadDirectorFolder(siteId, folderName, token) {
   const r = await fetch(driveBase, { headers: { Authorization: 'Bearer ' + authToken } });
   const d = await r.json();
   if(!d.value) { console.warn('Sin archivos en', folderName, d); return; }
-  const folderDirName = normalizeDirectorName(folderName.replace(/^(Grupo|Gupo)\s+/i,'').trim());
-  const parseDirectorHint = isLegacyForecastFolderName(folderName) ? '' : folderDirName;
+  const folderDirName = getConfiguredDirectorNameForFolder(folderName);
+  const parseDirectorHint = folderDirName;
   if(!LOADED_FILES_BY_DIR[folderDirName]) LOADED_FILES_BY_DIR[folderDirName] = [];
   const files = (d.value || []).filter(item =>
     item &&
@@ -6921,9 +6942,7 @@ async function loadDirectorFolder(siteId, folderName, token) {
     updateLoadingStatus('Leyendo: ' + item.name);
     const bundle = await loadSpFileBundle(item, parseDirectorHint);
     const recs = bundle.records || [];
-    const dirName = isLegacyForecastFolderName(folderName) && recs[0] && recs[0]['DIRECTOR']
-      ? normalizeDirectorName(recs[0]['DIRECTOR'])
-      : folderDirName;
+    const dirName = folderDirName;
     if(!LOADED_FILES_BY_DIR[dirName]) LOADED_FILES_BY_DIR[dirName] = [];
     if(isSalesSupportFile(item.name)) {
       const meta = parseSalesSupportFileName(item.name) || {};
