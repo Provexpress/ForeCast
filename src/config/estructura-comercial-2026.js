@@ -6,6 +6,7 @@
       'oscar.beltran@provexpress.com.co',
       'rafael.novoa@provexpress.com.co',
       'c.estrategica@provexpress.com.co',
+      'nini.beltran@provexpress.com.co',
       'maribel.virguez@provexpress.com.co',
       'especialista.preventa@provexpress.com.co',
       'preventa.software@provexpress.com.co'
