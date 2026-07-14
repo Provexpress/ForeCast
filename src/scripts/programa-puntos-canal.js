@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════
-   PROGRAMA DE PUNTOS POR CANAL
+   REBATES, PUNTOS E INCENTIVOS POR CANAL
    Normalizacion de reportes de fabricantes
 ══════════════════════════════════════ */
 (function(){
@@ -34,9 +34,93 @@
     }
   ];
 
+  const CHANNELS = ['Dell','Lenovo','HPE','ASUS','Epson','Intel'];
+  const VALIDATED_AT = '14 jul 2026';
+  const BUSINESS_METRICS = Object.freeze({
+    lenovo: {
+      actual2026: 20633.90,
+      projection2026: 82535.60,
+      yoy2026: 21,
+      history: { FY23:19962.95, FY24:58529.23, FY25:68165.62 }
+    },
+    dell: { approved:49053.25, unredeemedPoints:265 },
+    asus: { quota:200000, sales:38472, units:60, compliance:19 },
+    hpe: { availablePoints:390, visaUsd:300 },
+    sed: { travelerBonusCop:5198820, validityMonths:5 }
+  });
+
+  const VALIDATED_RECORD_DEFINITIONS = [
+    // Lenovo 360 Engage — histórico anual y programas FY-Q sin inventar distribuciones.
+    { grupo:'lenovo', canal:'Lenovo', tipo:'Rebate', programa:'Lenovo 360 Engage · CASH', periodo:'FY23', valor:19962.95, unidad:'USD', estado:'Pagada', clienteRef:'Crecimiento base 2023' },
+    { grupo:'lenovo', canal:'Lenovo', tipo:'Rebate', programa:'Lenovo 360 Engage · CASH', periodo:'FY24', valor:58529.23, unidad:'USD', estado:'Pagada', clienteRef:'+193% YoY' },
+    { grupo:'lenovo', canal:'Lenovo', tipo:'Rebate', programa:'Lenovo 360 Engage · CASH', periodo:'FY25', valor:68165.62, unidad:'USD', estado:'Pagada', clienteRef:'+16% YoY · estabilización' },
+    { grupo:'lenovo', canal:'Lenovo', tipo:'Rebate', programa:'Lenovo 360 Engage · CASH', periodo:'FY26', valor:20633.90, unidad:'USD', estado:'Pendiente', clienteRef:'Actual 2026 · proyección USD 82.535,60' },
+    { grupo:'lenovo', canal:'Lenovo', tipo:'Rebate', programa:'Engage Platinum', periodo:'FY26-Q2', valor:0, unidad:'USD', estado:'Pendiente', clienteRef:'Modalidad CASH · T2' },
+    { grupo:'lenovo', canal:'Lenovo', tipo:'Rebate', programa:'Advocate', periodo:'FY26-Q2', valor:0, unidad:'USD', estado:'Pendiente', clienteRef:'Modalidad CASH · T2' },
+    { grupo:'lenovo', canal:'Lenovo', tipo:'Rebate', programa:'WKS Expert', periodo:'FY26-Q2', valor:0, unidad:'USD', estado:'Oportunidad', clienteRef:'Workstation subexplotado · T2' },
+    { grupo:'lenovo', canal:'Lenovo', tipo:'Rebate', programa:'BDF Platinum', periodo:'FY26-Q2', valor:0, unidad:'USD', estado:'Pendiente', clienteRef:'Modalidad CASH · T2' },
+
+    // Dell MDF / Rebates — Approved to Pay validado.
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Base', periodo:'FY26-Q1', valor:5532.54, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q1' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'eMDF', periodo:'FY26-Q1', valor:1871.82, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q1' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Services', periodo:'FY26-Q1', valor:420.29, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q1' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'eMDF (FY25)', periodo:'FY26-Q2', valor:1930.78, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q2' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Base', periodo:'FY26-Q2', valor:5480.99, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q2' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'eMDF', periodo:'FY26-Q2', valor:1841.93, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q2' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'NBI', periodo:'FY26-Q2', valor:1405.08, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q2' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Services', periodo:'FY26-Q2', valor:807.68, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q2' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'eMDF (FY25)', periodo:'FY26-Q3', valor:1338.84, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q3' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Base', periodo:'FY26-Q3', valor:4587.57, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q3' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'NBI', periodo:'FY26-Q3', valor:2322, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q3' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Services', periodo:'FY26-Q3', valor:1580.75, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q3' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'eMDF (FY25)', periodo:'FY26-Q4', valor:2471.74, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q4' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Base', periodo:'FY26-Q4', valor:1917.30, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q4' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'pbMDF ISG', periodo:'FY26-Q4', valor:2000, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q4' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Services', periodo:'FY26-Q4', valor:483.03, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY26 Q4' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Services Cloud Service Provider', periodo:'FY26-Q4', valor:0, unidad:'USD', estado:'Declined', clienteRef:'FY26 Q4' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Base Cloud', periodo:'FY27-Q1', valor:0, unidad:'USD', estado:'Pending Final Review', clienteRef:'FY27 Q1' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Base SP', periodo:'FY27-Q1', valor:8364.83, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY27 Q1' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'pbMDF Client+', periodo:'FY27-Q1', valor:0, unidad:'USD', estado:'Released', clienteRef:'FY27 Q1' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'pbMDF ISG', periodo:'FY27-Q1', valor:0, unidad:'USD', estado:'Released', clienteRef:'FY27 Q1' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Services Cloud', periodo:'FY27-Q1', valor:0, unidad:'USD', estado:'Pending Final Review', clienteRef:'FY27 Q1' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Services SP', periodo:'FY27-Q1', valor:1289.08, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY27 Q1' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'eMDF', periodo:'FY27-Q3', valor:0, unidad:'USD', estado:'Released', clienteRef:'FY27 Q3' },
+    { grupo:'claims', canal:'Dell', tipo:'Rebate', programa:'Base SP', periodo:'FY27-Q4', valor:3407, unidad:'USD', estado:'Paid/Complete', clienteRef:'FY27 Q4' },
+
+    // Canales sin rebate liquidado informado: se registra el programa, no se inventa ingreso.
+    { grupo:'asus', canal:'ASUS', tipo:'Rebate', programa:'AGP Program 2026 · AGP Silver', periodo:'FY26-Q2', valor:0, unidad:'USD', estado:'Alerta · 19%', clienteRef:'KAM Oscar Bolaños · 60 unidades · NEXSYS, INGRAM, MPS, IMPRESISTEM' },
+    { grupo:'asus', canal:'ASUS', tipo:'Rebate', programa:'AGP Silver 2025 · Rebate 0–0.5', periodo:'FY26-Q2', valor:0, unidad:'USD', estado:'MDF Elegible', clienteRef:'Fuerza de ventas: 1 cupo · Excluye Vivobook, Zenbook, ROG, TUF, monitores y Mini PC/NUC' },
+    { grupo:'platforms', canal:'Epson', tipo:'Rebate', programa:'Consumo (Colombia)', periodo:'FY26-Q2', valor:0, unidad:'USD', estado:'Pendiente', clienteRef:'Mayoristas: SED, Ingram, Impresistem, Nexsys' },
+    { grupo:'platforms', canal:'Epson', tipo:'Rebate', programa:'Comercial (Colombia)', periodo:'FY26-Q2', valor:0, unidad:'USD', estado:'Procesado', clienteRef:'Mayoristas: SED, Ingram, Impresistem, Nexsys' },
+
+    // Dell MyRewards — histórico y saldo pendiente de redención.
+    { grupo:'myrewards', metrica:'movement', canal:'Dell', tipo:'Punto', programa:'Dell MyRewards', periodo:'FY22-Q1', valor:50, unidad:'Puntos', estado:'Allocated', clienteRef:'Histórico trimestral' },
+    { grupo:'myrewards', metrica:'movement', canal:'Dell', tipo:'Punto', programa:'Dell MyRewards', periodo:'FY22-Q2', valor:415, unidad:'Puntos', estado:'Allocated', clienteRef:'Histórico trimestral' },
+    { grupo:'myrewards', metrica:'movement', canal:'Dell', tipo:'Punto', programa:'Dell MyRewards', periodo:'FY22-Q3', valor:540, unidad:'Puntos', estado:'Allocated', clienteRef:'Histórico trimestral' },
+    { grupo:'myrewards', metrica:'movement', canal:'Dell', tipo:'Punto', programa:'Dell MyRewards', periodo:'FY22-Q4', valor:375, unidad:'Puntos', estado:'Allocated', clienteRef:'Histórico trimestral' },
+    { grupo:'myrewards', metrica:'movement', canal:'Dell', tipo:'Punto', programa:'Dell MyRewards', periodo:'FY23-Q1', valor:135, unidad:'Puntos', estado:'Allocated', clienteRef:'Histórico trimestral' },
+    { grupo:'myrewards', metrica:'movement', canal:'Dell', tipo:'Punto', programa:'Dell MyRewards', periodo:'FY23-Q2', valor:120, unidad:'Puntos', estado:'Allocated', clienteRef:'Histórico trimestral' },
+    { grupo:'myrewards', metrica:'balance', canal:'Dell', tipo:'Punto', programa:'Dell MyRewards · Pendiente de redención', periodo:'Sin periodo', valor:265, unidad:'Puntos', estado:'Unclaimed', clienteRef:'Acción requerida por gerencia' },
+    { grupo:'myrewards', metrica:'balance', canal:'Dell', tipo:'Punto', programa:'Dell MyRewards · Expired', periodo:'Sin periodo', valor:0, unidad:'Puntos', estado:'Expired', clienteRef:'Estado disponible para seguimiento' },
+
+    // HPE Instant On e incentivos SED.
+    { grupo:'platforms', metrica:'balance', canal:'HPE', tipo:'Punto', programa:'HPE Instant On · Saldo disponible', periodo:'FY26-Q2', valor:390, unidad:'Puntos', estado:'Disponible', clienteRef:'Visa Prepaid Card USD 300' },
+    { grupo:'platforms', metrica:'movement', canal:'HPE', tipo:'Punto', programa:'HPE Instant On · Cash bonus', periodo:'FY25-Q1', valor:215, unidad:'Puntos', estado:'Allocated', clienteRef:'Cash bonus trimestral' },
+    { grupo:'platforms', metrica:'movement', canal:'HPE', tipo:'Punto', programa:'HPE Instant On · Cash bonus', periodo:'FY25-Q3', valor:403, unidad:'Puntos', estado:'Allocated', clienteRef:'Cash bonus trimestral' },
+    { grupo:'platforms', metrica:'movement', canal:'HPE', tipo:'Punto', programa:'HPE Instant On · Cash bonus', periodo:'FY25-Q4', valor:88, unidad:'Puntos', estado:'Allocated', clienteRef:'Cash bonus trimestral' },
+    { grupo:'platforms', metrica:'movement', canal:'HPE', tipo:'Punto', programa:'HPE Instant On · Cash bonus', periodo:'FY26-Q1', valor:95, unidad:'Puntos', estado:'Allocated', clienteRef:'Cash bonus trimestral' },
+    { grupo:'platforms', metrica:'movement', canal:'HPE', tipo:'Punto', programa:'HPE Instant On · Cash bonus', periodo:'FY26-Q2', valor:242, unidad:'Puntos', estado:'Allocated', clienteRef:'Cash bonus trimestral' },
+    { grupo:'sed', metrica:'movement', canal:'Lenovo', tipo:'Punto', programa:'Plan Ultra Aguinaldo Lenovo WS', periodo:'Sin periodo', valor:37, unidad:'Puntos', estado:'Disponible', clienteRef:'Incentivo SED · vigencia 5 meses' },
+    { grupo:'sed', metrica:'movement', canal:'HPE', tipo:'Punto', programa:'HPE Speed Month', periodo:'Sin periodo', valor:259, unidad:'Puntos', estado:'Disponible', clienteRef:'Incentivo SED · vigencia 5 meses' },
+    { grupo:'sed', metrica:'movement', canal:'HPE', tipo:'Punto', programa:'Multiplica tus Ingresos HPE Networking', periodo:'Sin periodo', valor:210, unidad:'Puntos', estado:'Disponible', clienteRef:'Incentivo SED · vigencia 5 meses' },
+    { grupo:'sed', metrica:'balance', canal:'HPE', tipo:'Punto', programa:'Escalera de Premios HPE Networking', periodo:'Sin periodo', valor:0, unidad:'Puntos', estado:'Cargado a tarjeta Big Pass', clienteRef:'Incentivo SED · vigencia 5 meses' },
+    { grupo:'sed', metrica:'balance', canal:'Lenovo', tipo:'Punto', programa:'Bono Viajero Lenovo Adventure', periodo:'Sin periodo', valor:5198820, unidad:'COP', estado:'Vigente', clienteRef:'Incentivo SED · vigencia 5 meses' },
+    { grupo:'platforms', metrica:'balance', canal:'Intel', tipo:'Punto', programa:'Programa de incentivos Intel', periodo:'Sin periodo', valor:0, unidad:'Puntos', estado:'Pendiente', clienteRef:'Sin valor confirmado' }
+  ];
+
   const state = {
-    mode: 'Punto',
-    filters: { canal:'', periodo:'', estado:'', unidad:'Puntos' },
+    mode: 'Rebate',
+    filters: { canal:'', periodo:'', estado:'', unidad:'USD' },
     page: 1,
     pageSize: 20,
     loading: false,
@@ -53,6 +137,8 @@
   };
 
   let recordSequence = 0;
+  const VALIDATED_RECORDS = VALIDATED_RECORD_DEFINITIONS.map(data => createRecord('validated', data));
+  state.data = VALIDATED_RECORDS.slice();
 
   function canAccess(){
     const role = window.CURRENT_USER && CURRENT_USER.role;
@@ -252,7 +338,9 @@
       estado: cleanState(data.estado, 'Sin estado'),
       clienteRef: cleanState(data.clienteRef, 'Sin referencia'),
       fuente: sourceKey,
-      hoja: cleanState(data.hoja, '')
+      hoja: cleanState(data.hoja, ''),
+      grupo: normalizeText(data.grupo || sourceKey),
+      metrica: data.metrica === 'balance' ? 'balance' : 'movement'
     };
     return record;
   }
@@ -274,6 +362,7 @@
         records.push(createRecord('myrewards', {
           canal: 'Dell',
           tipo: 'Punto',
+          metrica: 'balance',
           programa: valueByHeader(row, indexes, ['Promotion Name']),
           periodo: valueByHeader(row, indexes, ['Quarter']),
           valor: value,
@@ -300,6 +389,7 @@
         records.push(createRecord('myrewards', {
           canal: 'Dell',
           tipo: 'Punto',
+          metrica: normalizeKey(valueByHeader(row, indexes, ['Claim Status'])).includes('unclaimed') ? 'balance' : 'movement',
           programa: valueByHeader(row, indexes, ['Promotion Name']),
           periodo: valueByHeader(row, indexes, ['Quarter']),
           valor: value,
@@ -467,7 +557,7 @@
         if(available > 0) {
           records.push(createRecord('platforms', {
             canal: 'HPE', tipo: 'Punto', programa: 'Saldo disponible HPE', periodo: period,
-            valor: available, unidad: 'Puntos', estado: 'Disponible',
+            metrica: 'balance', valor: available, unidad: 'Puntos', estado: 'Disponible',
             clienteRef: concept, hoja: hpeName
           }));
         }
@@ -486,6 +576,7 @@
       records.push(createRecord('platforms', {
         canal: 'Intel',
         tipo: 'Punto',
+        metrica: 'balance',
         programa: `Incentivo Intel de ${formatInteger(denomination)} puntos`,
         periodo: 'Sin periodo',
         valor: value,
@@ -523,12 +614,17 @@
         error: ''
       };
     });
-    state.data = [];
+    state.data = VALIDATED_RECORDS.slice();
     recordSequence = 0;
   }
 
   function rebuildData(){
-    state.data = SOURCE_DEFINITIONS.flatMap(def => state.sources[def.key].records || []);
+    const loadedGroups = new Set(SOURCE_DEFINITIONS
+      .filter(def => state.sources[def.key].status === 'loaded' && state.sources[def.key].records.length)
+      .map(def => def.key));
+    const validated = VALIDATED_RECORDS.filter(row => !loadedGroups.has(row.grupo));
+    const live = SOURCE_DEFINITIONS.flatMap(def => state.sources[def.key].records || []);
+    state.data = [...validated, ...live];
     state.page = 1;
   }
 
@@ -794,49 +890,69 @@
     return available;
   }
 
+  function renderChannelChips(rows){
+    const host = document.getElementById('program-channel-channel-chips');
+    const context = document.getElementById('program-channel-channel-context');
+    if(!host) return;
+    const discovered = uniqueSorted((rows || []).map(row => row.canal));
+    const channels = [...CHANNELS, ...discovered.filter(channel => !CHANNELS.includes(channel))];
+    if(state.filters.canal && !channels.includes(state.filters.canal)) state.filters.canal = '';
+    host.innerHTML = [{ value:'', label:'Todos' }, ...channels.map(channel => ({ value:channel, label:channel }))]
+      .map(item => {
+        const active = state.filters.canal === item.value;
+        return `<button type="button" class="program-channel-channel-btn${active ? ' active' : ''}" aria-pressed="${active ? 'true' : 'false'}" onclick="ProgramChannelModule.setFilter('canal',${JSON.stringify(item.value)})">${escapeHtml(item.label)}</button>`;
+      }).join('');
+    if(context) {
+      const count = state.filters.canal
+        ? rows.filter(row => row.canal === state.filters.canal).length
+        : rows.length;
+      context.style.display = 'inline-flex';
+      context.textContent = `${count.toLocaleString('es-CO')} registros`;
+    }
+  }
+
   function syncFilters(){
     const rows = typeRows();
-    state.filters.canal = syncSelect(
-      'program-channel-filter-channel',
-      uniqueSorted(rows.map(row => row.canal)),
-      state.filters.canal,
-      'Todos los canales'
-    );
+    renderChannelChips(rows);
+    const channelRows = state.filters.canal ? rows.filter(row => row.canal === state.filters.canal) : rows;
     state.filters.periodo = syncSelect(
       'program-channel-filter-period',
-      uniqueSorted(rows.map(row => row.periodo), (a,b) => periodSortValue(b) - periodSortValue(a) || a.localeCompare(b)),
+      uniqueSorted(channelRows.map(row => row.periodo), (a,b) => periodSortValue(b) - periodSortValue(a) || a.localeCompare(b)),
       state.filters.periodo,
       'Todos los periodos'
     );
+    const periodRows = state.filters.periodo ? channelRows.filter(row => row.periodo === state.filters.periodo) : channelRows;
     state.filters.estado = syncSelect(
       'program-channel-filter-status',
-      uniqueSorted(rows.map(row => row.estado)),
+      uniqueSorted(periodRows.map(row => row.estado)),
       state.filters.estado,
       'Todos los estados'
     );
 
     const unitWrap = document.getElementById('program-channel-unit-filter');
     const unitSelect = document.getElementById('program-channel-filter-unit');
-    if(state.mode === 'Punto') {
-      state.filters.unidad = 'Puntos';
-      if(unitWrap) unitWrap.style.display = 'none';
-    } else {
-      if(unitWrap) unitWrap.style.display = '';
-      const units = uniqueSorted(rows.map(row => row.unidad)).filter(unit => unit === 'USD' || unit === 'COP');
-      if(!units.includes(state.filters.unidad)) state.filters.unidad = units.includes('USD') ? 'USD' : (units[0] || 'USD');
-      if(unitSelect) {
-        unitSelect.innerHTML = units.map(unit => `<option value="${unit}"${unit === state.filters.unidad ? ' selected' : ''}>${unit}</option>`).join('');
-        unitSelect.value = state.filters.unidad;
-      }
+    if(unitWrap) unitWrap.style.display = '';
+    const allowedUnits = state.mode === 'Punto' ? ['Puntos','COP'] : ['USD','COP'];
+    const filteredForUnits = periodRows.filter(row => !state.filters.estado || row.estado === state.filters.estado);
+    let units = uniqueSorted(filteredForUnits.map(row => row.unidad)).filter(unit => allowedUnits.includes(unit));
+    if(!units.length) units = uniqueSorted(rows.map(row => row.unidad)).filter(unit => allowedUnits.includes(unit));
+    const preferredUnit = state.mode === 'Punto' ? 'Puntos' : 'USD';
+    if(!units.includes(state.filters.unidad)) state.filters.unidad = units.includes(preferredUnit) ? preferredUnit : (units[0] || preferredUnit);
+    if(unitSelect) {
+      unitSelect.innerHTML = units.map(unit => `<option value="${unit}"${unit === state.filters.unidad ? ' selected' : ''}>${unit}</option>`).join('');
+      unitSelect.value = state.filters.unidad;
     }
+
+    const typeLabel = document.getElementById('program-channel-filter-type');
+    if(typeLabel) typeLabel.textContent = state.mode;
   }
 
   function statusGroup(value){
     const key = normalizeKey(value);
     if(/expir/.test(key)) return 'expired';
     if(/declin|cancel|rechaz|perdid/.test(key)) return 'rejected';
-    if(/pend|review|released|dispon|unclaimed|generad/.test(key)) return 'pending';
-    if(/redimid|asignad|allocated/.test(key)) return 'redeemed';
+    if(/pend|review|released|dispon|unclaimed|generad|vigent|oportunidad|alerta/.test(key)) return 'pending';
+    if(/redimid|asignad|allocated|cargado/.test(key)) return 'redeemed';
     if(/pagad|paid|procesad|complete/.test(key)) return 'paid';
     return 'other';
   }
@@ -848,7 +964,7 @@
   function formatMoney(value, unit){
     const number = toNumber(value);
     if(unit === 'COP') return '$ ' + Math.round(number).toLocaleString('es-CO');
-    if(unit === 'USD') return 'USD ' + number.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+    if(unit === 'USD') return 'USD ' + number.toLocaleString('es-CO', { minimumFractionDigits:2, maximumFractionDigits:2 });
     return formatInteger(number);
   }
 
@@ -869,8 +985,8 @@
     return (rows || []).reduce((sum, row) => sum + toNumber(row.valor), 0);
   }
 
-  function kpiCard(label, value, subtext, accent){
-    return `<article class="kpi program-channel-kpi" style="--program-accent:${accent}">
+  function kpiCard(label, value, subtext, accent, extraClass){
+    return `<article class="kpi program-channel-kpi ${escapeAttr(extraClass || '')}" style="--program-accent:${accent}">
       <div class="kpi-label">${escapeHtml(label)}</div>
       <div class="kpi-val program-channel-kpi-value" title="${escapeAttr(value)}">${escapeHtml(value)}</div>
       <div class="kpi-sub">${escapeHtml(subtext)}</div>
@@ -881,41 +997,143 @@
     const host = document.getElementById('program-channel-kpis');
     if(!host) return;
     const allUnitsRows = rowsWithoutUnit();
-    if(state.mode === 'Punto') {
-      const total = sumRows(allUnitsRows);
-      const pending = sumRows(allUnitsRows.filter(row => statusGroup(row.estado) === 'pending'));
-      const redeemed = sumRows(allUnitsRows.filter(row => ['paid','redeemed'].includes(statusGroup(row.estado))));
-      const expired = sumRows(allUnitsRows.filter(row => statusGroup(row.estado) === 'expired'));
+    const hasDetailFilters = Boolean(state.filters.periodo || state.filters.estado);
+
+    if(state.mode === 'Punto' && state.filters.unidad === 'COP') {
+      const copRows = allUnitsRows.filter(row => row.unidad === 'COP');
+      const pendingCop = sumRows(copRows.filter(row => statusGroup(row.estado) === 'pending'));
       host.innerHTML = [
-        kpiCard('Total puntos', formatInteger(total), `${allUnitsRows.length} registros`, '#2ABFDF'),
-        kpiCard('Disponibles / pendientes', formatInteger(pending), 'Sin redimir', '#F0A020'),
-        kpiCard('Redimidos / asignados', formatInteger(redeemed), 'Aplicados o entregados', '#0DBF82'),
-        kpiCard('Expirados', formatInteger(expired), 'Puntos vencidos', '#E84040')
+        kpiCard('Incentivos COP', formatMoney(sumRows(copRows), 'COP'), 'Separados de los puntos', '#8B5FC8'),
+        kpiCard('Vigentes / pendientes COP', formatMoney(pendingCop, 'COP'), `${copRows.length} programa(s)`, '#F0A020'),
+        kpiCard('Bono viajero Lenovo', formatMoney(BUSINESS_METRICS.sed.travelerBonusCop, 'COP'), 'Lenovo Adventure', '#2D4FD6'),
+        kpiCard('Vigencia bonos SED', `${BUSINESS_METRICS.sed.validityMonths} meses`, 'Seguimiento requerido', '#E84040')
       ].join('');
       return;
     }
 
-    const usdRows = allUnitsRows.filter(row => row.unidad === 'USD');
-    const copRows = allUnitsRows.filter(row => row.unidad === 'COP');
+    if(state.mode === 'Punto') {
+      const pointRows = allUnitsRows.filter(row => row.unidad === 'Puntos');
+      const movements = pointRows.filter(row => row.metrica !== 'balance');
+      const balances = pointRows.filter(row => row.metrica === 'balance');
+      const pending = sumRows(pointRows.filter(row => statusGroup(row.estado) === 'pending'));
+      const redeemed = sumRows(pointRows.filter(row => /redimid|paid|procesad|cargado/i.test(normalizeKey(row.estado))));
+      const expired = sumRows(pointRows.filter(row => statusGroup(row.estado) === 'expired'));
+
+      if(!hasDetailFilters && state.filters.canal === 'Dell') {
+        host.innerHTML = [
+          kpiCard('Puntos históricos', formatInteger(sumRows(movements)), 'FY22-Q1 a FY23-Q2', '#2ABFDF'),
+          kpiCard('Pendientes por redimir', formatInteger(BUSINESS_METRICS.dell.unredeemedPoints), 'Acción requerida', '#F0A020', 'program-channel-kpi-alert'),
+          kpiCard('Estado clave', 'Unclaimed', 'Dell MyRewards', '#E84040'),
+          kpiCard('Unidad', 'Puntos', 'Nunca se suman con dinero', '#8B5FC8')
+        ].join('');
+        return;
+      }
+      if(!hasDetailFilters && state.filters.canal === 'HPE') {
+        host.innerHTML = [
+          kpiCard('HPE Instant On', formatInteger(BUSINESS_METRICS.hpe.availablePoints), 'Puntos disponibles', '#2ABFDF'),
+          kpiCard('Visa Prepaid Card', `USD ${BUSINESS_METRICS.hpe.visaUsd}`, 'Equivalencia informativa, no sumada', '#8B5FC8'),
+          kpiCard('Cash bonus FY26-Q2', '242', 'Puntos del trimestre', '#0DBF82'),
+          kpiCard('Mejor trimestre', '403', 'FY25-Q3', '#F0A020')
+        ].join('');
+        return;
+      }
+      if(!hasDetailFilters && state.filters.canal === 'Lenovo') {
+        host.innerHTML = [
+          kpiCard('Plan Ultra Aguinaldo WS', '37', 'Puntos disponibles', '#2ABFDF'),
+          kpiCard('Bono viajero', formatMoney(BUSINESS_METRICS.sed.travelerBonusCop, 'COP'), 'Valor COP separado', '#8B5FC8'),
+          kpiCard('Vigencia', `${BUSINESS_METRICS.sed.validityMonths} meses`, 'Bonos SED', '#F0A020'),
+          kpiCard('Oportunidad', 'Workstation', 'Acelerar activación comercial', '#0DBF82')
+        ].join('');
+        return;
+      }
+
+      host.innerHTML = [
+        kpiCard('Puntos acumulados', formatInteger(sumRows(movements)), `${movements.length} movimientos`, '#2ABFDF'),
+        kpiCard('Redimidos / entregados', formatInteger(redeemed), 'No incluye asignados', '#0DBF82'),
+        kpiCard('Disponibles / pendientes', formatInteger(pending || sumRows(balances)), 'Sin redimir', '#F0A020'),
+        state.filters.canal
+          ? kpiCard('Expirados', formatInteger(expired), 'Puntos vencidos', '#E84040')
+          : kpiCard('Dell por redimir', formatInteger(BUSINESS_METRICS.dell.unredeemedPoints), 'Acción requerida', '#E84040', 'program-channel-kpi-alert')
+      ].join('');
+      return;
+    }
+
+    if(!hasDetailFilters && state.filters.unidad === 'USD' && !state.filters.canal) {
+      host.innerHTML = [
+        kpiCard('Rebates Lenovo 2026', formatMoney(BUSINESS_METRICS.lenovo.actual2026, 'USD'), 'Actual', '#8B5FC8'),
+        kpiCard('Proyección de cierre', formatMoney(BUSINESS_METRICS.lenovo.projection2026, 'USD'), `+${BUSINESS_METRICS.lenovo.yoy2026}% YoY`, '#0DBF82'),
+        kpiCard('Dell aprobado a pagar', formatMoney(BUSINESS_METRICS.dell.approved, 'USD'), 'FY26–FY27', '#2D4FD6'),
+        kpiCard('ASUS cumplimiento', `${BUSINESS_METRICS.asus.compliance}%`, `Alerta · meta ${formatMoney(BUSINESS_METRICS.asus.quota, 'USD')}`, '#E84040', 'program-channel-kpi-alert')
+      ].join('');
+      return;
+    }
+
+    if(!hasDetailFilters && state.filters.unidad === 'USD' && state.filters.canal === 'Lenovo') {
+      host.innerHTML = [
+        kpiCard('Actual 2026', formatMoney(BUSINESS_METRICS.lenovo.actual2026, 'USD'), 'Lenovo 360 Engage', '#2ABFDF'),
+        kpiCard('Proyección de cierre', formatMoney(BUSINESS_METRICS.lenovo.projection2026, 'USD'), 'Mejor año proyectado', '#0DBF82'),
+        kpiCard('Crecimiento YoY', `+${BUSINESS_METRICS.lenovo.yoy2026}%`, 'Vs. cierre 2025', '#8B5FC8'),
+        kpiCard('Oportunidad', 'WKS Expert', 'Workstation subexplotado', '#F0A020')
+      ].join('');
+      return;
+    }
+
+    if(!hasDetailFilters && state.filters.unidad === 'USD' && state.filters.canal === 'Dell') {
+      const dellRows = allUnitsRows.filter(row => row.unidad === 'USD');
+      const paid = sumRows(dellRows.filter(row => ['paid','redeemed'].includes(statusGroup(row.estado))));
+      const openFunds = dellRows.filter(row => ['pending'].includes(statusGroup(row.estado)) && row.valor === 0).length;
+      host.innerHTML = [
+        kpiCard('Aprobado a pagar', formatMoney(BUSINESS_METRICS.dell.approved, 'USD'), 'Total validado', '#2ABFDF'),
+        kpiCard('Paid / Complete', formatMoney(paid, 'USD'), 'FY26 ejecutado', '#0DBF82'),
+        kpiCard('Fondos sin convertir', formatInteger(openFunds), 'Released / Pending Final Review', '#F0A020'),
+        kpiCard('Declined', formatInteger(dellRows.filter(row => statusGroup(row.estado) === 'rejected').length), 'Requiere trazabilidad', '#E84040')
+      ].join('');
+      return;
+    }
+
+    if(!hasDetailFilters && state.filters.unidad === 'USD' && state.filters.canal === 'ASUS') {
+      host.innerHTML = [
+        kpiCard('Cuota 2026', formatMoney(BUSINESS_METRICS.asus.quota, 'USD'), 'AGP Silver', '#2D4FD6'),
+        kpiCard('Ventas a 30 jun', formatMoney(BUSINESS_METRICS.asus.sales, 'USD'), '1 ene–30 jun 2026', '#2ABFDF'),
+        kpiCard('Unidades facturadas', formatInteger(BUSINESS_METRICS.asus.units), 'Portafolio elegible', '#8B5FC8'),
+        kpiCard('Cumplimiento', `${BUSINESS_METRICS.asus.compliance}%`, 'Alerta', '#E84040', 'program-channel-kpi-alert')
+      ].join('');
+      return;
+    }
+
     const selectedUnitRows = allUnitsRows.filter(row => row.unidad === state.filters.unidad);
     const paid = sumRows(selectedUnitRows.filter(row => ['paid','redeemed'].includes(statusGroup(row.estado))));
     const pending = sumRows(selectedUnitRows.filter(row => statusGroup(row.estado) === 'pending'));
+    const rejected = selectedUnitRows.filter(row => ['expired','rejected'].includes(statusGroup(row.estado))).length;
     host.innerHTML = [
-      kpiCard('Total rebates USD', formatMoney(sumRows(usdRows), 'USD'), `${usdRows.length} registros`, '#2ABFDF'),
-      kpiCard('Total rebates COP', formatMoney(sumRows(copRows), 'COP'), `${copRows.length} registros`, '#8B5FC8'),
+      kpiCard(`Total rebates ${state.filters.unidad}`, formatMoney(sumRows(selectedUnitRows), state.filters.unidad), `${selectedUnitRows.length} registros`, '#2ABFDF'),
       kpiCard(`Pagados / procesados ${state.filters.unidad}`, formatMoney(paid, state.filters.unidad), 'Estado completado', '#0DBF82'),
-      kpiCard(`Pendientes ${state.filters.unidad}`, formatMoney(pending, state.filters.unidad), 'Por gestionar', '#F0A020')
+      kpiCard(`Pendientes ${state.filters.unidad}`, formatMoney(pending, state.filters.unidad), 'Por gestionar', '#F0A020'),
+      kpiCard('Declined / Expired', formatInteger(rejected), 'Registros en alerta', '#E84040')
     ].join('');
   }
 
   function renderBarsChart(rows){
     const title = document.getElementById('program-channel-bars-title');
     const host = document.getElementById('program-channel-bars');
-    if(title) title.innerHTML = `${state.mode === 'Punto' ? 'Puntos' : 'Rebates'} por canal <span>${escapeHtml(state.filters.unidad)}</span>`;
+    const executiveOverview = state.mode === 'Rebate' && state.filters.unidad === 'USD' &&
+      !state.filters.canal && !state.filters.periodo && !state.filters.estado;
+    if(title) title.innerHTML = executiveOverview
+      ? 'Rebate por canal <span>USD · proyección Lenovo / aprobado Dell</span>'
+      : `${state.mode === 'Punto' ? 'Puntos' : 'Rebates'} por canal <span>${escapeHtml(state.filters.unidad)}</span>`;
     if(!host) return;
     const totals = new Map();
-    rows.forEach(row => totals.set(row.canal, (totals.get(row.canal) || 0) + row.valor));
-    const items = [...totals.entries()].map(([name,val]) => ({name,val})).sort((a,b) => b.val - a.val);
+    const chartRows = state.mode === 'Punto' ? rows.filter(row => row.metrica !== 'balance') : rows;
+    chartRows.forEach(row => totals.set(row.canal, (totals.get(row.canal) || 0) + row.valor));
+    let items = [...totals.entries()].map(([name,val]) => ({name,val})).sort((a,b) => b.val - a.val);
+    if(executiveOverview) {
+      items = [
+        { name:'Lenovo', val:BUSINESS_METRICS.lenovo.projection2026 },
+        { name:'Dell', val:BUSINESS_METRICS.dell.approved },
+        { name:'Epson', val:sumRows(rows.filter(row => row.canal === 'Epson')) },
+        { name:'ASUS', val:0 }
+      ];
+    }
     if(!items.length) {
       host.innerHTML = '<div class="program-channel-empty">Sin datos para los filtros seleccionados.</div>';
       return;
@@ -940,7 +1158,7 @@
     if(title) title.innerHTML = `Evolución por trimestre <span>${escapeHtml(state.filters.unidad)}</span>`;
     if(!host) return;
     const totals = new Map();
-    rows.filter(row => periodSortValue(row.periodo) >= 0).forEach(row =>
+    rows.filter(row => periodSortValue(row.periodo) >= 0 && (state.mode !== 'Punto' || row.metrica !== 'balance')).forEach(row =>
       totals.set(row.periodo, (totals.get(row.periodo) || 0) + row.valor)
     );
     const points = [...totals.entries()]
@@ -965,7 +1183,7 @@
     [0,.25,.5,.75,1].forEach(step => {
       const y = top + graphHeight * (1 - step);
       svg += `<line x1="${left}" y1="${y}" x2="${width-right}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
-      svg += `<text x="${left-8}" y="${y+4}" text-anchor="end" fill="var(--text3)" font-size="9" font-family="IBM Plex Mono,monospace">${escapeHtml(formatCompact(maxValue * step, state.filters.unidad))}</text>`;
+      svg += `<text x="${left-8}" y="${y+4}" text-anchor="end" fill="var(--text3)" font-size="9" font-family="Plus Jakarta Sans,sans-serif">${escapeHtml(formatCompact(maxValue * step, state.filters.unidad))}</text>`;
     });
     svg += `<polygon points="${area}" fill="url(#programTrendArea)"/>`;
     svg += `<polyline points="${line}" fill="none" stroke="#2ABFDF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
@@ -973,12 +1191,91 @@
       const x = xFor(index), y = yFor(point.val);
       svg += `<circle cx="${x}" cy="${y}" r="4" fill="#06071A" stroke="#2ABFDF" stroke-width="2" data-tooltip="${escapeAttr(`${point.period}: ${formatMoney(point.val, state.filters.unidad)}`)}"/>`;
       if(index % labelStep === 0 || index === points.length - 1) {
-        svg += `<text x="${x}" y="${height-13}" text-anchor="middle" fill="var(--text3)" font-size="9.5" font-family="IBM Plex Sans,sans-serif">${escapeHtml(point.period)}</text>`;
+        svg += `<text x="${x}" y="${height-13}" text-anchor="middle" fill="var(--text3)" font-size="9.5" font-family="Plus Jakarta Sans,sans-serif">${escapeHtml(point.period)}</text>`;
       }
     });
     svg += '</svg>';
     host.innerHTML = svg;
     if(typeof attachChartTooltips === 'function') attachChartTooltips(host);
+  }
+
+  function renderRanking(rows){
+    const host = document.getElementById('program-channel-ranking');
+    const title = document.getElementById('program-channel-ranking-title');
+    if(!host) return;
+    if(title) title.innerHTML = `Ranking de canales <span>${escapeHtml(state.filters.unidad)}</span>`;
+    const executiveOverview = state.mode === 'Rebate' && state.filters.unidad === 'USD' &&
+      !state.filters.canal && !state.filters.periodo && !state.filters.estado;
+    let items = [];
+    if(executiveOverview) {
+      items = [
+        { name:'Lenovo', val:BUSINESS_METRICS.lenovo.projection2026 },
+        { name:'Dell', val:BUSINESS_METRICS.dell.approved },
+        { name:'Epson', val:sumRows(rows.filter(row => row.canal === 'Epson')) }
+      ];
+    } else {
+      const rankingRows = state.mode === 'Punto' ? rows.filter(row => row.metrica !== 'balance') : rows;
+      const totals = new Map();
+      rankingRows.forEach(row => totals.set(row.canal, (totals.get(row.canal) || 0) + row.valor));
+      items = [...totals.entries()]
+        .map(([name,val]) => ({ name,val }))
+        .filter(item => item.val > 0)
+        .sort((a,b) => b.val - a.val)
+        .slice(0, 3);
+    }
+    if(!items.length) {
+      host.innerHTML = '<div class="program-channel-empty">Sin valores confirmados para clasificar.</div>';
+      return;
+    }
+    host.innerHTML = `<div class="program-channel-ranking">${items.map((item,index) => `
+      <button type="button" class="program-channel-ranking-row" onclick="ProgramChannelModule.setFilter('canal',${JSON.stringify(item.name)})" title="Filtrar canal ${escapeAttr(item.name)}">
+        <span class="program-channel-ranking-position">${index + 1}</span>
+        <span class="program-channel-ranking-name">${escapeHtml(item.name)}</span>
+        <span class="program-channel-ranking-value">${escapeHtml(state.mode === 'Punto' && state.filters.unidad === 'Puntos' ? formatInteger(item.val) : formatCompact(item.val, state.filters.unidad))}</span>
+      </button>`).join('')}</div>`;
+  }
+
+  function insightCard(kind, icon, title, copy){
+    return `<article class="program-channel-insight ${escapeAttr(kind)}">
+      <span class="program-channel-insight-icon" aria-hidden="true">${escapeHtml(icon)}</span>
+      <div><strong>${escapeHtml(title)}</strong><p>${escapeHtml(copy)}</p></div>
+    </article>`;
+  }
+
+  function renderInsights(){
+    const host = document.getElementById('program-channel-insights');
+    if(!host) return;
+    const channel = state.filters.canal;
+    let cards = [];
+    if(state.mode === 'Rebate') {
+      const definitions = {
+        Lenovo: insightCard('opportunity','★','Lenovo','2026 será el mejor año (~USD 82.535,60). WKS Expert es la oportunidad.'),
+        Dell: insightCard('info','i','Dell','FY26 ejecutado y pagado; FY27 mantiene fondos aún no convertidos en ingreso.'),
+        ASUS: insightCard('danger','!','ASUS','Solo 19% de cumplimiento de cuota: acción comercial prioritaria.'),
+        Epson: insightCard('warning','•','Epson','Separar Consumo y Comercial; monitorear Pendiente vs. Procesado por mayorista.'),
+        HPE: insightCard('info','i','HPE','La información validada disponible corresponde a puntos, no a rebates.'),
+        Intel: insightCard('info','i','Intel','La información validada disponible corresponde a incentivos en puntos.')
+      };
+      cards = channel
+        ? [definitions[channel]].filter(Boolean)
+        : [definitions.Lenovo, definitions.Dell,
+          insightCard('warning','!','Dell puntos','265 pendientes por redimir — acción requerida.'),
+          definitions.ASUS];
+    } else {
+      const definitions = {
+        Dell: insightCard('warning','!','Dell MyRewards','265 puntos pendientes por redimir — acción requerida por gerencia.'),
+        HPE: insightCard('info','i','HPE Instant On','390 puntos disponibles; Visa Prepaid Card de USD 300 como equivalencia informativa.'),
+        Lenovo: insightCard('opportunity','★','Incentivos SED','Plan Ultra Lenovo WS: 37 puntos y bono viajero COP separado.'),
+        Intel: insightCard('warning','•','Intel','Programa activo sin valor confirmado; mantener en seguimiento.'),
+        ASUS: insightCard('info','i','ASUS','No hay puntos validados; el seguimiento actual está en AGP Silver.'),
+        Epson: insightCard('info','i','Epson','No hay puntos validados; los programas registrados corresponden a rebates.')
+      };
+      cards = channel
+        ? [definitions[channel]].filter(Boolean)
+        : [definitions.Dell, definitions.HPE, definitions.Lenovo,
+          insightCard('warning','≠','Unidades separadas','Puntos y bono COP se consultan por unidad; nunca se suman.')];
+    }
+    host.innerHTML = cards.join('');
   }
 
   function renderTable(rows){
@@ -992,11 +1289,11 @@
     if(state.page > pageCount) state.page = pageCount;
     const start = (state.page - 1) * state.pageSize;
     const visible = rows.slice(start, start + state.pageSize);
-    if(title) title.textContent = state.mode === 'Punto' ? 'Detalle de puntos' : 'Detalle de rebates';
+    if(title) title.textContent = `Resumen ejecutivo por canal · ${state.mode === 'Punto' ? 'Puntos' : 'Rebates'}`;
     if(meta) meta.textContent = `${rows.length.toLocaleString('es-CO')} registros filtrados`;
     if(exportButton) exportButton.disabled = !rows.length;
     tableHost.innerHTML = `<table class="responsive-table program-channel-table">
-      <thead><tr><th>Canal</th><th>Tipo</th><th>Programa</th><th>Periodo</th><th>Valor</th><th>Unidad</th><th>Estado</th><th>Cliente / Ref</th></tr></thead>
+      <thead><tr><th>Canal</th><th>Tipo</th><th>Programa</th><th>Periodo (FY-Q)</th><th>Valor</th><th>Unidad</th><th>Estado</th><th>Cliente / Ref</th></tr></thead>
       <tbody>${visible.length ? visible.map(row => {
         const group = statusGroup(row.estado);
         return `<tr>
@@ -1033,14 +1330,14 @@
     const loaded = sources.filter(source => source.status === 'loaded');
     const missing = sources.filter(source => source.status === 'missing');
     const errors = sources.filter(source => source.status === 'error');
-    const chips = sources.map(source => {
+    const chips = `<span class="program-channel-source-chip program-channel-source-validated" title="Datos suministrados y validados por gerencia"><strong>Base validada</strong>${VALIDATED_RECORDS.length.toLocaleString('es-CO')} registros · ${escapeHtml(VALIDATED_AT)}</span>` + sources.map(source => {
       const label = source.fileName || source.label;
       const detail = source.status === 'loaded'
         ? `${source.records.length.toLocaleString('es-CO')} registros`
-        : source.status === 'error' ? 'Error' : source.status === 'missing' ? 'No encontrado' : 'Buscando';
+        : source.status === 'error' ? 'Error' : source.status === 'missing' ? 'No encontrado' : source.status === 'loading' ? 'Buscando' : 'Disponible al actualizar';
       return `<span class="program-channel-source-chip program-channel-source-${source.status}" title="${escapeAttr(source.error || label)}"><strong>${escapeHtml(source.label)}</strong>${escapeHtml(detail)}</span>`;
     }).join('');
-    let summary = state.loading ? 'Buscando y normalizando reportes...' : `${loaded.length} de ${sources.length} fuentes cargadas`;
+    let summary = state.loading ? 'Base validada visible · buscando y normalizando reportes...' : `Base gerencial activa · ${loaded.length} de ${sources.length} fuentes en vivo`;
     if(missing.length) summary += ` · Faltan: ${missing.map(source => source.label).join(', ')}`;
     if(errors.length) summary += ` · ${errors.length} fuente(s) con error`;
     if(state.error) summary = state.error;
@@ -1065,13 +1362,17 @@
     const note = document.getElementById('program-channel-unit-note');
     if(note) {
       note.textContent = state.mode === 'Rebate'
-        ? 'USD y COP se visualizan por separado. Nunca se suman entre sí.'
-        : 'Los puntos se mantienen separados de cualquier valor monetario.';
+        ? `Vista activa: rebates en ${state.filters.unidad}. USD y COP nunca se suman entre sí.`
+        : state.filters.unidad === 'COP'
+          ? 'Vista activa: incentivos monetarios en COP. No se suman con los puntos.'
+          : 'Vista activa: puntos. No se suman con rebates ni incentivos monetarios.';
     }
     const rows = getVisibleRows();
     renderKpis();
     renderBarsChart(rows);
     renderTrend(rows);
+    renderRanking(rows);
+    renderInsights();
     renderTable(rows);
   }
 
@@ -1115,7 +1416,7 @@
       worksheet.autoFilter = { from:'A1', to:'H1' };
       worksheet.getRow(1).height = 26;
       worksheet.getRow(1).font = { name:'Aptos Display', size:10, bold:true, color:{ argb:'FFFFFFFF' } };
-      worksheet.getRow(1).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF1B2B8C' } };
+      worksheet.getRow(1).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF0B1956' } };
       worksheet.getRow(1).alignment = { vertical:'middle', horizontal:'center' };
       for(let index = 2; index <= rows.length + 1; index++) {
         const row = worksheet.getRow(index);
@@ -1133,7 +1434,7 @@
       const stamp = typeof getBogotaTimestampForFile === 'function'
         ? getBogotaTimestampForFile()
         : new Date().toISOString().replace(/[:.]/g,'-');
-      link.download = `Programa_Puntos_Canal_${state.mode}_${stamp}.xlsx`;
+      link.download = `Rebates_Puntos_Incentivos_${state.mode}_${stamp}.xlsx`;
       document.body.appendChild(link);
       link.click();
       link.remove();

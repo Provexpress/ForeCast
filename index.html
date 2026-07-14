@@ -7,8 +7,8 @@
 <link rel="icon" type="image/png" href="src/icono-provexpress.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="src/styles/main.css?v=20260714-programas1">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="src/styles/main.css?v=20260714-rebates2">
 
 <!-- Microsoft Authentication Library -->
 <script src="src/config/estructura-comercial-2026.js?v=20260706-redist2"></script>
@@ -74,7 +74,7 @@
   <button id="tab-marcas" class="nav-btn" onclick="showPage('marcas',this)">🏷 Marcas & Líneas</button>
   <button id="tab-resumen" class="nav-btn" onclick="showPage('resumen',this)">📊 Resumen Total</button>
   <button id="tab-finanzas" class="nav-btn" onclick="showPage('finanzas',this)">Finanzas</button>
-  <button id="tab-programas" class="nav-btn" onclick="showPage('programas',this)">Programa de puntos por canal</button>
+  <button id="tab-programas" class="nav-btn" onclick="showPage('programas',this)">Rebates y puntos</button>
 </nav>
 
 <main class="app">
@@ -522,7 +522,7 @@
 </div>
 
 <!-- ══════════════════════════════════
-     PAGE: PROGRAMA DE PUNTOS POR CANAL
+     PAGE: REBATES, PUNTOS E INCENTIVOS POR CANAL
      Acceso exclusivo de gerencia
 ══════════════════════════════════ -->
 <div class="page" id="page-programas">
@@ -530,10 +530,10 @@
     <div class="program-channel-heading">
       <div>
         <div class="section-hd program-channel-title">
-          <h2>Programa de puntos por canal</h2>
+          <h2>Rebates, puntos e incentivos por canal</h2>
           <span class="section-tag program-channel-restricted">SOLO GERENCIA</span>
         </div>
-        <p class="program-channel-copy">Seguimiento separado de puntos y rebates de fabricantes.</p>
+        <p class="program-channel-copy">Seguimiento gerencial separado por unidad. El canal controla todo el tablero.</p>
       </div>
       <div class="program-channel-actions">
         <button class="program-channel-secondary-btn" type="button" onclick="ProgramChannelModule.reloadFromSharePoint()">Actualizar SharePoint</button>
@@ -543,16 +543,27 @@
     </div>
 
     <div class="program-channel-mode" role="tablist" aria-label="Tipo de programa">
-      <button id="program-channel-mode-points" class="program-channel-mode-btn active" type="button" role="tab" aria-selected="true" onclick="ProgramChannelModule.setMode('Punto')">PUNTOS</button>
-      <button id="program-channel-mode-rebates" class="program-channel-mode-btn" type="button" role="tab" aria-selected="false" onclick="ProgramChannelModule.setMode('Rebate')">REBATES</button>
+      <button id="program-channel-mode-rebates" class="program-channel-mode-btn active" type="button" role="tab" aria-selected="true" onclick="ProgramChannelModule.setMode('Rebate')">REBATES</button>
+      <button id="program-channel-mode-points" class="program-channel-mode-btn" type="button" role="tab" aria-selected="false" onclick="ProgramChannelModule.setMode('Punto')">PUNTOS</button>
     </div>
 
     <div id="program-channel-source-status" class="program-channel-source-status" aria-live="polite"></div>
 
+    <section class="program-channel-channel-panel" aria-labelledby="program-channel-channel-label">
+      <div class="program-channel-channel-heading">
+        <div>
+          <div class="filter-label" id="program-channel-channel-label">Canal</div>
+          <div class="program-channel-channel-copy">Filtro principal</div>
+        </div>
+        <div id="program-channel-channel-context" class="program-channel-channel-context"></div>
+      </div>
+      <div id="program-channel-channel-chips" class="program-channel-channel-chips" role="group" aria-label="Filtrar por canal"></div>
+    </section>
+
     <div class="filters program-channel-filters">
       <div class="filter-group">
-        <div class="filter-label">Canal</div>
-        <select id="program-channel-filter-channel" onchange="ProgramChannelModule.setFilter('canal',this.value)"></select>
+        <div class="filter-label">Tipo</div>
+        <div id="program-channel-filter-type" class="program-channel-type-readonly">Rebate</div>
       </div>
       <div class="filter-group">
         <div class="filter-label">Periodo (FY-Q)</div>
@@ -574,7 +585,7 @@
     <div id="program-channel-unit-note" class="program-channel-unit-note"></div>
     <div id="program-channel-kpis" class="kpi-grid kpi-grid-4 program-channel-kpis"></div>
 
-    <div class="g2 program-channel-charts">
+    <div class="program-channel-visual-grid">
       <div class="chart-card">
         <div class="chart-hd" id="program-channel-bars-title">Valor por canal</div>
         <div id="program-channel-bars" class="bar-list"></div>
@@ -583,18 +594,31 @@
         <div class="chart-hd" id="program-channel-trend-title">Evolución por trimestre</div>
         <div id="program-channel-trend"></div>
       </div>
+      <div class="chart-card program-channel-ranking-card">
+        <div class="chart-hd" id="program-channel-ranking-title">Ranking de canales</div>
+        <div id="program-channel-ranking"></div>
+      </div>
     </div>
+
+    <div id="program-channel-insights" class="program-channel-insights" aria-label="Insights gerenciales"></div>
 
     <div class="chart-card program-channel-detail-card">
       <div class="program-channel-table-heading">
         <div>
-          <div class="chart-hd" id="program-channel-table-title">Detalle</div>
+          <div class="chart-hd" id="program-channel-table-title">Resumen ejecutivo por canal</div>
           <div id="program-channel-table-meta" class="program-channel-table-meta"></div>
         </div>
-        <button id="program-channel-export-btn" class="export-excel-btn" type="button" onclick="ProgramChannelModule.exportExcel()">
-          <span class="export-excel-icon" aria-hidden="true">↓</span>
-          <span>Exportar Excel</span>
-        </button>
+        <div class="program-channel-table-actions">
+          <div class="program-channel-status-legend" aria-label="Semáforo de estados">
+            <span><i class="program-channel-legend-dot paid"></i>Pagado / Complete</span>
+            <span><i class="program-channel-legend-dot pending"></i>Pendiente / Released</span>
+            <span><i class="program-channel-legend-dot rejected"></i>Declined / Expired</span>
+          </div>
+          <button id="program-channel-export-btn" class="export-excel-btn" type="button" onclick="ProgramChannelModule.exportExcel()">
+            <span class="export-excel-icon" aria-hidden="true">↓</span>
+            <span>Exportar Excel</span>
+          </button>
+        </div>
       </div>
       <div class="tbl-wrap" id="program-channel-table"></div>
       <div id="program-channel-pagination" class="program-channel-pagination"></div>
@@ -604,8 +628,8 @@
 
 </main>
 
-<script src="src/scripts/programa-puntos-canal.js?v=20260714-1"></script>
-<script src="src/scripts/main.js?v=20260714-programas1"></script>
+<script src="src/scripts/programa-puntos-canal.js?v=20260714-rebates2"></script>
+<script src="src/scripts/main.js?v=20260714-rebates2"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->
