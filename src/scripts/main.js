@@ -2744,6 +2744,12 @@ function renderPage(pageId){
     renderFinanzas();
     return;
   }
+  if(page === 'programas') {
+    if(window.ProgramChannelModule && window.ProgramChannelModule.canAccess()) {
+      window.ProgramChannelModule.render();
+    }
+    return;
+  }
   if(page === 'marca-linea-detail' && MARCA_LINEA_DETAIL_STATE) {
     renderMarcaLineaDetail();
     return;
@@ -2763,6 +2769,10 @@ function renderVisiblePage(){
    NAV
 ══════════════════════════════════════ */
 function showPage(id,btn){
+  if(id === 'programas' && (!window.ProgramChannelModule || !window.ProgramChannelModule.canAccess())) {
+    console.warn('[PROGRAMAS] acceso denegado para la vista actual');
+    return;
+  }
   const currentPage = getActivePageId();
   if(currentPage === 'negocio' && id !== 'negocio') NEGOCIO_DETAIL_STATE = null;
   if(currentPage === 'marca-linea-detail' && id !== 'marca-linea-detail' && id !== 'negocio') MARCA_LINEA_DETAIL_STATE = null;
@@ -2771,7 +2781,7 @@ function showPage(id,btn){
   document.getElementById('page-'+id).classList.add('active');
   if(btn) btn.classList.add('active');
   const hasLoadedData = ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length || PREVENTA_DATA.length;
-  if(hasLoadedData || id === 'finanzas' || id === 'negocio' || id === 'marca-linea-detail') {
+  if(hasLoadedData || id === 'finanzas' || id === 'programas' || id === 'negocio' || id === 'marca-linea-detail') {
     renderPage(id);
   }
 }
@@ -6503,6 +6513,12 @@ async function loadFolderFromSharePoint() {
         loadDirectorFolder(siteId, folderName, filesToken)
       );
       await loadPreventaFolder(siteId, filesToken);
+      if(window.ProgramChannelModule && window.ProgramChannelModule.canAccess()) {
+        updateLoadingStatus('Cargando programas de fabricantes...');
+        await window.ProgramChannelModule.loadFromSharePoint(siteId, filesToken).catch(programError => {
+          console.warn('[PROGRAMAS] carga automatica incompleta', programError);
+        });
+      }
     }
     finalizeLoad();
     hideLoadingOverlay();
@@ -7488,6 +7504,7 @@ function applyRoleTabs() {
     marcas:    document.getElementById('tab-marcas'),
     resumen:   document.getElementById('tab-resumen'),
     finanzas:  document.getElementById('tab-finanzas'),
+    programas: document.getElementById('tab-programas'),
   };
   // Reset — mostrar todas
   Object.values(tabs).forEach(t => { if(t) t.style.display = ''; });
@@ -7525,6 +7542,9 @@ function applyRoleTabs() {
     // gerencia / gerencia_director — ven todo
     showPage('gerencia', tabs.gerencia);
   }
+
+  const canViewPrograms = role === 'gerencia' || role === 'gerencia_director';
+  if(tabs.programas) tabs.programas.style.display = canViewPrograms ? '' : 'none';
 }
 
 // ── Auto-cargar al abrir desde SharePoint ────
