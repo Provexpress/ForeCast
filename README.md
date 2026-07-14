@@ -7,6 +7,31 @@ se autentica con Microsoft 365 (MSAL) y carga archivos Excel desde SharePoint.
 - Carga automatica desde SharePoint (Microsoft Graph).
 - Vistas por rol: gerencia, director y ejecutivo.
 - Panel de cambio de vista habilitado solo para `especialista.preventa`.
+- Modulo gerencial `Programa de puntos por canal`, con puntos y rebates separados,
+  filtros FY-Q, graficos, detalle y exportacion a Excel.
+
+## Programa de puntos por canal
+La vista solo se habilita para los roles `gerencia` y `gerencia_director`.
+Primero consulta esta carpeta dentro del mismo SharePoint de Forecast:
+
+```
+COMERCIAL/FORECAST 2026/Fabricantes
+```
+
+Alli carga la version mas reciente de estas familias de reportes:
+
+- `Reporte palataformas Juan 2026.xlsx` (tambien acepta `plataformas`).
+- `MyRewards Partner Detail Report*.xlsx`.
+- `Claim Summary Report*.xlsx`.
+- `Program_List_LAS_PA000006347092.xls`.
+
+Si algun archivo no aparece en `Fabricantes`, realiza una busqueda de respaldo
+en las bibliotecas accesibles de SharePoint.
+
+Si algun reporte no esta en SharePoint, gerencia puede usar `Cargar Excel` para
+procesarlo localmente en memoria. Los archivos y sus datos no se almacenan en el
+repositorio. Las hojas resumen/pivote y las hojas vacias se excluyen para evitar
+duplicar valores.
 
 ## Origen de datos
 Ruta esperada en SharePoint (Documentos compartidos):
