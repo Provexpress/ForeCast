@@ -9,6 +9,193 @@
   const EMBEDDED_REPORT_FILE = 'Informe_Puntos_Incentivos 1.xlsx';
   const EMBEDDED_REPORT_URL = 'Informe_Puntos_Incentivos%201.xlsx';
 
+  const WORKBOOK_LAYOUTS = Object.freeze({
+    'Resumen': {
+      kpis: [
+        { label:[4,2], value:[18,2] },
+        { label:[4,3], value:[18,3] },
+        { label:[4,4], value:[18,4] },
+        { label:[4,5], value:[18,5] }
+      ],
+      sections: [
+        { title:'Consolidado por marca y programa', start:4, end:18, columns:[1,5], headerRows:[4] },
+        { titleRow:21, start:22, end:27, columns:[1,2], headerRows:[22], chart:'resumen-usd' },
+        { titleRow:30, start:31, end:39, columns:[1,2], headerRows:[31], chart:'resumen-cop' }
+      ]
+    },
+    'HPE Instant On': {
+      kpis: [
+        { labelText:'Total del periodo', value:[9,3] },
+        { label:[11,1], value:[11,3] },
+        { label:[12,1], value:[12,3] }
+      ],
+      sections: [
+        { title:'Detalle de incentivos', start:4, end:9, columns:[1,5], headerRows:[4] },
+        { title:'Estado del saldo', start:11, end:12, columns:[1,3], variant:'key-value' },
+        { titleRow:14, start:15, end:17, columns:[1,2], headerRows:[15], chart:'hpe-instant-status' }
+      ],
+      noteRows:[18]
+    },
+    'HPE Tarjeta': {
+      kpis: [
+        { label:[7,1], value:[7,2] },
+        { label:[8,1], value:[8,2] },
+        { label:[9,1], value:[9,2] }
+      ],
+      sections: [
+        { title:'Detalle de la recompensa', start:4, end:9, columns:[1,2], headerRows:[4], variant:'key-value' }
+      ],
+      noteRows:[11]
+    },
+    'HP': {
+      kpis: [
+        { label:[4,2], value:[10,2] },
+        { label:[4,3], value:[10,3] },
+        { label:[4,6], value:[10,6] }
+      ],
+      sections: [
+        { title:'Beneficios aprobados por trimestre', start:4, end:10, columns:[1,6], headerRows:[4], chart:'hp-quarter' },
+        { titleRow:12, start:13, end:18, columns:[1,2], headerRows:[13] }
+      ],
+      noteRows:[19]
+    },
+    'ASUS': {
+      kpis: [
+        { label:[16,1], value:[16,2] },
+        { label:[17,1], value:[17,2] },
+        { label:[19,1], value:[19,2] },
+        { label:[20,1], value:[20,2] }
+      ],
+      sections: [
+        { title:'Condiciones del programa', start:4, end:11, columns:[1,2], headerRows:[4], variant:'key-value' },
+        { titleRow:14, start:15, end:20, columns:[1,2], headerRows:[15], variant:'key-value' },
+        { titleRow:23, start:24, end:26, columns:[1,2], headerRows:[24], chart:'asus-quota' }
+      ],
+      noteRows:[28]
+    },
+    'Lenovo Tarjeta': {
+      kpis: [
+        { label:[5,1], value:[5,2] },
+        { label:[9,1], value:[9,2] },
+        { label:[10,1], value:[10,2] },
+        { label:[11,1], value:[11,2] }
+      ],
+      sections: [
+        { title:'Recargas, consumo y comisiones', start:4, end:11, columns:[1,3], headerRows:[4] },
+        { titleRow:13, start:14, end:17, columns:[1,3], headerRows:[14], chart:'lenovo-card-year' }
+      ],
+      noteRows:[19]
+    },
+    'Lenovo Canales': {
+      kpis: [
+        { labelText:'Proyección 2026', value:[8,2] },
+        { labelText:'Cobrado abr-jun 2026', value:[16,2] },
+        { labelText:'Cobrado abr-jun 2026 (COP)', value:[16,3] },
+        { labelText:'Histórico de transacciones', value:[57,6] }
+      ],
+      sections: [
+        { title:'Historial anual y proyección', start:4, end:8, columns:[1,3], headerRows:[4], chart:'lenovo-channel-year' },
+        { titleRow:11, start:12, end:16, columns:[1,3], headerRows:[12] },
+        { titleRow:21, subtitleRow:22, start:24, end:58, columns:[1,8], headerRows:[24], aside:{ title:'Resumen reciente', start:24, end:27, columns:[10,11], variant:'key-value' } },
+        { titleRow:59, start:61, end:68, columns:[1,3], headerRows:[61] }
+      ],
+      noteRows:[18,70]
+    },
+    'Microsoft': {
+      kpis: [
+        { labelText:'Pagado (COP)', value:[23,2] },
+        { labelText:'Pagado (USD aprox.)', value:[23,3] },
+        { labelText:'Pendiente (COP)', value:[24,2] },
+        { labelText:'Pendiente (USD aprox.)', value:[24,3] }
+      ],
+      sections: [
+        { title:'Detalle por estado de pago', start:4, end:18, columns:[1,4], headerRows:[4] },
+        { titleRow:20, start:22, end:25, columns:[1,3], headerRows:[22], chart:'microsoft-status' },
+        { titleRow:27, start:28, end:30, columns:[1,2], headerRows:[28], chart:'microsoft-year' }
+      ]
+    },
+    'Epson': {
+      kpis: [
+        { labelText:'Total registrado (USD)', value:[13,4] },
+        { labelText:'Total registrado (COP)', value:[13,6] },
+        { label:[17,1], value:[17,2] },
+        { label:[18,1], value:[18,2] }
+      ],
+      sections: [
+        { title:'Rebates por trimestre', start:4, end:13, columns:[1,7], headerRows:[4] },
+        { titleRow:15, start:16, end:19, columns:[1,2], headerRows:[16], chart:'epson-status' }
+      ]
+    },
+    'Intel': {
+      kpis: [
+        { label:[4,3], value:[8,3] },
+        { label:[4,4], value:[8,4] }
+      ],
+      sections: [
+        { title:'Puntos y valor pendiente', start:4, end:8, columns:[1,4], headerRows:[4] }
+      ],
+      noteRows:[10]
+    },
+    'Dell Rebates': {
+      kpis: [
+        { labelText:'Pagado total (USD)', value:[30,6] },
+        { labelText:'Pagado total (COP)', value:[30,7] }
+      ],
+      sections: [
+        { title:'Reclamos por año fiscal', start:4, end:30, columns:[1,8], headerRows:[4] },
+        { titleRow:32, start:33, end:41, columns:[1,4], headerRows:[33] },
+        { title:'Detalle original del resumen de reclamos', start:44, end:70, columns:[2,7], headerRows:[44] }
+      ]
+    },
+    'Dell MyRewards': {
+      kpis: [
+        { labelText:'Total de puntos', value:[29,2] }
+      ],
+      sections: [
+        { titleRow:5, start:6, end:29, columns:[1,2], headerRows:[6,7], chart:'dell-myrewards' }
+      ]
+    },
+    'Zebra': {
+      sections: [
+        { title:'Estado del programa', start:4, end:5, columns:[1,1], variant:'empty' }
+      ]
+    }
+  });
+
+  const WORKBOOK_CHARTS = Object.freeze({
+    'Resumen': [
+      { id:'resumen-usd', title:'Valor recibido por programa (USD)', type:'bar', horizontal:true, rows:[23,27], labelCol:1, series:[{ label:'USD', col:2, unit:'USD' }] },
+      { id:'resumen-cop', title:'Valor en COP por concepto', type:'bar', horizontal:true, rows:[32,39], labelCol:1, series:[{ label:'COP', col:2, unit:'COP' }] }
+    ],
+    'HPE Instant On': [
+      { id:'hpe-instant-status', title:'Incentivos: confirmado vs. por canjear', type:'doughnut', rows:[16,17], labelCol:1, series:[{ label:'USD', col:2, unit:'USD' }] }
+    ],
+    'HP': [
+      { id:'hp-quarter', title:'HP - Beneficio aprobado por trimestre (COP)', type:'bar', rows:[5,9], labelCol:1, series:[{ label:'Aprobado (COP)', col:3, unit:'COP' }] }
+    ],
+    'ASUS': [
+      { id:'asus-quota', title:'Cuota 2026: vendido vs. restante (USD 200,000)', type:'doughnut', rows:[25,26], labelCol:1, series:[{ label:'USD', col:2, unit:'USD' }] }
+    ],
+    'Lenovo Tarjeta': [
+      { id:'lenovo-card-year', title:'Consumo Lenovo por año (COP)', type:'bar', rows:[15,16], labelCol:1, series:[{ label:'Total COP', col:2, unit:'COP' }] }
+    ],
+    'Lenovo Canales': [
+      { id:'lenovo-channel-year', title:'Rebates Lenovo por año (USD)', type:'line', rows:[5,8], labelCol:1, series:[{ label:'Total (USD)', col:2, unit:'USD' }] }
+    ],
+    'Microsoft': [
+      { id:'microsoft-status', title:'Distribución por estado (COP)', type:'doughnut', rows:[23,24], labelCol:1, series:[{ label:'COP', col:2, unit:'COP' }] },
+      { id:'microsoft-year', title:'Pagado por año (COP)', type:'bar', rows:[29,30], labelCol:1, series:[{ label:'COP', col:2, unit:'COP' }] }
+    ],
+    'Epson': [
+      { id:'epson-status', title:'Epson: procesado vs. pendiente (COP)', type:'doughnut', rows:[17,18], labelCol:1, series:[{ label:'COP', col:2, unit:'COP' }] }
+    ],
+    'Dell MyRewards': [
+      { id:'dell-myrewards', title:'Puntos pendientes por trimestre de venta', type:'line', rows:[8,28], labelCol:1, series:[{ label:'Total', col:2, unit:'Puntos' }] }
+    ]
+  });
+
+  const WORKBOOK_CHART_PALETTE = ['#2D4FD6','#2ABFDF','#8B5FC8','#F0A020','#0DBF82','#E84040','#6B3FA0','#6D7FAE'];
+
   const SOURCE_DEFINITIONS = [
     {
       key: 'platforms',
@@ -134,7 +321,8 @@
       error: '',
       sheets: [],
       activeSheet: '',
-      search: ''
+      search: '',
+      view: 'report'
     },
     sources: Object.fromEntries(SOURCE_DEFINITIONS.map(def => [def.key, {
       key: def.key,
@@ -147,6 +335,7 @@
   };
 
   let recordSequence = 0;
+  let workbookChartInstances = [];
   const VALIDATED_RECORDS = VALIDATED_RECORD_DEFINITIONS.map(data => createRecord('validated', data));
   state.data = VALIDATED_RECORDS.slice();
 
@@ -842,6 +1031,21 @@
     return cell == null || normalizeText(cell.text) === '';
   }
 
+  function workbookFormatDecimals(format){
+    const clean = String(format || '')
+      .split(';')[0]
+      .replace(/"[^"]*"/g, '')
+      .replace(/\[[^\]]+\]/g, '')
+      .replace(/\\./g, '');
+    const decimal = clean.match(/\.([0#]+)/);
+    if(decimal) return Math.min(decimal[1].length, 12);
+    if(/%/.test(clean)) {
+      const localized = clean.match(/,([0#]+)%/);
+      if(localized) return Math.min(localized[1].length, 12);
+    }
+    return 0;
+  }
+
   function formatWorkbookCell(cell){
     if(!cell) return '';
     const value = cell.v;
@@ -849,22 +1053,64 @@
     if(cell.t === 'd' && value instanceof Date) {
       return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2,'0')}-${String(value.getDate()).padStart(2,'0')}`;
     }
-    if(cell.t === 'n' && cell.z && /[ymd]/i.test(cell.z) && typeof XLSX !== 'undefined' && XLSX.SSF && XLSX.SSF.parse_date_code) {
+    const isDateFormat = cell.t === 'n' && cell.z && typeof XLSX !== 'undefined' && XLSX.SSF && (
+      typeof XLSX.SSF.is_date === 'function'
+        ? XLSX.SSF.is_date(cell.z)
+        : /(?:^|[^a-z])[ymd]+(?:[^a-z]|$)/i.test(String(cell.z).replace(/\[[^\]]+\]|"[^"]*"/g, ''))
+    );
+    if(isDateFormat && XLSX.SSF.parse_date_code) {
       const parsedDate = XLSX.SSF.parse_date_code(value);
       if(parsedDate && parsedDate.y && parsedDate.m && parsedDate.d) {
         return `${parsedDate.y}-${String(parsedDate.m).padStart(2,'0')}-${String(parsedDate.d).padStart(2,'0')}`;
       }
     }
     if(typeof value === 'number') {
-      if(Number.isInteger(value)) return value.toLocaleString('es-CO', { maximumFractionDigits:0 });
-      return value.toLocaleString('es-CO', { minimumFractionDigits:2, maximumFractionDigits:12 });
+      const format = String(cell.z || '');
+      if((!format || /^general$/i.test(format)) && cell.w != null) return String(cell.w);
+      if(/%/.test(format)) {
+        const decimals = workbookFormatDecimals(format);
+        return (value * 100).toLocaleString('es-CO', {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals
+        }) + '%';
+      }
+      const decimals = format && !/^general$/i.test(format)
+        ? workbookFormatDecimals(format)
+        : (Number.isInteger(value) ? 0 : Math.min(12, Math.max(2, String(value).split('.')[1]?.length || 0)));
+      const formatted = value.toLocaleString('es-CO', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+      });
+      return /\$/.test(format) ? `$ ${formatted}` : formatted;
     }
-    return String(value);
+    return cell.w != null ? String(cell.w) : String(value);
+  }
+
+  function workbookStyleColor(color){
+    if(!color || typeof color !== 'object') return '';
+    const rgb = String(color.rgb || '').replace(/^FF/i, '').toUpperCase();
+    return /^[0-9A-F]{6}$/.test(rgb) ? `#${rgb}` : '';
+  }
+
+  function extractWorkbookCellStyle(cell){
+    const style = cell && cell.s;
+    if(!style || typeof style !== 'object') return null;
+    const fill = workbookStyleColor(style.fill && (style.fill.fgColor || style.fill.bgColor));
+    const color = workbookStyleColor(style.font && style.font.color);
+    return {
+      fill,
+      color,
+      bold: Boolean(style.font && style.font.bold),
+      italic: Boolean(style.font && style.font.italic),
+      align: normalizeText(style.alignment && style.alignment.horizontal),
+      vertical: normalizeText(style.alignment && style.alignment.vertical),
+      wrap: Boolean(style.alignment && style.alignment.wrapText)
+    };
   }
 
   function workbookSheetToRows(workbook, sheetName){
     const sheet = workbook.Sheets && workbook.Sheets[sheetName];
-    if(!sheet || !sheet['!ref']) return { rows: [], merges: [] };
+    if(!sheet || !sheet['!ref']) return { rows: [], merges: [], columns: [], rowMeta: [], startRow:1, startCol:1 };
     const range = XLSX.utils.decode_range(sheet['!ref']);
     const rows = [];
     for(let rowIndex = range.s.r; rowIndex <= range.e.r; rowIndex++) {
@@ -877,7 +1123,9 @@
           text,
           raw: rawCell && rawCell.v != null ? rawCell.v : null,
           type: rawCell && rawCell.t || '',
-          formula: rawCell && rawCell.f || ''
+          formula: rawCell && rawCell.f || '',
+          format: rawCell && rawCell.z || '',
+          style: extractWorkbookCellStyle(rawCell)
         });
       }
       rows.push(row);
@@ -893,6 +1141,21 @@
       }
     });
     const clippedRows = rows.map(row => row.slice(0, lastCol));
+    const sourceColumns = sheet['!cols'] || [];
+    const columns = Array.from({ length:lastCol }, (_, index) => {
+      const meta = sourceColumns[range.s.c + index] || {};
+      const width = Number(meta.wpx) || (Number(meta.wch) ? Number(meta.wch) * 7.4 + 12 : 0);
+      return {
+        width: width ? Math.max(58, Math.min(360, Math.round(width))) : 0,
+        hidden: Boolean(meta.hidden)
+      };
+    });
+    const sourceRows = sheet['!rows'] || [];
+    const rowMeta = Array.from({ length:clippedRows.length }, (_, index) => {
+      const meta = sourceRows[range.s.r + index] || {};
+      const height = Number(meta.hpx) || (Number(meta.hpt) ? Number(meta.hpt) * 96 / 72 : 0);
+      return { height: height ? Math.max(18, Math.min(120, Math.round(height))) : 0, hidden:Boolean(meta.hidden) };
+    });
     const merges = (sheet['!merges'] || []).map(merge => ({
       startRow: merge.s.r - range.s.r,
       startCol: merge.s.c - range.s.c,
@@ -909,7 +1172,14 @@
       endRow: Math.min(merge.endRow, clippedRows.length - 1),
       endCol: Math.min(merge.endCol, lastCol - 1)
     }));
-    return { rows: clippedRows, merges };
+    return {
+      rows: clippedRows,
+      merges,
+      columns,
+      rowMeta,
+      startRow: range.s.r + 1,
+      startCol: range.s.c + 1
+    };
   }
 
   function parseEmbeddedReportWorkbook(workbook, fileName){
@@ -925,13 +1195,21 @@
       activeSheet: state.workbook.activeSheet && sheets.some(sheet => sheet.name === state.workbook.activeSheet)
         ? state.workbook.activeSheet
         : (sheets[0] && sheets[0].name || ''),
-      search: state.workbook.search || ''
+      search: state.workbook.search || '',
+      view: state.workbook.view || 'report'
     };
   }
 
   async function loadEmbeddedReportFromBuffer(buffer, fileName){
     if(typeof XLSX === 'undefined') throw new Error('La libreria XLSX no esta disponible.');
-    const workbook = XLSX.read(buffer, { type:'array', cellDates:true, cellNF:true, cellText:false });
+    const workbook = XLSX.read(buffer, {
+      type:'array',
+      cellDates:true,
+      cellNF:true,
+      cellText:true,
+      cellStyles:true,
+      sheetStubs:true
+    });
     parseEmbeddedReportWorkbook(workbook, fileName);
   }
 
@@ -1185,6 +1463,12 @@
   function setWorkbookSheet(sheetName){
     if(!state.workbook.sheets.some(sheet => sheet.name === sheetName)) return;
     state.workbook.activeSheet = sheetName;
+    renderWorkbookReport();
+  }
+
+  function setWorkbookView(view){
+    if(view !== 'report' && view !== 'sheet') return;
+    state.workbook.view = view;
     renderWorkbookReport();
   }
 
@@ -1979,7 +2263,7 @@
     return { dataRows, max, series };
   }
 
-  function renderWorkbookOverview(sheet){
+  function renderWorkbookOverviewLegacy(sheet){
     const host = document.getElementById('program-channel-workbook-overview');
     if(!host) return;
     if(!sheet || state.workbook.status !== 'loaded') {
@@ -2017,7 +2301,7 @@
     </section>${chartHtml}`;
   }
 
-  function renderWorkbookReport(){
+  function renderWorkbookReportLegacy(){
     const sheetSelect = document.getElementById('program-channel-workbook-sheet');
     const searchInput = document.getElementById('program-channel-workbook-search');
     const meta = document.getElementById('program-channel-workbook-meta');
@@ -2101,6 +2385,524 @@
       <thead><tr>${headerHtml}</tr></thead>
       <tbody>${rowsHtml || `<tr><td colspan="${colCount + 1}" class="program-channel-empty-cell">Sin filas para mostrar.</td></tr>`}</tbody>
     </table>`;
+  }
+
+  function getWorkbookLayout(sheet){
+    return sheet && WORKBOOK_LAYOUTS[sheet.name] || null;
+  }
+
+  function getWorkbookCell(sheet, rowNumber, colNumber){
+    if(!sheet) return null;
+    const rowIndex = rowNumber - (sheet.startRow || 1);
+    const colIndex = colNumber - (sheet.startCol || 1);
+    if(rowIndex < 0 || colIndex < 0) return null;
+    return (sheet.rows[rowIndex] || [])[colIndex] || null;
+  }
+
+  function getWorkbookCellText(sheet, coordinate){
+    if(!coordinate || coordinate.length < 2) return '';
+    const cell = getWorkbookCell(sheet, coordinate[0], coordinate[1]);
+    return normalizeText(cell && cell.text);
+  }
+
+  function getWorkbookColumnCount(sheet){
+    return Math.max(...(sheet.rows || []).map(row => row.length), 1);
+  }
+
+  function getWorkbookRow(sheet, rowNumber){
+    const index = rowNumber - (sheet.startRow || 1);
+    return index >= 0 ? (sheet.rows[index] || []) : [];
+  }
+
+  function workbookAbsoluteColumnIndex(sheet, colNumber){
+    return colNumber - (sheet.startCol || 1);
+  }
+
+  function workbookAbsoluteRowIndex(sheet, rowNumber){
+    return rowNumber - (sheet.startRow || 1);
+  }
+
+  function workbookStatusClass(text){
+    const key = normalizeKey(text);
+    if(!key) return '';
+    if(/^(pagado|paid|complete|confirmado|procesado|aprobado)$/.test(key)) return 'is-positive';
+    if(/^(pendiente|por canjear|pending final review|upcoming pendiente|released)$/.test(key)) return 'is-pending';
+    if(/^(declined|rechazado|vencido|expired)$/.test(key)) return 'is-negative';
+    return '';
+  }
+
+  function workbookSourceStyle(cell){
+    const style = cell && cell.style;
+    if(!style) return '';
+    const rules = [];
+    if(/^#[0-9A-F]{6}$/i.test(style.fill || '')) rules.push(`background-color:${style.fill}`);
+    if(/^#[0-9A-F]{6}$/i.test(style.color || '')) rules.push(`color:${style.color}`);
+    if(style.bold) rules.push('font-weight:700');
+    if(style.italic) rules.push('font-style:italic');
+    if(['left','center','right'].includes(style.align)) rules.push(`text-align:${style.align}`);
+    if(style.wrap) rules.push('white-space:normal');
+    return rules.join(';');
+  }
+
+  function workbookRowMatches(sheet, rowNumber, search){
+    return workbookRowMatchesSearch(getWorkbookRow(sheet, rowNumber), search);
+  }
+
+  function workbookRowFirstText(sheet, rowNumber, columns){
+    const startCol = columns ? columns[0] : (sheet.startCol || 1);
+    const endCol = columns ? columns[1] : startCol + getWorkbookColumnCount(sheet) - 1;
+    for(let col = startCol; col <= endCol; col++) {
+      const text = normalizeText(getWorkbookCell(sheet, rowNumber, col)?.text);
+      if(text) return text;
+    }
+    return '';
+  }
+
+  function workbookRowHasStrongFill(sheet, rowNumber, columns){
+    const startCol = columns[0];
+    const endCol = columns[1];
+    let styled = 0;
+    for(let col = startCol; col <= endCol; col++) {
+      const cell = getWorkbookCell(sheet, rowNumber, col);
+      if(cell && normalizeText(cell.text) && cell.style && cell.style.fill && cell.style.bold) styled++;
+    }
+    return styled > 0;
+  }
+
+  function workbookColumnWidth(sheet, colNumber, startRow, endRow){
+    const meta = (sheet.columns || [])[workbookAbsoluteColumnIndex(sheet, colNumber)] || {};
+    if(meta.hidden) return 0;
+    if(meta.width) return Math.max(88, Math.min(320, meta.width));
+    let longest = 0;
+    let numeric = true;
+    for(let row = startRow; row <= endRow; row++) {
+      const cell = getWorkbookCell(sheet, row, colNumber);
+      const text = normalizeText(cell && cell.text);
+      longest = Math.max(longest, text.length);
+      if(text && typeof cell.raw !== 'number') numeric = false;
+    }
+    if(numeric) return 132;
+    return Math.max(104, Math.min(320, longest * 6.4 + 28));
+  }
+
+  function renderWorkbookCell(cell, options){
+    const text = cell ? String(cell.text || '') : '';
+    const numeric = cell && typeof cell.raw === 'number';
+    const statusClass = options && options.allowStatus === false ? '' : workbookStatusClass(text);
+    const classes = [numeric ? 'is-number td-mono' : '', statusClass ? 'is-status' : ''].filter(Boolean).join(' ');
+    const style = options && options.sourceStyle ? workbookSourceStyle(cell) : '';
+    const title = cell && cell.formula ? `Fórmula: =${cell.formula} | Valor: ${text}` : text;
+    const content = statusClass
+      ? `<span class="program-report-status ${statusClass}">${escapeHtml(text)}</span>`
+      : (text ? escapeHtml(text) : '&nbsp;');
+    return { classes, style, title, content };
+  }
+
+  function renderWorkbookSectionTable(sheet, section, search, forceAllRows){
+    const columns = section.columns || [sheet.startCol || 1, (sheet.startCol || 1) + getWorkbookColumnCount(sheet) - 1];
+    const headerRows = new Set(section.headerRows || []);
+    const rowNumbers = [];
+    let matchCount = 0;
+    for(let rowNumber = section.start; rowNumber <= section.end; rowNumber++) {
+      const row = getWorkbookRow(sheet, rowNumber);
+      const hasContent = row.some(cell => normalizeText(cell && cell.text));
+      if(!hasContent) continue;
+      const matches = !search || workbookRowMatches(sheet, rowNumber, search);
+      if(search && matches && !headerRows.has(rowNumber)) matchCount++;
+      if(forceAllRows || !search || matches || headerRows.has(rowNumber)) rowNumbers.push(rowNumber);
+    }
+    if(search && !forceAllRows && matchCount === 0) return { html:'', matchCount:0 };
+    if(!rowNumbers.length) return { html:'', matchCount };
+
+    const mergeMaps = getWorkbookMergeMaps(sheet);
+    const useMerges = !search && !forceAllRows;
+    const colgroup = [];
+    for(let col = columns[0]; col <= columns[1]; col++) {
+      const width = workbookColumnWidth(sheet, col, section.start, section.end);
+      if(width) colgroup.push(`<col style="width:${Math.round(width)}px">`);
+    }
+
+    const rowsHtml = rowNumbers.map(rowNumber => {
+      const firstText = workbookRowFirstText(sheet, rowNumber, columns);
+      const isHeader = headerRows.has(rowNumber);
+      const isTotal = /^total(?: general)?$/i.test(firstText) || (!isHeader && workbookRowHasStrongFill(sheet, rowNumber, columns));
+      const rowClasses = [isHeader ? 'is-header' : '', isTotal ? 'is-total' : ''].filter(Boolean).join(' ');
+      const rowMeta = (sheet.rowMeta || [])[workbookAbsoluteRowIndex(sheet, rowNumber)] || {};
+      const rowStyle = rowMeta.height ? ` style="height:${rowMeta.height}px"` : '';
+      let cellsHtml = '';
+      for(let colNumber = columns[0]; colNumber <= columns[1]; colNumber++) {
+        const relRow = workbookAbsoluteRowIndex(sheet, rowNumber);
+        const relCol = workbookAbsoluteColumnIndex(sheet, colNumber);
+        const mergeKey = `${relRow}:${relCol}`;
+        if(useMerges && mergeMaps.covered.has(mergeKey)) continue;
+        const cell = getWorkbookCell(sheet, rowNumber, colNumber) || { text:'', raw:null };
+        const rendered = renderWorkbookCell(cell, { sourceStyle:false, allowStatus:!isHeader });
+        const merge = useMerges ? mergeMaps.startMap.get(mergeKey) : null;
+        const rowspan = merge ? Math.min(merge.rowspan, section.end - rowNumber + 1) : 1;
+        const colspan = merge ? Math.min(merge.colspan, columns[1] - colNumber + 1) : 1;
+        const spanAttrs = `${rowspan > 1 ? ` rowspan="${rowspan}"` : ''}${colspan > 1 ? ` colspan="${colspan}"` : ''}`;
+        cellsHtml += `<td${spanAttrs} class="${rendered.classes}"${rendered.style ? ` style="${escapeAttr(rendered.style)}"` : ''} title="${escapeAttr(rendered.title)}">${rendered.content}</td>`;
+      }
+      return `<tr class="${rowClasses}"${rowStyle}>${cellsHtml}</tr>`;
+    }).join('');
+
+    const variant = section.variant ? ` program-report-table-${section.variant}` : '';
+    return {
+      html:`<div class="program-report-table-wrap${variant}"><table class="program-report-table"><colgroup>${colgroup.join('')}</colgroup><tbody>${rowsHtml}</tbody></table></div>`,
+      matchCount
+    };
+  }
+
+  function getWorkbookChartDefinition(sheetName, chartId){
+    return (WORKBOOK_CHARTS[sheetName] || []).find(chart => chart.id === chartId) || null;
+  }
+
+  function renderWorkbookChartMarkup(sheet, chartId){
+    const chart = getWorkbookChartDefinition(sheet.name, chartId);
+    if(!chart) return '';
+    return `<figure class="program-report-chart-panel">
+      <figcaption>${escapeHtml(chart.title)}</figcaption>
+      <div class="program-report-chart-canvas"><canvas data-workbook-chart="${escapeAttr(chart.id)}" role="img" aria-label="${escapeAttr(chart.title)}"></canvas></div>
+    </figure>`;
+  }
+
+  function renderWorkbookSection(sheet, section, search){
+    const table = renderWorkbookSectionTable(sheet, section, search, false);
+    if(search && table.matchCount === 0) return '';
+    const title = section.title || (section.titleRow ? workbookRowFirstText(sheet, section.titleRow) : '');
+    const subtitle = section.subtitleRow ? workbookRowFirstText(sheet, section.subtitleRow) : '';
+    const chartHtml = section.chart ? renderWorkbookChartMarkup(sheet, section.chart) : '';
+    let asideHtml = '';
+    if(section.aside) {
+      const aside = renderWorkbookSectionTable(sheet, section.aside, '', true);
+      asideHtml = `<aside class="program-report-aside"><h5>${escapeHtml(section.aside.title || '')}</h5>${aside.html}</aside>`;
+    }
+    const bodyClasses = ['program-report-section-body', chartHtml ? 'has-chart' : '', asideHtml ? 'has-aside' : ''].filter(Boolean).join(' ');
+    return `<section class="program-report-section">
+      ${(title || subtitle) ? `<header class="program-report-section-heading">${title ? `<h4>${escapeHtml(title)}</h4>` : ''}${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ''}</header>` : ''}
+      <div class="${bodyClasses}"><div class="program-report-section-table">${table.html}</div>${asideHtml}${chartHtml}</div>
+    </section>`;
+  }
+
+  function renderWorkbookNote(sheet, rowNumber, search){
+    if(search && !workbookRowMatches(sheet, rowNumber, search)) return '';
+    const text = workbookRowFirstText(sheet, rowNumber);
+    if(!text) return '';
+    const source = /^fuente:/i.test(text);
+    return `<aside class="program-report-note${source ? ' is-source' : ''}"><span aria-hidden="true">${source ? 'i' : '!'}</span><p>${escapeHtml(text)}</p></aside>`;
+  }
+
+  function buildFallbackWorkbookSections(sheet){
+    const sections = [];
+    const firstRow = (sheet.startRow || 1) + 2;
+    const lastRow = (sheet.startRow || 1) + (sheet.rows || []).length - 1;
+    let start = null;
+    for(let row = firstRow; row <= lastRow + 1; row++) {
+      const hasContent = row <= lastRow && getWorkbookRow(sheet, row).some(cell => normalizeText(cell && cell.text));
+      if(hasContent && start == null) start = row;
+      if(!hasContent && start != null) {
+        const end = row - 1;
+        const firstText = workbookRowFirstText(sheet, start);
+        const nonEmptyCount = getWorkbookRow(sheet, start).filter(cell => normalizeText(cell && cell.text)).length;
+        sections.push({
+          title: nonEmptyCount === 1 && end > start ? firstText : '',
+          start: nonEmptyCount === 1 && end > start ? start + 1 : start,
+          end,
+          columns:[sheet.startCol || 1, (sheet.startCol || 1) + getWorkbookColumnCount(sheet) - 1],
+          headerRows: nonEmptyCount === 1 && end > start ? [start + 1] : [start]
+        });
+        start = null;
+      }
+    }
+    return sections;
+  }
+
+  function renderStructuredWorkbookSheet(sheet){
+    const layout = getWorkbookLayout(sheet) || {};
+    const sections = layout.sections || buildFallbackWorkbookSections(sheet);
+    const search = state.workbook.search;
+    const blocks = sections.map(section => ({
+      row: section.titleRow || section.start,
+      html: renderWorkbookSection(sheet, section, search)
+    }));
+    (layout.noteRows || []).forEach(rowNumber => {
+      blocks.push({ row:rowNumber, html:renderWorkbookNote(sheet, rowNumber, search) });
+    });
+    const html = blocks.sort((a,b) => a.row - b.row).map(block => block.html).filter(Boolean).join('');
+    return html || `<div class="program-report-empty">No hay filas que coincidan con la búsqueda en esta hoja.</div>`;
+  }
+
+  function renderWorkbookGrid(sheet){
+    const rows = (sheet.rows || []).map((row, index) => ({
+      row,
+      rowNumber:(sheet.startRow || 1) + index
+    })).filter(item => !state.workbook.search || workbookRowMatchesSearch(item.row, state.workbook.search));
+    const colCount = getWorkbookColumnCount(sheet);
+    const mergeMaps = getWorkbookMergeMaps(sheet);
+    const useMerges = !state.workbook.search;
+    const colgroup = ['<col class="program-report-grid-index-col">'];
+    for(let index = 0; index < colCount; index++) {
+      const meta = (sheet.columns || [])[index] || {};
+      const width = meta.hidden ? 0 : (meta.width || 132);
+      colgroup.push(`<col style="width:${Math.max(70, Math.min(360, Math.round(width)))}px">`);
+    }
+    const headerHtml = '<th class="program-channel-workbook-row-head">#</th>' + Array.from({ length:colCount }, (_, index) => {
+      const absoluteCol = (sheet.startCol || 1) + index - 1;
+      return `<th>${escapeHtml(XLSX.utils.encode_col(absoluteCol))}</th>`;
+    }).join('');
+    const rowsHtml = rows.map(item => {
+      const relRow = workbookAbsoluteRowIndex(sheet, item.rowNumber);
+      const rowMeta = (sheet.rowMeta || [])[relRow] || {};
+      let cellsHtml = '';
+      for(let index = 0; index < colCount; index++) {
+        const mergeKey = `${relRow}:${index}`;
+        if(useMerges && mergeMaps.covered.has(mergeKey)) continue;
+        const cell = item.row[index] || { text:'', raw:null };
+        const rendered = renderWorkbookCell(cell, { sourceStyle:true });
+        const merge = useMerges ? mergeMaps.startMap.get(mergeKey) : null;
+        const spanAttrs = merge
+          ? `${merge.rowspan > 1 ? ` rowspan="${merge.rowspan}"` : ''}${merge.colspan > 1 ? ` colspan="${merge.colspan}"` : ''}`
+          : '';
+        cellsHtml += `<td${spanAttrs} class="${rendered.classes}"${rendered.style ? ` style="${escapeAttr(rendered.style)}"` : ''} title="${escapeAttr(rendered.title)}">${rendered.content}</td>`;
+      }
+      return `<tr${rowMeta.height ? ` style="height:${rowMeta.height}px"` : ''}><td class="td-mono program-channel-workbook-row-head">${item.rowNumber}</td>${cellsHtml}</tr>`;
+    }).join('');
+    return `<div class="program-channel-workbook-grid-wrap"><table class="program-channel-workbook-table"><colgroup>${colgroup.join('')}</colgroup><thead><tr>${headerHtml}</tr></thead><tbody>${rowsHtml || `<tr><td colspan="${colCount + 1}" class="program-channel-empty-cell">Sin filas para mostrar.</td></tr>`}</tbody></table></div>`;
+  }
+
+  function buildWorkbookKpis(sheet){
+    const layout = getWorkbookLayout(sheet);
+    if(!layout || !layout.kpis) return [];
+    return layout.kpis.map(kpi => ({
+      label:kpi.labelText || getWorkbookCellText(sheet, kpi.label),
+      value:getWorkbookCellText(sheet, kpi.value)
+    })).filter(kpi => kpi.label && kpi.value);
+  }
+
+  function renderWorkbookOverview(sheet){
+    const host = document.getElementById('program-channel-workbook-overview');
+    if(!host) return;
+    if(!sheet || state.workbook.status !== 'loaded') {
+      host.innerHTML = '';
+      return;
+    }
+    const { title, subtitle } = getWorkbookSheetTitle(sheet);
+    const kpis = buildWorkbookKpis(sheet);
+    const sheetIndex = state.workbook.sheets.findIndex(item => item.name === sheet.name) + 1;
+    const rowCount = (sheet.rows || []).filter(row => row.some(cell => normalizeText(cell && cell.text))).length;
+    const kpisHtml = kpis.length ? `<div class="program-report-kpis">${kpis.map(kpi => `<article class="program-report-kpi"><span>${escapeHtml(kpi.label)}</span><strong>${escapeHtml(kpi.value)}</strong></article>`).join('')}</div>` : '';
+    host.innerHTML = `<section class="program-report-hero">
+      <div class="program-report-hero-copy">
+        <div class="program-report-sheet-index">Hoja ${String(sheetIndex).padStart(2,'0')} de ${String(state.workbook.sheets.length).padStart(2,'0')}</div>
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(subtitle)}</p>
+        <div class="program-report-hero-meta"><span>${rowCount.toLocaleString('es-CO')} filas con información</span><span>Datos de solo lectura</span></div>
+      </div>
+      ${kpisHtml}
+    </section>`;
+  }
+
+  function workbookChartData(sheet, chart){
+    const labels = [];
+    const datasets = chart.series.map(series => ({ label:series.label, unit:series.unit, data:[] }));
+    for(let row = chart.rows[0]; row <= chart.rows[1]; row++) {
+      const label = normalizeText(getWorkbookCell(sheet, row, chart.labelCol)?.text);
+      const values = chart.series.map(series => {
+        const cell = getWorkbookCell(sheet, row, series.col);
+        if(cell && typeof cell.raw === 'number' && Number.isFinite(cell.raw)) return cell.raw;
+        const value = toNumber(cell && cell.text);
+        return Number.isFinite(value) ? value : 0;
+      });
+      if(!label && !values.some(value => value !== 0)) continue;
+      labels.push(label || `Fila ${row}`);
+      values.forEach((value, index) => datasets[index].data.push(value));
+    }
+    return { labels, datasets };
+  }
+
+  function formatWorkbookChartValue(value, unit, axis){
+    const number = Number(value) || 0;
+    if(axis) return number.toLocaleString('es-CO', { maximumFractionDigits:0 });
+    if(unit === 'COP') return '$ ' + number.toLocaleString('es-CO', { minimumFractionDigits:0, maximumFractionDigits:2 });
+    if(unit === 'USD') return 'USD ' + number.toLocaleString('es-CO', { minimumFractionDigits:2, maximumFractionDigits:2 });
+    if(unit === 'Puntos') return number.toLocaleString('es-CO', { maximumFractionDigits:2 }) + ' puntos';
+    return number.toLocaleString('es-CO', { maximumFractionDigits:2 });
+  }
+
+  function wrapWorkbookChartLabel(value){
+    const text = String(value || '');
+    if(text.length <= 22) return text;
+    const words = text.split(/\s+/);
+    const lines = [];
+    let line = '';
+    words.forEach(word => {
+      const candidate = line ? `${line} ${word}` : word;
+      if(candidate.length > 22 && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    });
+    if(line) lines.push(line);
+    return lines.slice(0,3);
+  }
+
+  function destroyWorkbookCharts(){
+    workbookChartInstances.forEach(chart => {
+      try { chart.destroy(); } catch(error) { console.warn('[PROGRAMAS CHART DESTROY]', error); }
+    });
+    workbookChartInstances = [];
+  }
+
+  function renderWorkbookChartFallback(host, data){
+    const values = data.datasets[0] ? data.datasets[0].data : [];
+    const unit = data.datasets[0] ? data.datasets[0].unit : '';
+    const max = Math.max(...values.map(value => Math.abs(value)), 1);
+    host.innerHTML = `<div class="program-report-chart-fallback">${data.labels.map((label,index) => `<div><span title="${escapeAttr(label)}">${escapeHtml(label)}</span><i><b style="width:${Math.max(2, Math.abs(values[index] || 0) / max * 100).toFixed(2)}%"></b></i><em>${escapeHtml(formatWorkbookChartValue(values[index] || 0, unit, false))}</em></div>`).join('')}</div>`;
+  }
+
+  function renderWorkbookCharts(sheet){
+    destroyWorkbookCharts();
+    if(state.workbook.view !== 'report') return;
+    const canvases = Array.from(document.querySelectorAll('#program-channel-workbook-table canvas[data-workbook-chart]'));
+    canvases.forEach(canvas => {
+      const definition = getWorkbookChartDefinition(sheet.name, canvas.dataset.workbookChart);
+      if(!definition) return;
+      const data = workbookChartData(sheet, definition);
+      if(typeof Chart === 'undefined') {
+        renderWorkbookChartFallback(canvas.parentElement, data);
+        return;
+      }
+      const styles = getComputedStyle(document.documentElement);
+      const textColor = styles.getPropertyValue('--text3').trim() || '#8A9ACC';
+      const strongColor = styles.getPropertyValue('--text').trim() || '#E0E6F8';
+      const gridColor = styles.getPropertyValue('--border').trim() || '#1A1E42';
+      const isDoughnut = definition.type === 'doughnut';
+      const chartData = {
+        labels:data.labels.map(label => isDoughnut ? label : wrapWorkbookChartLabel(label)),
+        datasets:data.datasets.map((dataset,index) => ({
+          ...dataset,
+          borderColor:isDoughnut ? styles.getPropertyValue('--card').trim() : WORKBOOK_CHART_PALETTE[index % WORKBOOK_CHART_PALETTE.length],
+          backgroundColor:isDoughnut
+            ? data.labels.map((_,labelIndex) => WORKBOOK_CHART_PALETTE[labelIndex % WORKBOOK_CHART_PALETTE.length])
+            : WORKBOOK_CHART_PALETTE[index % WORKBOOK_CHART_PALETTE.length],
+          pointBackgroundColor:WORKBOOK_CHART_PALETTE[index % WORKBOOK_CHART_PALETTE.length],
+          pointBorderColor:strongColor,
+          pointRadius:definition.type === 'line' ? 3 : 0,
+          pointHoverRadius:5,
+          borderWidth:definition.type === 'line' ? 2.5 : (isDoughnut ? 2 : 1),
+          tension:definition.type === 'line' ? .28 : 0,
+          fill:false
+        }))
+      };
+      const options = {
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
+        indexAxis:definition.horizontal ? 'y' : 'x',
+        interaction:{ mode:'nearest', intersect:false },
+        plugins:{
+          legend:{
+            display:isDoughnut || chartData.datasets.length > 1,
+            position:'bottom',
+            labels:{ color:textColor, boxWidth:10, boxHeight:10, padding:14, font:{ family:'IBM Plex Sans', size:10 } }
+          },
+          tooltip:{
+            callbacks:{
+              title:items => data.labels[items[0]?.dataIndex] || '',
+              label:context => `${context.dataset.label}: ${formatWorkbookChartValue(context.raw, context.dataset.unit, false)}`
+            }
+          }
+        }
+      };
+      if(isDoughnut) {
+        options.cutout = '62%';
+      } else {
+        const numericAxis = definition.horizontal ? 'x' : 'y';
+        const categoryAxis = definition.horizontal ? 'y' : 'x';
+        options.scales = {
+          [numericAxis]:{
+            beginAtZero:true,
+            grid:{ color:gridColor },
+            border:{ display:false },
+            ticks:{ color:textColor, maxTicksLimit:6, callback:value => formatWorkbookChartValue(value, '', true), font:{ family:'IBM Plex Mono', size:9 } }
+          },
+          [categoryAxis]:{
+            grid:{ display:false },
+            border:{ display:false },
+            ticks:{ color:textColor, autoSkip:true, maxTicksLimit:definition.type === 'line' ? 8 : 12, maxRotation:0, minRotation:0, font:{ family:'IBM Plex Sans', size:9 } }
+          }
+        };
+      }
+      workbookChartInstances.push(new Chart(canvas.getContext('2d'), { type:definition.type, data:chartData, options }));
+    });
+  }
+
+  function renderWorkbookReport(){
+    const sheetSelect = document.getElementById('program-channel-workbook-sheet');
+    const searchInput = document.getElementById('program-channel-workbook-search');
+    const reportView = document.getElementById('program-channel-view-report');
+    const sheetView = document.getElementById('program-channel-view-sheet');
+    const meta = document.getElementById('program-channel-workbook-meta');
+    const status = document.getElementById('program-channel-workbook-status');
+    const tableHost = document.getElementById('program-channel-workbook-table');
+    if(!tableHost) return;
+    destroyWorkbookCharts();
+
+    if(sheetSelect) {
+      sheetSelect.innerHTML = state.workbook.sheets.map(sheet => `<option value="${escapeAttr(sheet.name)}"${sheet.name === state.workbook.activeSheet ? ' selected' : ''}>${escapeHtml(sheet.name)}</option>`).join('');
+      sheetSelect.disabled = !state.workbook.sheets.length;
+    }
+    if(reportView) {
+      reportView.classList.toggle('active', state.workbook.view === 'report');
+      reportView.setAttribute('aria-pressed', state.workbook.view === 'report' ? 'true' : 'false');
+    }
+    if(sheetView) {
+      sheetView.classList.toggle('active', state.workbook.view === 'sheet');
+      sheetView.setAttribute('aria-pressed', state.workbook.view === 'sheet' ? 'true' : 'false');
+    }
+    renderWorkbookSheetTabs();
+    if(searchInput && searchInput.value !== state.workbook.search) searchInput.value = state.workbook.search;
+
+    const activeSheet = getActiveWorkbookSheet();
+    const loadedCount = state.workbook.sheets.length;
+    if(meta) meta.textContent = `${state.workbook.fileName || EMBEDDED_REPORT_FILE} · ${loadedCount ? `${loadedCount} hojas` : 'pendiente de carga'} · solo lectura`;
+
+    if(state.workbook.status === 'idle' || state.workbook.status === 'loading') {
+      if(status) status.textContent = state.workbook.status === 'loading' ? 'Leyendo hojas, formatos y valores del informe...' : 'Cargando el informe incluido en el proyecto...';
+      renderWorkbookOverview(null);
+      tableHost.innerHTML = '<div class="program-report-empty">Preparando el informe Excel original.</div>';
+      return;
+    }
+    if(state.workbook.status === 'error') {
+      if(status) status.textContent = state.workbook.error;
+      renderWorkbookOverview(null);
+      tableHost.innerHTML = '<div class="program-report-empty">No se pudo cargar automáticamente el archivo. Usa Cargar Excel para seleccionarlo.</div>';
+      return;
+    }
+    if(!activeSheet) {
+      if(status) status.textContent = 'El informe no contiene hojas visibles.';
+      renderWorkbookOverview(null);
+      tableHost.innerHTML = '<div class="program-report-empty">Sin hojas para mostrar.</div>';
+      return;
+    }
+
+    renderWorkbookOverview(activeSheet);
+    const totalRows = (activeSheet.rows || []).length;
+    const matches = state.workbook.search
+      ? (activeSheet.rows || []).filter(row => workbookRowMatchesSearch(row, state.workbook.search)).length
+      : totalRows;
+    if(status) {
+      const filtered = state.workbook.search ? `${matches.toLocaleString('es-CO')} filas coinciden` : `${totalRows.toLocaleString('es-CO')} filas`;
+      const viewLabel = state.workbook.view === 'report' ? 'vista informe' : 'hoja Excel';
+      status.textContent = `${activeSheet.name} · ${filtered} · ${viewLabel} · cifras completas`;
+    }
+    tableHost.innerHTML = state.workbook.view === 'sheet'
+      ? renderWorkbookGrid(activeSheet)
+      : `<div class="program-report-sheet">${renderStructuredWorkbookSheet(activeSheet)}</div>`;
+
+    if(state.workbook.view === 'report') renderWorkbookCharts(activeSheet);
   }
 
   function render(){
@@ -2203,6 +3005,7 @@
     clearFilters,
     setPage,
     setWorkbookSheet,
+    setWorkbookView,
     setWorkbookSearch,
     exportExcel,
     render,
