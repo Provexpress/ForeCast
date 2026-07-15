@@ -859,12 +859,12 @@
       if(Number.isInteger(value)) return value.toLocaleString('es-CO', { maximumFractionDigits:0 });
       return value.toLocaleString('es-CO', { minimumFractionDigits:2, maximumFractionDigits:12 });
     }
-    return normalizeText(value);
+    return String(value);
   }
 
   function workbookSheetToRows(workbook, sheetName){
     const sheet = workbook.Sheets && workbook.Sheets[sheetName];
-    if(!sheet || !sheet['!ref']) return [];
+    if(!sheet || !sheet['!ref']) return { rows: [], merges: [] };
     const range = XLSX.utils.decode_range(sheet['!ref']);
     const rows = [];
     for(let rowIndex = range.s.r; rowIndex <= range.e.r; rowIndex++) {
@@ -892,13 +892,30 @@
         }
       }
     });
-    return rows.map(row => row.slice(0, lastCol));
+    const clippedRows = rows.map(row => row.slice(0, lastCol));
+    const merges = (sheet['!merges'] || []).map(merge => ({
+      startRow: merge.s.r - range.s.r,
+      startCol: merge.s.c - range.s.c,
+      endRow: merge.e.r - range.s.r,
+      endCol: merge.e.c - range.s.c
+    })).filter(merge =>
+      merge.startRow >= 0 &&
+      merge.startCol >= 0 &&
+      merge.startRow < clippedRows.length &&
+      merge.startCol < lastCol
+    ).map(merge => ({
+      startRow: merge.startRow,
+      startCol: merge.startCol,
+      endRow: Math.min(merge.endRow, clippedRows.length - 1),
+      endCol: Math.min(merge.endCol, lastCol - 1)
+    }));
+    return { rows: clippedRows, merges };
   }
 
   function parseEmbeddedReportWorkbook(workbook, fileName){
     const sheets = (workbook.SheetNames || []).map(name => ({
       name,
-      rows: workbookSheetToRows(workbook, name)
+      ...workbookSheetToRows(workbook, name)
     }));
     state.workbook = {
       status: 'loaded',
@@ -1825,6 +1842,36 @@
     return (row || []).some(cell => normalizeKey(cell && cell.text).includes(needle));
   }
 
+  function renderWorkbookSheetTabs(){
+    const host = document.getElementById('program-channel-workbook-tabs');
+    if(!host) return;
+    if(!state.workbook.sheets.length) {
+      host.innerHTML = '';
+      return;
+    }
+    host.innerHTML = state.workbook.sheets.map(sheet => {
+      const active = sheet.name === state.workbook.activeSheet;
+      return `<button type="button" class="program-channel-workbook-tab${active ? ' active' : ''}" role="tab" aria-selected="${active ? 'true' : 'false'}" onclick="ProgramChannelModule.setWorkbookSheet(${escapeAttr(JSON.stringify(sheet.name))})">${escapeHtml(sheet.name)}</button>`;
+    }).join('');
+  }
+
+  function getWorkbookMergeMaps(sheet){
+    const startMap = new Map();
+    const covered = new Set();
+    (sheet.merges || []).forEach(merge => {
+      const rowspan = Math.max(1, merge.endRow - merge.startRow + 1);
+      const colspan = Math.max(1, merge.endCol - merge.startCol + 1);
+      startMap.set(`${merge.startRow}:${merge.startCol}`, { rowspan, colspan });
+      for(let row = merge.startRow; row <= merge.endRow; row++) {
+        for(let col = merge.startCol; col <= merge.endCol; col++) {
+          if(row === merge.startRow && col === merge.startCol) continue;
+          covered.add(`${row}:${col}`);
+        }
+      }
+    });
+    return { startMap, covered };
+  }
+
   function renderWorkbookReport(){
     const sheetSelect = document.getElementById('program-channel-workbook-sheet');
     const searchInput = document.getElementById('program-channel-workbook-search');
@@ -1839,6 +1886,7 @@
       ).join('');
       sheetSelect.disabled = !state.workbook.sheets.length;
     }
+    renderWorkbookSheetTabs();
     if(searchInput && searchInput.value !== state.workbook.search) searchInput.value = state.workbook.search;
 
     const activeSheet = getActiveWorkbookSheet();
@@ -1868,6 +1916,7 @@
     }
 
     const rows = activeSheet.rows || [];
+    const mergeMaps = getWorkbookMergeMaps(activeSheet);
     const bodyRows = rows
       .map((row, index) => ({ row, number: index + 1 }))
       .filter(item => workbookRowMatchesSearch(item.row, state.workbook.search));
@@ -1882,11 +1931,22 @@
       Array.from({ length: colCount }, (_, index) =>
         `<th>${escapeHtml(XLSX.utils.encode_col(index))}</th>`
       ).join('');
-    const rowsHtml = visibleRows.map(item => `<tr><td class="td-mono program-channel-workbook-row-head">${item.number}</td>${Array.from({ length: colCount }, (_, index) => {
-      const cell = item.row[index] || { text:'' };
+    const rowsHtml = visibleRows.map(item => {
+      const rowIndex = item.number - 1;
+      let cellsHtml = '';
+      for(let index = 0; index < colCount; index++) {
+        const mergeKey = `${rowIndex}:${index}`;
+        if(mergeMaps.covered.has(mergeKey)) continue;
+        const cell = item.row[index] || { text:'' };
+        const merge = mergeMaps.startMap.get(mergeKey);
+        const spanAttrs = merge
+          ? `${merge.rowspan > 1 ? ` rowspan="${merge.rowspan}"` : ''}${merge.colspan > 1 ? ` colspan="${merge.colspan}"` : ''}`
+          : '';
       const isNumber = typeof cell.raw === 'number';
-      return `<td class="${isNumber ? 'td-mono program-channel-workbook-number' : ''}" title="${escapeAttr(cell.formula ? '=' + cell.formula : cell.text)}">${escapeHtml(cell.text)}</td>`;
-    }).join('')}</tr>`).join('');
+        cellsHtml += `<td${spanAttrs} class="${isNumber ? 'td-mono program-channel-workbook-number' : ''}" title="${escapeAttr(cell.formula ? '=' + cell.formula : cell.text)}">${escapeHtml(cell.text)}</td>`;
+      }
+      return `<tr><td class="td-mono program-channel-workbook-row-head">${item.number}</td>${cellsHtml}</tr>`;
+    }).join('');
     tableHost.innerHTML = `<table class="responsive-table program-channel-workbook-table">
       <thead><tr>${headerHtml}</tr></thead>
       <tbody>${rowsHtml || `<tr><td colspan="${colCount + 1}" class="program-channel-empty-cell">Sin filas para mostrar.</td></tr>`}</tbody>
