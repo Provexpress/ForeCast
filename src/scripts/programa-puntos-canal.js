@@ -1872,6 +1872,151 @@
     return { startMap, covered };
   }
 
+  function firstTextInRow(row){
+    const cell = (row || []).find(item => normalizeText(item && item.text));
+    return cell ? cell.text : '';
+  }
+
+  function getWorkbookSheetTitle(sheet){
+    const rows = sheet.rows || [];
+    const title = firstTextInRow(rows[0]);
+    const subtitle = firstTextInRow(rows[1]);
+    return {
+      title: title || sheet.name,
+      subtitle: subtitle || 'Informe original por hoja'
+    };
+  }
+
+  function numericCellValue(cell){
+    if(cell && typeof cell.raw === 'number' && Number.isFinite(cell.raw)) return cell.raw;
+    return null;
+  }
+
+  function getBestWorkbookTable(rows){
+    let best = { headerIndex: -1, score: 0, numericCols: [], labelCol: 0 };
+    const scanLimit = Math.min(rows.length, 18);
+    for(let rowIndex = 0; rowIndex < scanLimit; rowIndex++) {
+      const row = rows[rowIndex] || [];
+      const labelCols = [];
+      row.forEach((cell, colIndex) => {
+        if(normalizeText(cell && cell.text) && numericCellValue(cell) == null) labelCols.push(colIndex);
+      });
+      const numericCols = [];
+      const lookahead = rows.slice(rowIndex + 1, Math.min(rows.length, rowIndex + 12));
+      row.forEach((_, colIndex) => {
+        const count = lookahead.filter(nextRow => numericCellValue((nextRow || [])[colIndex]) != null).length;
+        if(count >= 2) numericCols.push(colIndex);
+      });
+      const nonEmpty = row.filter(cell => !isEmptyWorkbookCell(cell)).length;
+      const score = numericCols.length * 4 + labelCols.length + nonEmpty;
+      if(numericCols.length && score > best.score) {
+        best = {
+          headerIndex: rowIndex,
+          score,
+          numericCols,
+          labelCol: labelCols[0] != null ? labelCols[0] : 0
+        };
+      }
+    }
+    return best.headerIndex >= 0 ? best : null;
+  }
+
+  function formatWorkbookMetric(value, unitHint){
+    const suffix = normalizeText(unitHint);
+    if(/cop/i.test(suffix)) return '$ ' + Math.round(value).toLocaleString('es-CO');
+    if(/usd/i.test(suffix)) return 'USD ' + value.toLocaleString('es-CO', { minimumFractionDigits:2, maximumFractionDigits:2 });
+    return value.toLocaleString('es-CO', { maximumFractionDigits:2 });
+  }
+
+  function buildWorkbookSummaryCards(sheet, tableInfo){
+    const rows = sheet.rows || [];
+    if(!tableInfo) return [];
+    const header = rows[tableInfo.headerIndex] || [];
+    const rowsAfter = rows.slice(tableInfo.headerIndex + 1);
+    const cards = [];
+    tableInfo.numericCols.slice(0, 4).forEach(colIndex => {
+      let totalRow = rowsAfter.find(row => /total/i.test(normalizeText((row || [])[tableInfo.labelCol] && row[tableInfo.labelCol].text)) && numericCellValue((row || [])[colIndex]) != null);
+      const value = totalRow ? numericCellValue(totalRow[colIndex]) : rowsAfter.reduce((sum, row) => {
+        const value = numericCellValue((row || [])[colIndex]);
+        return value == null ? sum : sum + value;
+      }, 0);
+      const label = normalizeText(header[colIndex] && header[colIndex].text) || XLSX.utils.encode_col(colIndex);
+      if(value) cards.push({ label, value, display: formatWorkbookMetric(value, label) });
+    });
+    return cards;
+  }
+
+  function buildWorkbookChart(sheet, tableInfo){
+    const rows = sheet.rows || [];
+    if(!tableInfo) return null;
+    const header = rows[tableInfo.headerIndex] || [];
+    const unitFor = colIndex => {
+      const label = normalizeText(header[colIndex] && header[colIndex].text);
+      if(/cop/i.test(label)) return 'COP';
+      if(/usd/i.test(label)) return 'USD';
+      if(/puntos|points/i.test(label)) return 'Puntos';
+      return 'Otro';
+    };
+    const grouped = tableInfo.numericCols.reduce((acc, colIndex) => {
+      const unit = unitFor(colIndex);
+      if(!acc[unit]) acc[unit] = [];
+      acc[unit].push(colIndex);
+      return acc;
+    }, {});
+    const preferredUnit = grouped.COP ? 'COP' : grouped.USD ? 'USD' : grouped.Puntos ? 'Puntos' : 'Otro';
+    const valueCols = (grouped[preferredUnit] || tableInfo.numericCols).slice(0, 2);
+    const dataRows = rows.slice(tableInfo.headerIndex + 1)
+      .map(row => {
+        const label = normalizeText(row[tableInfo.labelCol] && row[tableInfo.labelCol].text);
+        const values = valueCols.map(colIndex => numericCellValue(row[colIndex]) || 0);
+        return { label, values };
+      })
+      .filter(item => item.label && !/^total$/i.test(item.label) && item.values.some(value => value !== 0))
+      .slice(0, 10);
+    if(!dataRows.length || !valueCols.length) return null;
+    const max = Math.max(...dataRows.flatMap(item => item.values.map(Math.abs)), 1);
+    const series = valueCols.map(colIndex => normalizeText(header[colIndex] && header[colIndex].text) || XLSX.utils.encode_col(colIndex));
+    return { dataRows, max, series };
+  }
+
+  function renderWorkbookOverview(sheet){
+    const host = document.getElementById('program-channel-workbook-overview');
+    if(!host) return;
+    if(!sheet || state.workbook.status !== 'loaded') {
+      host.innerHTML = '';
+      return;
+    }
+    const { title, subtitle } = getWorkbookSheetTitle(sheet);
+    const tableInfo = getBestWorkbookTable(sheet.rows || []);
+    const cards = buildWorkbookSummaryCards(sheet, tableInfo);
+    const chart = buildWorkbookChart(sheet, tableInfo);
+    const cardsHtml = cards.length ? `<div class="program-channel-report-kpis">${cards.map(card => `
+      <article class="program-channel-report-kpi">
+        <span>${escapeHtml(card.label)}</span>
+        <strong>${escapeHtml(card.display)}</strong>
+      </article>`).join('')}</div>` : '';
+    const chartHtml = chart ? `<div class="program-channel-report-chart">
+      <div class="program-channel-report-chart-title">${escapeHtml(chart.series.join(' / '))}</div>
+      ${chart.dataRows.map(item => `<div class="program-channel-report-bar-row">
+        <div class="program-channel-report-bar-label" title="${escapeAttr(item.label)}">${escapeHtml(item.label)}</div>
+        <div class="program-channel-report-bar-stack">
+          ${item.values.map((value, index) => `<div class="program-channel-report-bar-wrap">
+            <span class="program-channel-report-bar series-${index}" style="width:${Math.max(2, Math.min(100, Math.abs(value) / chart.max * 100)).toFixed(2)}%"></span>
+            <em>${escapeHtml(formatWorkbookMetric(value, chart.series[index]))}</em>
+          </div>`).join('')}
+        </div>
+      </div>`).join('')}
+    </div>` : '<div class="program-channel-report-empty">Esta hoja no tiene una serie numérica suficiente para graficar; se muestra la tabla original completa.</div>';
+    host.innerHTML = `<section class="program-channel-report-hero">
+      <div>
+        <div class="program-channel-report-eyebrow">Hoja del informe</div>
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(subtitle)}</p>
+      </div>
+      ${cardsHtml}
+    </section>${chartHtml}`;
+  }
+
   function renderWorkbookReport(){
     const sheetSelect = document.getElementById('program-channel-workbook-sheet');
     const searchInput = document.getElementById('program-channel-workbook-search');
@@ -1896,25 +2041,30 @@
     }
     if(state.workbook.status === 'idle') {
       if(status) status.textContent = 'Cargando el informe incluido en el proyecto...';
+      renderWorkbookOverview(null);
       tableHost.innerHTML = '<div class="program-channel-empty">Preparando informe Excel original.</div>';
       return;
     }
     if(state.workbook.status === 'loading') {
       if(status) status.textContent = 'Leyendo informe Excel original...';
+      renderWorkbookOverview(null);
       tableHost.innerHTML = '<div class="program-channel-empty">Leyendo hojas y valores guardados.</div>';
       return;
     }
     if(state.workbook.status === 'error') {
       if(status) status.textContent = state.workbook.error;
+      renderWorkbookOverview(null);
       tableHost.innerHTML = '<div class="program-channel-empty">No se pudo cargar automaticamente el archivo. Usa Cargar Excel para seleccionarlo.</div>';
       return;
     }
     if(!activeSheet) {
       if(status) status.textContent = 'El informe no contiene hojas visibles.';
       tableHost.innerHTML = '<div class="program-channel-empty">Sin hojas para mostrar.</div>';
+      renderWorkbookOverview(null);
       return;
     }
 
+    renderWorkbookOverview(activeSheet);
     const rows = activeSheet.rows || [];
     const mergeMaps = getWorkbookMergeMaps(activeSheet);
     const bodyRows = rows
