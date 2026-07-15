@@ -1215,7 +1215,7 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
   border-color:rgba(42,191,223,.42);background:rgba(45,79,214,.1);color:var(--text);
 }
 .program-channel-mode{
-  align-self:flex-end;display:grid;grid-template-columns:repeat(2,minmax(150px,220px));gap:4px;
+  align-self:flex-end;display:grid;grid-template-columns:repeat(2,minmax(180px,250px));gap:4px;
   padding:4px;border:1px solid var(--border);border-radius:11px;background:rgba(255,255,255,.025);
 }
 .program-channel-mode-btn{
@@ -1257,7 +1257,7 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
   display:none;padding:4px 8px;border-radius:999px;background:rgba(96,44,128,.13);
   color:var(--corp-purple2);font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
 }
-.program-channel-channel-chips{display:grid;grid-template-columns:repeat(7,minmax(76px,1fr));gap:8px}
+.program-channel-channel-chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px}
 .program-channel-channel-btn{
   min-height:38px;padding:8px 10px;border:1px solid var(--border2);border-radius:9px;
   background:rgba(255,255,255,.025);color:var(--text3);cursor:pointer;
@@ -1290,6 +1290,11 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
   box-shadow:0 0 14px var(--program-accent);opacity:.65;
 }
 .program-channel-kpi-value{color:var(--program-accent);font-size:clamp(18px,2vw,27px);overflow:hidden;text-overflow:ellipsis}
+.program-channel-kpi .program-channel-kpi-value{
+  white-space:normal;
+  overflow-wrap:anywhere;
+  line-height:1.12;
+}
 .program-channel-kpi-alert .program-channel-kpi-value{color:var(--corp-red)}
 .program-channel-visual-grid{
   display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1.05fr) minmax(210px,.5fr);gap:14px;min-width:0;
@@ -1308,6 +1313,8 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
   padding:12px 4px;border:0;border-bottom:1px solid var(--border);min-width:0;
 }
 .program-channel-ranking-row:hover{background:rgba(45,79,214,.055)}
+.program-channel-ranking-row[aria-disabled="true"]{cursor:default}
+.program-channel-ranking-row[aria-disabled="true"]:hover{background:transparent}
 .program-channel-ranking-row:last-child{border-bottom:0}
 .program-channel-ranking-position{
   width:27px;height:27px;display:grid;place-items:center;border-radius:8px;
@@ -1334,11 +1341,26 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
 .program-channel-insight.warning{--insight-accent:var(--corp-amber);--insight-border:rgba(240,160,32,.37);--insight-bg:rgba(240,160,32,.11)}
 .program-channel-insight.danger{--insight-accent:var(--corp-red);--insight-border:rgba(232,64,64,.38);--insight-bg:rgba(232,64,64,.1)}
 .program-channel-detail-card{padding:0;overflow:hidden}
+.program-channel-workbook-card{padding:0;overflow:hidden}
 .program-channel-table-heading{
   display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
   padding:16px 18px 12px;border-bottom:1px solid var(--border);
 }
 .program-channel-table-actions{display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap}
+.program-channel-workbook-actions{gap:8px}
+.program-channel-workbook-actions select{min-width:190px}
+.program-channel-workbook-search{
+  min-height:36px;min-width:220px;padding:8px 12px;border-radius:8px;
+  border:1px solid var(--border2);background:var(--card);color:var(--text3);
+  outline:none;transition:var(--transition);font-size:11px;
+}
+.program-channel-workbook-search:focus{
+  border-color:var(--corp-cyan);box-shadow:0 0 0 3px rgba(42,191,223,.10);color:var(--text);
+}
+.program-channel-workbook-status{
+  padding:10px 18px;border-bottom:1px solid var(--border);
+  color:var(--text2);font-size:10px;font-weight:700;
+}
 .program-channel-status-legend{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
 .program-channel-status-legend span{display:inline-flex;align-items:center;gap:5px;color:var(--text2);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.35px}
 .program-channel-legend-dot{width:7px;height:7px;border-radius:50%;display:inline-block;box-shadow:0 0 8px currentColor}
@@ -1348,7 +1370,31 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
 .program-channel-table-heading .chart-hd{margin-bottom:3px}
 .program-channel-table-meta{font-size:10px;color:var(--text2)}
 .program-channel-detail-card .tbl-wrap{border:0;border-radius:0;box-shadow:none}
-.program-channel-table{min-width:1000px}
+.program-channel-table{min-width:1240px}
+.program-channel-workbook-table{min-width:980px}
+.program-channel-workbook-table th,
+.program-channel-workbook-table td{
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.program-channel-workbook-table th{
+  text-align:center;
+}
+.program-channel-workbook-row-head{
+  width:46px;
+  min-width:46px;
+  text-align:center!important;
+  color:var(--text2)!important;
+  background:rgba(255,255,255,.035);
+  position:sticky;
+  left:0;
+  z-index:2;
+}
+.program-channel-workbook-number{
+  text-align:right;
+  white-space:nowrap!important;
+  color:var(--corp-cyan)!important;
+}
 .program-channel-program{max-width:360px;overflow:hidden;text-overflow:ellipsis}
 .program-channel-reference{max-width:260px;overflow:hidden;text-overflow:ellipsis}
 .program-channel-value{font-weight:700;color:var(--corp-cyan)}
@@ -1419,6 +1465,9 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
   .program-channel-insights{grid-template-columns:1fr}
   .program-channel-table-heading{align-items:stretch}
   .program-channel-table-actions{justify-content:flex-start}
+  .program-channel-workbook-actions{width:100%}
+  .program-channel-workbook-actions select,
+  .program-channel-workbook-search{width:100%;min-width:0}
   .program-channel-status-legend{justify-content:flex-start}
   .program-channel-table-heading .export-excel-btn{width:100%}
   .program-channel-pagination{align-items:flex-start;flex-direction:column}

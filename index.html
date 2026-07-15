@@ -8,7 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="src/styles/main.css?v=20260714-rebates2">
+<link rel="stylesheet" href="src/styles/main.css?v=20260715-report1">
 
 <!-- Microsoft Authentication Library -->
 <script src="src/config/estructura-comercial-2026.js?v=20260706-redist2"></script>
@@ -74,7 +74,7 @@
   <button id="tab-marcas" class="nav-btn" onclick="showPage('marcas',this)">🏷 Marcas & Líneas</button>
   <button id="tab-resumen" class="nav-btn" onclick="showPage('resumen',this)">📊 Resumen Total</button>
   <button id="tab-finanzas" class="nav-btn" onclick="showPage('finanzas',this)">Finanzas</button>
-  <button id="tab-programas" class="nav-btn" onclick="showPage('programas',this)">Rebates y puntos</button>
+  <button id="tab-programas" class="nav-btn" onclick="showPage('programas',this)">Informe puntos</button>
 </nav>
 
 <main class="app">
@@ -530,105 +530,38 @@
     <div class="program-channel-heading">
       <div>
         <div class="section-hd program-channel-title">
-          <h2>Rebates, puntos e incentivos por canal</h2>
+          <h2>Informe de puntos e incentivos</h2>
           <span class="section-tag program-channel-restricted">SOLO GERENCIA</span>
         </div>
-        <p class="program-channel-copy">Seguimiento gerencial separado por unidad. El canal controla todo el tablero.</p>
+        <p class="program-channel-copy">Replica web del archivo Excel cargado. Los valores se muestran tal como vienen del informe, sin cambiar la información.</p>
       </div>
       <div class="program-channel-actions">
-        <button class="program-channel-secondary-btn" type="button" onclick="ProgramChannelModule.reloadFromSharePoint()">Actualizar SharePoint</button>
+        <button class="program-channel-secondary-btn" type="button" onclick="ProgramChannelModule.reloadEmbeddedReport()">Cargar informe</button>
         <button class="program-channel-secondary-btn" type="button" onclick="ProgramChannelModule.openLocalFiles()">Cargar Excel</button>
         <input id="program-channel-file-input" type="file" accept=".xlsx,.xls" multiple hidden onchange="ProgramChannelModule.handleLocalFiles(this.files)">
       </div>
     </div>
 
-    <div class="program-channel-mode" role="tablist" aria-label="Tipo de programa">
-      <button id="program-channel-mode-rebates" class="program-channel-mode-btn active" type="button" role="tab" aria-selected="true" onclick="ProgramChannelModule.setMode('Rebate')">REBATES</button>
-      <button id="program-channel-mode-points" class="program-channel-mode-btn" type="button" role="tab" aria-selected="false" onclick="ProgramChannelModule.setMode('Punto')">PUNTOS</button>
-    </div>
-
-    <div id="program-channel-source-status" class="program-channel-source-status" aria-live="polite"></div>
-
-    <section class="program-channel-channel-panel" aria-labelledby="program-channel-channel-label">
-      <div class="program-channel-channel-heading">
-        <div>
-          <div class="filter-label" id="program-channel-channel-label">Canal</div>
-          <div class="program-channel-channel-copy">Filtro principal</div>
-        </div>
-        <div id="program-channel-channel-context" class="program-channel-channel-context"></div>
-      </div>
-      <div id="program-channel-channel-chips" class="program-channel-channel-chips" role="group" aria-label="Filtrar por canal"></div>
-    </section>
-
-    <div class="filters program-channel-filters">
-      <div class="filter-group">
-        <div class="filter-label">Tipo</div>
-        <div id="program-channel-filter-type" class="program-channel-type-readonly">Rebate</div>
-      </div>
-      <div class="filter-group">
-        <div class="filter-label">Periodo (FY-Q)</div>
-        <select id="program-channel-filter-period" onchange="ProgramChannelModule.setFilter('periodo',this.value)"></select>
-      </div>
-      <div class="filter-group">
-        <div class="filter-label">Estado</div>
-        <select id="program-channel-filter-status" onchange="ProgramChannelModule.setFilter('estado',this.value)"></select>
-      </div>
-      <div id="program-channel-unit-filter" class="filter-group">
-        <div class="filter-label">Unidad</div>
-        <select id="program-channel-filter-unit" onchange="ProgramChannelModule.setFilter('unidad',this.value)"></select>
-      </div>
-      <div class="filter-group filter-action program-channel-clear-wrap">
-        <button class="program-channel-clear-btn" type="button" onclick="ProgramChannelModule.clearFilters()">Limpiar filtros</button>
-      </div>
-    </div>
-
-    <div id="program-channel-unit-note" class="program-channel-unit-note"></div>
-    <div id="program-channel-kpis" class="kpi-grid kpi-grid-4 program-channel-kpis"></div>
-
-    <div class="program-channel-visual-grid">
-      <div class="chart-card">
-        <div class="chart-hd" id="program-channel-bars-title">Valor por canal</div>
-        <div id="program-channel-bars" class="bar-list"></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-hd" id="program-channel-trend-title">Evolución por trimestre</div>
-        <div id="program-channel-trend"></div>
-      </div>
-      <div class="chart-card program-channel-ranking-card">
-        <div class="chart-hd" id="program-channel-ranking-title">Ranking de canales</div>
-        <div id="program-channel-ranking"></div>
-      </div>
-    </div>
-
-    <div id="program-channel-insights" class="program-channel-insights" aria-label="Insights gerenciales"></div>
-
-    <div class="chart-card program-channel-detail-card">
+    <section class="chart-card program-channel-workbook-card">
       <div class="program-channel-table-heading">
         <div>
-          <div class="chart-hd" id="program-channel-table-title">Resumen ejecutivo por canal</div>
-          <div id="program-channel-table-meta" class="program-channel-table-meta"></div>
+          <div class="chart-hd">Informe Excel original</div>
+          <div id="program-channel-workbook-meta" class="program-channel-table-meta">Fuente: Informe_Puntos_Incentivos 1.xlsx</div>
         </div>
-        <div class="program-channel-table-actions">
-          <div class="program-channel-status-legend" aria-label="Semáforo de estados">
-            <span><i class="program-channel-legend-dot paid"></i>Pagado / Complete</span>
-            <span><i class="program-channel-legend-dot pending"></i>Pendiente / Released</span>
-            <span><i class="program-channel-legend-dot rejected"></i>Declined / Expired</span>
-          </div>
-          <button id="program-channel-export-btn" class="export-excel-btn" type="button" onclick="ProgramChannelModule.exportExcel()">
-            <span class="export-excel-icon" aria-hidden="true">↓</span>
-            <span>Exportar Excel</span>
-          </button>
+        <div class="program-channel-table-actions program-channel-workbook-actions">
+          <select id="program-channel-workbook-sheet" onchange="ProgramChannelModule.setWorkbookSheet(this.value)" aria-label="Hoja del informe"></select>
+          <input id="program-channel-workbook-search" class="program-channel-workbook-search" type="search" placeholder="Buscar en la hoja" oninput="ProgramChannelModule.setWorkbookSearch(this.value)" aria-label="Buscar en la hoja">
         </div>
       </div>
-      <div class="tbl-wrap" id="program-channel-table"></div>
-      <div id="program-channel-pagination" class="program-channel-pagination"></div>
-    </div>
+      <div id="program-channel-workbook-status" class="program-channel-workbook-status"></div>
+      <div class="tbl-wrap" id="program-channel-workbook-table"></div>
+    </section>
   </section>
 </div>
 
 </main>
 
-<script src="src/scripts/programa-puntos-canal.js?v=20260714-rebates2"></script>
+<script src="src/scripts/programa-puntos-canal.js?v=20260715-report1"></script>
 <script src="src/scripts/main.js?v=20260714-rebates2"></script>
 
 
