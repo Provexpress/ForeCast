@@ -7,11 +7,17 @@ se autentica con Microsoft 365 (MSAL) y carga archivos Excel desde SharePoint.
 - Carga automatica desde SharePoint (Microsoft Graph).
 - Vistas por rol: gerencia, director y ejecutivo.
 - Panel de cambio de vista habilitado solo para `especialista.preventa`.
-- Modulo gerencial `Programa de puntos por canal`, con puntos y rebates separados,
-  filtros FY-Q, graficos, detalle y exportacion a Excel.
+- Modulo gerencial `Rebates, puntos e incentivos por canal`, con unidades
+  separadas, canal como filtro principal, KPIs, graficos, ranking, insights,
+  tabla maestra y exportacion a Excel.
 
-## Programa de puntos por canal
+## Rebates, puntos e incentivos por canal
 La vista solo se habilita para los roles `gerencia` y `gerencia_director`.
+Incluye una base gerencial validada para Dell, Lenovo, HPE, ASUS, Epson e Intel.
+Si se cargan reportes vigentes, cada familia reemplaza su bloque base para evitar
+duplicar valores; los canales sin archivo actualizado conservan la base validada.
+Puntos, USD y COP siempre se consultan por separado.
+
 Primero consulta esta carpeta dentro del mismo SharePoint de Forecast:
 
 ```
