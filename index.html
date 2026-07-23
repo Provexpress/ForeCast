@@ -9,7 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="src/styles/main.css?v=20260715-report2">
+<link rel="stylesheet" href="src/styles/main.css?v=20260723-glpi1">
 
 <!-- Microsoft Authentication Library -->
 <script src="src/config/estructura-comercial-2026.js?v=20260706-redist2"></script>
@@ -76,6 +76,7 @@
   <button id="tab-resumen" class="nav-btn" onclick="showPage('resumen',this)">📊 Resumen Total</button>
   <button id="tab-finanzas" class="nav-btn" onclick="showPage('finanzas',this)">Finanzas</button>
   <button id="tab-programas" class="nav-btn" onclick="showPage('programas',this)">Informe puntos</button>
+  <button id="tab-glpi" class="nav-btn" onclick="showPage('glpi',this)">TICKETS-GLPI</button>
 </nav>
 
 <main class="app">
@@ -523,6 +524,89 @@
 </div>
 
 <!-- ══════════════════════════════════
+     PAGE: TICKETS GLPI
+══════════════════════════════════ -->
+<div class="page" id="page-glpi">
+  <section class="glpi-shell">
+    <div class="glpi-heading">
+      <div>
+        <div class="section-hd glpi-title">
+          <h2>TICKETS-GLPI</h2>
+          <span class="section-tag">OPERACIÓN · SOPORTE</span>
+        </div>
+        <p class="glpi-copy">Seguimiento mensual de tickets, tiempos de atención y carga por solicitante.</p>
+      </div>
+      <button class="glpi-refresh-btn" type="button" onclick="GlpiModule.reload()">Actualizar Excel</button>
+    </div>
+
+    <section class="glpi-filter-panel" aria-label="Filtros de tickets">
+      <label class="glpi-field">
+        <span>Mes de apertura</span>
+        <select id="glpi-period" onchange="GlpiModule.setPeriod(this.value)"></select>
+      </label>
+      <label class="glpi-field">
+        <span>Estado</span>
+        <select id="glpi-status-filter" onchange="GlpiModule.setStatus(this.value)">
+          <option value="all">Todos</option>
+          <option value="new">Nuevos</option>
+          <option value="open">Abiertos</option>
+          <option value="closed">Cerrados</option>
+        </select>
+      </label>
+      <label class="glpi-field">
+        <span>Grupo del director</span>
+        <select id="glpi-group-filter" onchange="GlpiModule.setGroup(this.value)">
+          <option value="">Todos los grupos de directores</option>
+        </select>
+      </label>
+      <label class="glpi-field">
+        <span>Solicitante</span>
+        <select id="glpi-requester-filter" onchange="GlpiModule.setRequester(this.value)">
+          <option value="">Todos los solicitantes</option>
+        </select>
+      </label>
+      <label class="glpi-field glpi-search-field">
+        <span>Buscar</span>
+        <input id="glpi-search" type="search" placeholder="ID, título, técnico o descripción" oninput="GlpiModule.setSearch(this.value)">
+      </label>
+    </section>
+
+    <div id="glpi-source-note" class="glpi-source-note"></div>
+    <section id="glpi-kpis" class="glpi-kpi-grid" aria-live="polite"></section>
+
+    <section class="glpi-analysis-grid">
+      <article class="chart-card glpi-analysis-card">
+        <div class="chart-hd">Grupos de directores <span>según solicitante</span></div>
+        <div id="glpi-category-groups" class="glpi-ranked-list"></div>
+      </article>
+      <article class="chart-card glpi-analysis-card">
+        <div class="chart-hd">Solicitantes <span>volumen y tiempos</span></div>
+        <div id="glpi-requester-groups" class="glpi-ranked-list"></div>
+      </article>
+    </section>
+
+    <section class="chart-card glpi-table-card">
+      <div class="glpi-table-heading">
+        <div>
+          <div class="chart-hd">Tickets del mes</div>
+          <div id="glpi-table-meta" class="glpi-table-meta"></div>
+        </div>
+        <button class="glpi-clear-btn" type="button" onclick="GlpiModule.clearFilters()">Limpiar filtros</button>
+      </div>
+      <div id="glpi-ticket-table" class="tbl-wrap"></div>
+      <div id="glpi-table-more" class="glpi-table-more"></div>
+    </section>
+  </section>
+
+  <div id="glpi-detail-backdrop" class="glpi-detail-backdrop" onclick="GlpiModule.closeDetail(event)" aria-hidden="true">
+    <aside id="glpi-detail-panel" class="glpi-detail-panel" role="dialog" aria-modal="true" aria-labelledby="glpi-detail-title">
+      <button class="glpi-detail-close" type="button" onclick="GlpiModule.closeDetail()" aria-label="Cerrar detalle">×</button>
+      <div id="glpi-detail-content"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
      PAGE: REBATES, PUNTOS E INCENTIVOS POR CANAL
      Acceso exclusivo de gerencia
 ══════════════════════════════════ -->
@@ -569,7 +653,8 @@
 </main>
 
 <script src="src/scripts/programa-puntos-canal.js?v=20260715-report2"></script>
-<script src="src/scripts/main.js?v=20260714-rebates2"></script>
+<script src="src/scripts/glpi.js?v=20260723-glpi1"></script>
+<script src="src/scripts/main.js?v=20260723-glpi1"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->

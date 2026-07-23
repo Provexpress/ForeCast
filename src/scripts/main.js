@@ -2756,6 +2756,10 @@ function renderPage(pageId){
     }
     return;
   }
+  if(page === 'glpi') {
+    if(window.GlpiModule) window.GlpiModule.render();
+    return;
+  }
   if(page === 'marca-linea-detail' && MARCA_LINEA_DETAIL_STATE) {
     renderMarcaLineaDetail();
     return;
@@ -2787,7 +2791,7 @@ function showPage(id,btn){
   document.getElementById('page-'+id).classList.add('active');
   if(btn) btn.classList.add('active');
   const hasLoadedData = ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length || PREVENTA_DATA.length;
-  if(hasLoadedData || id === 'finanzas' || id === 'programas' || id === 'negocio' || id === 'marca-linea-detail') {
+  if(hasLoadedData || id === 'finanzas' || id === 'programas' || id === 'glpi' || id === 'negocio' || id === 'marca-linea-detail') {
     renderPage(id);
   }
 }
@@ -7511,6 +7515,7 @@ function applyRoleTabs() {
     resumen:   document.getElementById('tab-resumen'),
     finanzas:  document.getElementById('tab-finanzas'),
     programas: document.getElementById('tab-programas'),
+    glpi:      document.getElementById('tab-glpi'),
   };
   // Reset — mostrar todas
   Object.values(tabs).forEach(t => { if(t) t.style.display = ''; });
