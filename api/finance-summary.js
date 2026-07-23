@@ -130,6 +130,12 @@ function normalizeCategory(value) {
   return cleanText(value) || "Ventas";
 }
 
+function resolveCachedCategory(row) {
+  const analyticCategory = normalizeCategory(row?.categoriaAnalitica);
+  if (analyticCategory === "Renta de Equipos") return analyticCategory;
+  return normalizeCategory(row?.categoria);
+}
+
 function getFinanceMarginConfig(category) {
   const hasExplicitMargin = Object.prototype.hasOwnProperty.call(FINANCE_CATEGORY_MARGINS, category);
   const marginSource = hasExplicitMargin ? category : FINANCE_FALLBACK_MARGIN_CATEGORY;
@@ -290,7 +296,7 @@ function normalizeCachedDocument(row) {
     total,
     totalOriginal,
     cost,
-    category: normalizeCategory(row.categoria),
+    category: resolveCachedCategory(row),
     document: row.numeroDocumento || row.folio || "",
     client: row.cliente || row.proveedor || "",
   };

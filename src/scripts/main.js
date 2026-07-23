@@ -1036,6 +1036,12 @@ function normalizeFinanceCategory(value){
   return raw || 'Ventas';
 }
 
+function resolveFinanceCachedCategory(row){
+  const analyticCategory = normalizeFinanceCategory(row && row.categoriaAnalitica);
+  if(analyticCategory === 'Renta de Equipos') return analyticCategory;
+  return normalizeFinanceCategory(row && row.categoria);
+}
+
 function extractFinanceCachePayload(candidate){
   if(candidate && candidate.cacheVersion && candidate.payload) {
     return {
@@ -1063,7 +1069,7 @@ function normalizeFinanceCachedRows(rows){
       total,
       totalOriginal,
       cost,
-      category: normalizeFinanceCategory(row.categoria),
+      category: resolveFinanceCachedCategory(row),
     };
   }).filter(row => row.fechaIso);
 }
