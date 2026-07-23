@@ -446,12 +446,13 @@
   function kpiCard(kind, label, value, detail){
     const active = state.status === kind;
     const clickable = ['new','open','closed'].includes(kind);
-    const action = clickable ? ` onclick="GlpiModule.setStatus('${kind}')"` : '';
-    return `<button class="glpi-kpi-card glpi-kpi-${escapeAttr(kind)}${active ? ' active' : ''}" type="button"${action}${clickable ? '' : ' tabindex="-1"'}>
+    const tag = clickable ? 'button' : 'article';
+    const action = clickable ? ` type="button" onclick="GlpiModule.setStatus('${kind}')"` : '';
+    return `<${tag} class="glpi-kpi-card glpi-kpi-${escapeAttr(kind)}${active ? ' active' : ''}"${action}>
       <span class="glpi-kpi-label">${escapeHtml(label)}</span>
       <strong>${escapeHtml(value)}</strong>
       <small>${escapeHtml(detail)}</small>
-    </button>`;
+    </${tag}>`;
   }
 
   function renderKpis(){
