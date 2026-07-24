@@ -5116,8 +5116,54 @@ function renderDirector(){
     </div>
   `;
   
+  const getExecutiveCuota = (eName) => {
+    const norm = String(eName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    if (norm.includes('novo') || norm.includes('brice') || norm.includes('camilo') || norm.includes('urrego') || norm.includes('acevedo') || norm.includes('mojica') || norm.includes('castro') || norm.includes('ruiz') || norm.includes('caballero') || norm.includes('beltran')) return 48000000;
+    if (norm.includes('pena') || norm.includes('galindo giron') || norm.includes('cespedes')) return 28000000;
+    return 18000000;
+  };
+  const totalCuotaGrupo = execs.reduce((sum, e) => sum + getExecutiveCuota(e), 0) || 180000000;
+  const utilidadGrupoTotal = utilidadCOP + (utilidadUSD * trm);
+  const pctAvanceGrupo = totalCuotaGrupo > 0 ? (utilidadGrupoTotal / totalCuotaGrupo) * 100 : 0;
+  const faltanteGrupo = Math.max(0, totalCuotaGrupo - utilidadGrupoTotal);
+
   document.getElementById('director-content').innerHTML=`
-    <div class="section-hd"><h2>${escHtml(dir)}</h2><span class="section-tag">DIRECTOR</span></div>
+    <div style="background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); border: 1px solid rgba(56,189,248,0.3); border-radius: 12px; padding: 22px; margin: 16px 0 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.4px; color: #38BDF8; display: flex; align-items: center; gap: 6px;">
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #38BDF8;"></span>
+            AVANCE DIARIO DE CUOTA Y UTILIDAD • \${escHtml(dir.toUpperCase())}
+          </div>
+          <div style="font-size: 13px; color: #94A3B8; margin-top: 4px;">Seguimiento acumulado vs Cuota del Grupo (\${execs.length} ejecutivos asignados)</div>
+        </div>
+        <div style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #34D399; font-weight: 800; font-size: 14px; padding: 8px 18px; border-radius: 20px;">
+          \${pctAvanceGrupo.toFixed(1)}% CUMPLIMIENTO
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #3B82F6; padding: 14px 16px; border-radius: 8px;">
+          <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Cuota Mensual Grupo</div>
+          <div style="font-size: 22px; font-weight: 800; color: #F8FAFC; margin-top: 4px;">\${fmtCOP(totalCuotaGrupo)}</div>
+          <div style="font-size: 11px; color: #64748B; margin-top: 2px;">\${execs.length} comerciales asignados</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #10B981; padding: 14px 16px; border-radius: 8px;">
+          <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Utilidad Lograda (Avance)</div>
+          <div style="font-size: 22px; font-weight: 800; color: #10B981; margin-top: 4px;">\${fmtCOP(utilidadGrupoTotal)}</div>
+          <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Margen acumulado en el mes</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #F59E0B; padding: 14px 16px; border-radius: 8px;">
+          <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Faltante para la Meta</div>
+          <div style="font-size: 22px; font-weight: 800; color: #F59E0B; margin-top: 4px;">\${fmtCOP(faltanteGrupo)}</div>
+          <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Diferencia sobre cuota</div>
+        </div>
+      </div>
+      <div style="background: rgba(255,255,255,0.08); height: 10px; border-radius: 5px; overflow: hidden;">
+        <div style="background: linear-gradient(90deg, #3B82F6, #10B981); height: 100%; width: \${Math.min(pctAvanceGrupo, 100)}%;"></div>
+      </div>
+    </div>
+
+    <div class="section-hd"><h2>\${escHtml(dir)}</h2><span class="section-tag">DIRECTOR</span></div>
     
     <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
       <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
@@ -5308,8 +5354,42 @@ function renderEjecutivo(){
   
   const linData=buildLineValueData(data);
   
+  const utilidadEjecutivoTotal = sumUtilidad(data, 'COP') + (sumUtilidad(data, 'USD') * trm);
+  const cuotaEjecutivo = getExecutiveCuota(ej);
+  const pctAvanceEjecutivo = cuotaEjecutivo > 0 ? (utilidadEjecutivoTotal / cuotaEjecutivo) * 100 : 0;
+  const faltanteEjecutivo = Math.max(0, cuotaEjecutivo - utilidadEjecutivoTotal);
+
   document.getElementById('ejecutivo-content').innerHTML=`
-    <div class="section-hd" style="margin-top:16px"><h2>${escHtml(ej)}</h2><span class="section-tag" style="background:${ejColor}20;color:${ejColor};border-color:${ejColor}40">EJECUTIVO</span>${focusBadge}${directorFocusBadge}${focusClear}</div>
+    <div style="background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); border: 1px solid rgba(192,132,252,0.3); border-radius: 12px; padding: 22px; margin: 16px 0 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.4px; color: #C084FC;">MI CUOTA Y AVANCE DIARIO COMERCIAL</div>
+          <div style="font-size: 18px; font-weight: 800; color: #F8FAFC; margin-top: 2px;">\${escHtml(ej)}</div>
+        </div>
+        <div style="background: rgba(192,132,252,0.15); border: 1px solid rgba(192,132,252,0.4); color: #C084FC; font-weight: 800; font-size: 14px; padding: 8px 18px; border-radius: 20px;">
+          \${pctAvanceEjecutivo.toFixed(1)}% CUMPLIMIENTO DE CUOTA
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px;">
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #8B5CF6; padding: 14px 16px; border-radius: 8px;">
+          <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Mi Cuota Mensual</div>
+          <div style="font-size: 22px; font-weight: 800; color: #F8FAFC; margin-top: 4px;">\${fmtCOP(cuotaEjecutivo)}</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #10B981; padding: 14px 16px; border-radius: 8px;">
+          <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Utilidad Lograda (Avance)</div>
+          <div style="font-size: 22px; font-weight: 800; color: #10B981; margin-top: 4px;">\${fmtCOP(utilidadEjecutivoTotal)}</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #F59E0B; padding: 14px 16px; border-radius: 8px;">
+          <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Faltante para la Meta</div>
+          <div style="font-size: 22px; font-weight: 800; color: #F59E0B; margin-top: 4px;">\${fmtCOP(faltanteEjecutivo)}</div>
+        </div>
+      </div>
+      <div style="background: rgba(255,255,255,0.08); height: 10px; border-radius: 5px; overflow: hidden;">
+        <div style="background: linear-gradient(90deg, #8B5CF6, #10B981); height: 100%; width: \${Math.min(pctAvanceEjecutivo, 100)}%;"></div>
+      </div>
+    </div>
+
+    <div class="section-hd" style="margin-top:16px"><h2>\${escHtml(ej)}</h2><span class="section-tag" style="background:\${ejColor}20;color:\${ejColor};border-color:\${ejColor}40">EJECUTIVO</span>\${focusBadge}\${directorFocusBadge}\${focusClear}</div>
     ${buildVisualCrossfilterBar('ejecutivo', ejecutivoBaseData.length, data.length, [['linea','Linea']])}
     
     <div class="kpi-grid kpi-grid-4" style="margin-bottom:16px">
