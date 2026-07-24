@@ -5323,6 +5323,7 @@ function renderEjecutivo(){
     </div>`;
   }).join('');
   
+  if(!ej && allExecs.length) { ej = allExecs[0]; if(selEj) selEj.value = ej; }
   if(!ej) return;
   
   let data=ALL_DATA.filter(r=>r['COMERCIAL']===ej);
