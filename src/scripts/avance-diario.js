@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════
-//  FORECAST 2026 - MÓDULO DIARIO DE CUOTA Y AVANCE COMERCIAL (ROBUSTO)
+//  FORECAST 2026 - MÓDULO DIARIO DE CUOTA Y AVANCE COMERCIAL (100% INTEGRADO)
 // ════════════════════════════════════════════════════════════════════════
 
 (function () {
@@ -9,7 +9,6 @@
 
   let cachedVentasData = null;
 
-  // Formateadores de moneda y números
   function formatCOP(val) {
     if (val === null || val === undefined || isNaN(val)) return "$0 COP";
     return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(val);
@@ -31,7 +30,6 @@
   const ESTRUCTURA_DIRECTORES = {
     novoa: {
       nombre: "Rafael Novoa",
-      grupoApi: "Grupo Novoa",
       vendedores: [
         { nombre: "Carolina Sánchez Pacheco", cuota: 18000000 },
         { nombre: "Rafael Francisco Novoa", cuota: 48000000 },
@@ -54,7 +52,6 @@
     },
     caballero: {
       nombre: "Angélica Caballero",
-      grupoApi: "Grupo Caballero",
       vendedores: [
         { nombre: "Ángela Rocío Torres", cuota: 18000000 },
         { nombre: "Yurany Andrea Vargas", cuota: 18000000 },
@@ -70,7 +67,6 @@
     },
     beltran: {
       nombre: "Óscar Beltrán",
-      grupoApi: "Grupo Beltran",
       vendedores: [
         { nombre: "Dilma Constanza Cuesta", cuota: 18000000 },
         { nombre: "Claudia Patricia Triana", cuota: 18000000 },
@@ -84,7 +80,6 @@
     },
     romero: {
       nombre: "Miller Romero",
-      grupoApi: "Grupo Romero",
       vendedores: [
         { nombre: "Freddy Andrés Peña Sánchez", cuota: 28000000 },
         { nombre: "Dayana Marcela Chalá", cuota: 18000000 },
@@ -95,7 +90,6 @@
     }
   };
 
-  // Normalización de texto para comparaciones
   function normText(str) {
     return String(str || "")
       .toLowerCase()
@@ -104,14 +98,13 @@
       .trim();
   }
 
-  // Identificar la clave del director
   function resolveDirectorKey(dirName) {
     const norm = normText(dirName);
     if (norm.includes("novoa") || norm.includes("rafael")) return "novoa";
     if (norm.includes("caballero") || norm.includes("angelica")) return "caballero";
     if (norm.includes("beltran") || norm.includes("oscar")) return "beltran";
     if (norm.includes("romero") || norm.includes("miller")) return "romero";
-    return "novoa"; // Default
+    return "novoa";
   }
 
   async function fetchApiVentas() {
@@ -149,42 +142,52 @@
         }
       }
     } catch (e) {
-      console.warn("[AVANCE DIARIO] API no respondió directamente por políticas de navegador (CORS). Se calcula el avance acumulado comercial.", e.message);
+      console.warn("[AVANCE DIARIO] Petición API bloqueada por CORS en navegador. Calculando desde dataset de Forecast.", e.message);
     }
     return [];
   }
 
-  // Renderizador principal para VISTA DIRECTOR
+  // 1. VISTA DIRECTOR
   window.renderAvanceDiarioForDirector = async function (directorName) {
     const container = document.getElementById("director-avance-panel");
     if (!container) return;
 
     const dirKey = resolveDirectorKey(directorName);
-    const dirInfo = ESTRUCTURA_DIRECTORES[dirKey];
+    const dirInfo = ESTRUCTURA_DIRECTORES[dirKey] || ESTRUCTURA_DIRECTORES.novoa;
     const vendedores = dirInfo.vendedores;
 
-    // 1. Cuota Total del Grupo
+    // Cuota Total del Grupo
     const totalCuotaGrupo = vendedores.reduce((acc, v) => acc + v.cuota, 0);
 
-    // 2. Intentar consultar ventas de la API o calcular desde datos del Forecast
-    const apiVentas = await fetchApiVentas();
+    // Obtener utilidad y mercancia de la API o del Forecast ALL_DATA
     let totalUtilidadGrupo = 0;
     let totalMercanciaGrupo = 0;
 
-    vendedores.forEach(v => {
-      const vNorm = normText(v.nombre);
-      const match = apiVentas.find(item => normText(item.Descripcion).includes(vNorm.split(" ")[0]));
-      if (match) {
-        totalUtilidadGrupo += Number(match.Valor_Utilidad) || 0;
-        totalMercanciaGrupo += Number(match.Valor_Mercancia) || 0;
-      }
-    });
+    const apiVentas = await fetchApiVentas();
 
-    // Fallback: Si no hay respuesta API en el cliente por CORS, sumar desde ALL_DATA (negocios del mes)
+    if (apiVentas && apiVentas.length) {
+      vendedores.forEach(v => {
+        const vNorm = normText(v.nombre);
+        const match = apiVentas.find(item => normText(item.Descripcion).includes(vNorm.split(" ")[0]));
+        if (match) {
+          totalUtilidadGrupo += Number(match.Valor_Utilidad) || 0;
+          totalMercanciaGrupo += Number(match.Valor_Mercancia) || 0;
+        }
+      });
+    }
+
+    // Si la API no respondió por CORS, extraer de window.ALL_DATA de Forecast
     if (totalUtilidadGrupo === 0 && window.ALL_DATA && window.ALL_DATA.length) {
       const dataDir = window.ALL_DATA.filter(r => normText(r['DIRECTOR']).includes(dirKey));
-      totalUtilidadGrupo = dataDir.filter(r => r['ESTADO'] === 'GANADA').reduce((sum, r) => sum + (Number(r['UTILIDAD COP']) || Number(r['MONTO VENTA CLIENTE']) * 0.15 || 0), 0);
-      totalMercanciaGrupo = dataDir.reduce((sum, r) => sum + (Number(r['MONTO VENTA CLIENTE']) || 0), 0);
+      totalUtilidadGrupo = dataDir.reduce((sum, r) => {
+        const utilObj = typeof window.getUtilidad === 'function' ? window.getUtilidad(r) : { valor: 0 };
+        return sum + (utilObj.valor || 0);
+      }, 0);
+
+      totalMercanciaGrupo = dataDir.reduce((sum, r) => {
+        const copVal = typeof window.toCOP === 'function' ? window.toCOP(r) : 0;
+        return sum + copVal;
+      }, 0);
     }
 
     const pctAvance = totalCuotaGrupo > 0 ? (totalUtilidadGrupo / totalCuotaGrupo) * 100 : 0;
@@ -192,59 +195,55 @@
 
     container.innerHTML = `
       <div style="background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); border: 1px solid rgba(56,189,248,0.3); border-radius: 12px; padding: 22px; margin: 16px 0 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); position: relative; overflow: hidden;">
-        <div style="position: absolute; right: -20px; top: -20px; width: 140px; height: 140px; background: rgba(56,189,248,0.05); border-radius: 50%; pointer-events: none;"></div>
-        
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
           <div>
             <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.4px; color: #38BDF8; display: flex; align-items: center; gap: 6px;">
               <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #38BDF8;"></span>
               AVANCE DIARIO DE CUOTA Y UTILIDAD • ${dirInfo.nombre.toUpperCase()}
             </div>
-            <div style="font-size: 13px; color: #94A3B8; margin-top: 4px;">Seguimiento acumulado del mes en curso vs Cuota del Grupo (${vendedores.length} ejecutivos asignados)</div>
+            <div style="font-size: 13px; color: #94A3B8; margin-top: 4px;">Seguimiento acumulado vs Cuota del Grupo (${vendedores.length} ejecutivos asignados)</div>
           </div>
           
-          <div style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #34D399; font-weight: 800; font-size: 14px; padding: 8px 18px; border-radius: 20px; box-shadow: 0 2px 8px rgba(16,185,129,0.15);">
+          <div style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #34D399; font-weight: 800; font-size: 14px; padding: 8px 18px; border-radius: 20px;">
             ${pctAvance.toFixed(1)}% CUMPLIMIENTO
           </div>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
           <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #3B82F6; padding: 14px 16px; border-radius: 8px;">
-            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700; letter-spacing: 0.5px;">Cuota Mensual Grupo</div>
+            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Cuota Mensual Grupo</div>
             <div style="font-size: 22px; font-weight: 800; color: #F8FAFC; margin-top: 4px;">${formatCOP(totalCuotaGrupo)}</div>
             <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Meta asignada para ${vendedores.length} ejecutivos</div>
           </div>
 
           <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #10B981; padding: 14px 16px; border-radius: 8px;">
-            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700; letter-spacing: 0.5px;">Utilidad Lograda (Avance)</div>
+            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Utilidad Lograda (Avance)</div>
             <div style="font-size: 22px; font-weight: 800; color: #10B981; margin-top: 4px;">${formatCOP(totalUtilidadGrupo)}</div>
             <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Margen acumulado en el mes</div>
           </div>
 
           <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #F59E0B; padding: 14px 16px; border-radius: 8px;">
-            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700; letter-spacing: 0.5px;">Faltante para la Meta</div>
+            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Faltante para la Meta</div>
             <div style="font-size: 22px; font-weight: 800; color: #F59E0B; margin-top: 4px;">${formatCOP(faltante)}</div>
-            <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Brecha requerida para el 100%</div>
+            <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Diferencia sobre cuota</div>
           </div>
         </div>
 
-        <!-- Barra de progreso -->
-        <div style="background: rgba(255,255,255,0.08); height: 10px; border-radius: 5px; overflow: hidden; position: relative;">
-          <div style="background: linear-gradient(90deg, #3B82F6, #10B981); height: 100%; width: ${Math.min(pctAvance, 100)}%; transition: width 0.6s ease;"></div>
+        <div style="background: rgba(255,255,255,0.08); height: 10px; border-radius: 5px; overflow: hidden;">
+          <div style="background: linear-gradient(90deg, #3B82F6, #10B981); height: 100%; width: ${Math.min(pctAvance, 100)}%;"></div>
         </div>
       </div>
     `;
   };
 
-  // Renderizador para VISTA EJECUTIVO
+  // 2. VISTA EJECUTIVO
   window.renderAvanceDiarioForEjecutivo = async function (execName) {
     const container = document.getElementById("ejecutivo-avance-panel");
     if (!container) return;
 
     const eNorm = normText(execName);
-    let cuota = 18000000; // Base por defecto
+    let cuota = 18000000;
 
-    // Buscar cuota del ejecutivo
     Object.values(ESTRUCTURA_DIRECTORES).forEach(dir => {
       dir.vendedores.forEach(v => {
         if (normText(v.nombre).includes(eNorm.split(" ")[0])) {
@@ -253,22 +252,32 @@
       });
     });
 
-    const apiVentas = await fetchApiVentas();
     let avanceUtilidad = 0;
     let mercancia = 0;
 
-    const match = apiVentas.find(item => normText(item.Descripcion).includes(eNorm.split(" ")[0]));
-    if (match) {
-      avanceUtilidad = Number(match.Valor_Utilidad) || 0;
-      mercancia = Number(match.Valor_Mercancia) || 0;
-    } else if (window.ALL_DATA && window.ALL_DATA.length) {
+    const apiVentas = await fetchApiVentas();
+    if (apiVentas && apiVentas.length) {
+      const match = apiVentas.find(item => normText(item.Descripcion).includes(eNorm.split(" ")[0]));
+      if (match) {
+        avanceUtilidad = Number(match.Valor_Utilidad) || 0;
+        mercancia = Number(match.Valor_Mercancia) || 0;
+      }
+    }
+
+    if (avanceUtilidad === 0 && window.ALL_DATA && window.ALL_DATA.length) {
       const dataEj = window.ALL_DATA.filter(r => normText(r['COMERCIAL']).includes(eNorm.split(" ")[0]));
-      avanceUtilidad = dataEj.filter(r => r['ESTADO'] === 'GANADA').reduce((sum, r) => sum + (Number(r['UTILIDAD COP']) || Number(r['MONTO VENTA CLIENTE']) * 0.15 || 0), 0);
-      mercancia = dataEj.reduce((sum, r) => sum + (Number(r['MONTO VENTA CLIENTE']) || 0), 0);
+      avanceUtilidad = dataEj.reduce((sum, r) => {
+        const utilObj = typeof window.getUtilidad === 'function' ? window.getUtilidad(r) : { valor: 0 };
+        return sum + (utilObj.valor || 0);
+      }, 0);
+
+      mercancia = dataEj.reduce((sum, r) => {
+        const copVal = typeof window.toCOP === 'function' ? window.toCOP(r) : 0;
+        return sum + copVal;
+      }, 0);
     }
 
     const pctAvance = cuota > 0 ? (avanceUtilidad / cuota) * 100 : 0;
-    const faltante = Math.max(0, cuota - avanceUtilidad);
 
     container.innerHTML = `
       <div style="background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); border: 1px solid rgba(192,132,252,0.3); border-radius: 12px; padding: 22px; margin: 16px 0 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);">
@@ -278,7 +287,7 @@
             <div style="font-size: 18px; font-weight: 800; color: #F8FAFC; margin-top: 2px;">${execName || 'Ejecutivo Comercial'}</div>
           </div>
           <div style="background: rgba(192,132,252,0.15); border: 1px solid rgba(192,132,252,0.4); color: #C084FC; font-weight: 800; font-size: 14px; padding: 8px 18px; border-radius: 20px;">
-            ${pctAvance.toFixed(1)}% CUMPLIMIENTO DE CUOTA
+            ${pctAvance.toFixed(1)}% DE CUOTA ALCANZADA
           </div>
         </div>
 
@@ -293,9 +302,9 @@
             <div style="font-size: 22px; font-weight: 800; color: #10B981; margin-top: 4px;">${formatCOP(avanceUtilidad)}</div>
           </div>
 
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #F59E0B; padding: 14px 16px; border-radius: 8px;">
-            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Faltante para la Meta</div>
-            <div style="font-size: 22px; font-weight: 800; color: #F59E0B; margin-top: 4px;">${formatCOP(faltante)}</div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #3B82F6; padding: 14px 16px; border-radius: 8px;">
+            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Ventas Totales Brutas</div>
+            <div style="font-size: 22px; font-weight: 800; color: #3B82F6; margin-top: 4px;">${formatCOP(mercancia)}</div>
           </div>
         </div>
 
