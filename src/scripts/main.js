@@ -76,6 +76,22 @@ const FINANCE_CATEGORY_COLORS = ['#0DBF82','#2ABFDF','#F0A020','#8B5FC8','#2D4FD
 const FORECAST_CONNECTIONS_LIST_NAME = 'ForecastConexiones';
 const PREVENTA_FOLDER_NAME = 'Grupo preventa';
 const FORECAST_BASE_FALLBACK = 'COMERCIAL/FORECAST 2026';
+const EXECUTIVE_MONTHLY_QUOTAS = [
+  { name:'Rafael Francisco Novoa', value:48000000 },
+  { name:'María Paola Briceño', value:48000000 },
+  { name:'Jhonatan Camilo Hernández', value:48000000 },
+  { name:'Yeison Alonso Urrego', value:48000000 },
+  { name:'Jhonatan Steven Acevedo', value:48000000 },
+  { name:'Jasbleidy Johana Mojica', value:48000000 },
+  { name:'Diana Catalina Castro', value:48000000 },
+  { name:'Dafne Lizeth Ruiz Beltrán', value:48000000 },
+  { name:'María Angélica Caballero', value:48000000 },
+  { name:'Óscar Alejandro Beltrán', value:48000000 },
+  { name:'César Augusto Céspedes', value:28000000 },
+  { name:'Freddy Andrés Peña Sánchez', value:28000000 },
+  { name:'Daniel Galindo Girón', value:28000000 },
+  { name:'Juan David Martínez', value:14000000 }
+];
 
 function getForecastStructure(){
   return window.FORECAST_STRUCTURE || {};
@@ -1818,6 +1834,11 @@ function namesMatch(a,b){
   return false;
 }
 
+function getExecutiveCuota(executiveName){
+  const match = EXECUTIVE_MONTHLY_QUOTAS.find(item => namesMatch(executiveName, item.name));
+  return match ? match.value : 18000000;
+}
+
 function getSalesSupportAliasMap(){
   return window.SALES_SUPPORT_NAME_ALIASES || {};
 }
@@ -2790,7 +2811,8 @@ function showPage(id,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   if(btn) btn.classList.add('active');
-  const hasLoadedData = ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length || PREVENTA_DATA.length;
+  const hasLoadedForecastFiles = Object.values(LOADED_FILES_BY_DIR || {}).some(files => files && files.length);
+  const hasLoadedData = ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length || PREVENTA_DATA.length || hasLoadedForecastFiles;
   if(hasLoadedData || id === 'finanzas' || id === 'programas' || id === 'glpi' || id === 'negocio' || id === 'marca-linea-detail') {
     renderPage(id);
   }
@@ -5116,12 +5138,6 @@ function renderDirector(){
     </div>
   `;
   
-  const getExecutiveCuota = (eName) => {
-    const norm = String(eName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-    if (norm.includes('novo') || norm.includes('brice') || norm.includes('camilo') || norm.includes('urrego') || norm.includes('acevedo') || norm.includes('mojica') || norm.includes('castro') || norm.includes('ruiz') || norm.includes('caballero') || norm.includes('beltran')) return 48000000;
-    if (norm.includes('pena') || norm.includes('galindo giron') || norm.includes('cespedes')) return 28000000;
-    return 18000000;
-  };
   const totalCuotaGrupo = execs.reduce((sum, e) => sum + getExecutiveCuota(e), 0) || 180000000;
   const utilidadGrupoTotal = utilidadCOP + (utilidadUSD * trm);
   const pctAvanceGrupo = totalCuotaGrupo > 0 ? (utilidadGrupoTotal / totalCuotaGrupo) * 100 : 0;
@@ -5258,11 +5274,11 @@ function initials(name){return name.split(' ').slice(0,2).map(w=>w[0]).join('');
 
 function renderEjecutivo(){
   const ALL_DATA = EJECUTIVO_BRAND_FOCUS ? getVisibleMarcasData() : getVisibleData();
-  if(!ALL_DATA.length) return;
   const role = CURRENT_USER ? CURRENT_USER.role : null;
   const targetName = role === 'ejecutivo' ? getExecTargetName() : '';
   const selEj = document.getElementById('sel-ejecutivo');
-  const est=document.getElementById('sel-ej-estado').value;
+  const estadoSelect = document.getElementById('sel-ej-estado');
+  const est=estadoSelect ? estadoSelect.value : '';
   const trm=getTRM();
   
   // Persona grid — todos los ejecutivos cargados, tengan o no datos
@@ -5270,7 +5286,13 @@ function renderEjecutivo(){
   // Agregar ejecutivos de archivos cargados aunque estén vacíos
   const execsFromFiles = Object.values(LOADED_FILES_BY_DIR||{}).flat()
     .map(f=>f.name.replace(/\.(xlsx|xls)$/i,'').trim());
-  const allExecs = [...new Set([...execsFromData, ...execsFromFiles])].sort();
+  const allExecs = execsFromData.slice();
+  execsFromFiles.forEach(fileExecutive => {
+    if(fileExecutive && !allExecs.some(dataExecutive => namesMatch(dataExecutive, fileExecutive))) {
+      allExecs.push(fileExecutive);
+    }
+  });
+  allExecs.sort();
   if(selEj){
     if(role === 'ejecutivo' && targetName){
       selEj.innerHTML = optionHtml(targetName, targetName, false);
@@ -5278,11 +5300,12 @@ function renderEjecutivo(){
     } else {
       const current = selEj.value;
       selEj.innerHTML = buildOptionList(allExecs);
-      if(current && allExecs.includes(current)) selEj.value = current;
+      const currentMatch = current ? allExecs.find(executive => namesMatch(executive, current)) : '';
+      if(currentMatch) selEj.value = currentMatch;
       else if(allExecs[0]) selEj.value = allExecs[0];
     }
   }
-  const ej = (role === 'ejecutivo' && targetName) ? targetName : (selEj ? selEj.value : '');
+  let ej = (role === 'ejecutivo' && targetName) ? targetName : (selEj ? selEj.value : '');
   const execs = (role === 'ejecutivo' && targetName) ? [targetName] : allExecs;
   if(EJECUTIVO_BRAND_FOCUS && !namesMatch(EJECUTIVO_BRAND_FOCUS.execName, ej)) {
     EJECUTIVO_BRAND_FOCUS = null;
@@ -5297,7 +5320,7 @@ function renderEjecutivo(){
   if(focusedBrand) execMonthRows = execMonthRows.filter(r => normalizeCategoryValue(getRowBrandName(r)) === brandKey);
   const mes=syncMonthSelectOptions('sel-ej-mes', getForecastMonths(execMonthRows));
   document.getElementById('persona-grid').innerHTML=execs.map((e,i)=>{
-    const ed=ALL_DATA.filter(r=>(r['COMERCIAL']||'').trim()===e);
+    const ed=ALL_DATA.filter(r=>namesMatch(r['COMERCIAL'], e));
     const cop=ed.reduce((s,r)=>s+toCOP(r),0);
     const gan=ed.filter(r=>r['ESTADO']==='GANADA').length;
     const pen=ed.filter(r=>r['ESTADO']==='PENDIENTE').length;
@@ -5306,7 +5329,7 @@ function renderEjecutivo(){
     const dirFromFile=Object.entries(LOADED_FILES_BY_DIR||{}).find(([d,fs])=>fs.some(f=>f.name.replace(/\.(xlsx|xls)$/i,'').trim()===e));
     const dir=dirFromData||(dirFromFile?dirFromFile[0]:'—');
     const hasData=ed.length>0;
-    const selected=e===ej?'selected':'';
+    const selected=namesMatch(e, ej)?'selected':'';
     return `<div class="persona-card ${selected} ${hasData?'':'no-data'}" onclick="${escAttr(jsCall('selectEjecutivo', e))}">
       <div class="persona-avatar" style="background:${c}${hasData?'25':'10'};border:2px solid ${c}${hasData?'50':'20'};color:${hasData?c:'var(--text2)'}">${escHtml(initials(e))}</div>
       <div class="persona-name" style="color:${hasData?'var(--text)':'var(--text2)'}">${escHtml(e)}</div>
@@ -5326,7 +5349,7 @@ function renderEjecutivo(){
   if(!ej && allExecs.length) { ej = allExecs[0]; if(selEj) selEj.value = ej; }
   if(!ej) return;
   
-  let data=ALL_DATA.filter(r=>r['COMERCIAL']===ej);
+  let data=ALL_DATA.filter(r=>namesMatch(r['COMERCIAL'], ej));
   if(mes) data=data.filter(r=>getMonth(getRowDateValue(r))===mes);
   if(est) data=data.filter(r=>r['ESTADO']===est);
   if(focusedDirector) {

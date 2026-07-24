@@ -303,9 +303,48 @@ function renderViewPanelOptions(){
   const directorButtons = directorNames.map(name =>
     `<button onclick="switchView(this,'director','${name.replace(/'/g, "\\'")}')" class="view-opt-btn" data-view="dir-${name.replace(/\s+/g, '-').toLowerCase()}">Director - ${name}</button>`
   ).join('');
+  const executiveEntries = structure.getAllExecutiveEmails && structure.getExecutiveByEmail
+    ? structure.getAllExecutiveEmails()
+      .map(email => structure.getExecutiveByEmail(email))
+      .filter(Boolean)
+      .map(executive => ({
+        name: executive.nombre,
+        director: structure.getDirectorNameByGroup
+          ? structure.getDirectorNameByGroup(executive.grupo)
+          : ''
+      }))
+      .sort((a, b) =>
+        a.director.localeCompare(b.director, 'es') ||
+        a.name.localeCompare(b.name, 'es')
+      )
+    : [];
+  const executiveButtons = executiveEntries.map(executive => `
+    <button
+      type="button"
+      onclick="switchExecutiveView(this)"
+      class="view-opt-btn view-opt-executive"
+      data-executive-name="${escapeAuthHtml(executive.name)}"
+      data-director-name="${escapeAuthHtml(executive.director)}"
+      title="Ver la aplicación como ${escapeAuthHtml(executive.name)}">
+      <span>${escapeAuthHtml(executive.name)}</span>
+      <small>${escapeAuthHtml(executive.director || 'Sin director')}</small>
+    </button>`
+  ).join('');
   host.innerHTML = `
     <button onclick="switchView(this,'gerencia')" class="view-opt-btn" data-view="gerencia">Gerencia General</button>
-    ${directorButtons}`;
+    ${directorButtons}
+    ${executiveButtons ? `
+      <div class="view-opt-section-title">Vista como comercial</div>
+      <div class="view-opt-executive-list">${executiveButtons}</div>
+    ` : ''}`;
+}
+
+function switchExecutiveView(buttonEl){
+  if(!buttonEl) return;
+  const executiveName = buttonEl.dataset.executiveName || '';
+  const directorName = buttonEl.dataset.directorName || '';
+  if(!executiveName) return;
+  switchView(buttonEl, 'ejecutivo', directorName, executiveName);
 }
 
 function toggleViewPanel() {

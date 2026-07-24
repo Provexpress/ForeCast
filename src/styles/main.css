@@ -720,6 +720,7 @@ tr:hover td{background:rgba(255,255,255,.025);color:var(--text)}
 #user-name{font-size:12px;color:var(--text);font-family:var(--font-display);font-weight:600}
 #user-role-badge{font-size:9px;color:var(--text2);font-family:var(--font-display)}
 .view-panel{
+  width:min(320px,calc(100vw - 24px));
   max-width:calc(100vw - 24px);
   max-height:calc(100vh - 84px);
   overflow:auto;
@@ -954,6 +955,19 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
 }
 .view-opt-btn:hover{background:rgba(45,79,214,.1);border-color:var(--corp-blue2);color:var(--text)}
 .view-opt-btn.active{background:rgba(45,79,214,.15);border-color:var(--corp-blue2);color:var(--text)}
+.view-opt-section-title{
+  margin:8px 2px 0;padding-top:12px;border-top:1px solid var(--border);
+  color:var(--corp-purple2);font-family:var(--font-display);font-size:9px;
+  font-weight:800;letter-spacing:1px;text-transform:uppercase;
+}
+.view-opt-executive-list{display:flex;flex-direction:column;gap:6px}
+.view-opt-executive{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+.view-opt-executive span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.view-opt-executive small{
+  flex-shrink:0;color:var(--text3);font-family:var(--font-body);font-size:9px;font-weight:500;
+}
 
 .finance-shell{display:flex;flex-direction:column;gap:16px}
 .finance-control-panel{
