@@ -5262,7 +5262,8 @@ function renderDirector(){
   `;
   
   const totalCuotaGrupo = execs.reduce((sum, e) => sum + getExecutiveCuota(e), 0) || 180000000;
-  const utilidadGrupoTotal = utilidadCOP + (utilidadUSD * trm);
+  const apiDirData = typeof window.getApiUtilidadForDirector === 'function' ? window.getApiUtilidadForDirector(dir, execs) : null;
+  const utilidadGrupoTotal = apiDirData ? apiDirData.utilidad : (utilidadCOP + (utilidadUSD * trm));
   const pctAvanceGrupo = totalCuotaGrupo > 0 ? (utilidadGrupoTotal / totalCuotaGrupo) * 100 : 0;
   const faltanteGrupo = Math.max(0, totalCuotaGrupo - utilidadGrupoTotal);
 
@@ -5504,7 +5505,8 @@ function renderEjecutivo(){
   
   const linData=buildLineValueData(data);
   
-  const utilidadEjecutivoTotal = sumUtilidad(data, 'COP') + (sumUtilidad(data, 'USD') * trm);
+  const apiEjData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(ej) : null;
+  const utilidadEjecutivoTotal = apiEjData ? apiEjData.utilidad : (sumUtilidad(data, 'COP') + (sumUtilidad(data, 'USD') * trm));
   const cuotaEjecutivo = getExecutiveCuota(ej);
   const pctAvanceEjecutivo = cuotaEjecutivo > 0 ? (utilidadEjecutivoTotal / cuotaEjecutivo) * 100 : 0;
   const faltanteEjecutivo = Math.max(0, cuotaEjecutivo - utilidadEjecutivoTotal);
@@ -7862,3 +7864,8 @@ window.setDirectorEstadoFilter = setDirectorEstadoFilter;
 window.showMoreEstadoRows = showMoreEstadoRows;
 window.openNegocioDetailById = openNegocioDetailById;
 window.closeNegocioDetail = closeNegocioDetail;
+
+window.refreshAvanceDiarioViews = function() {
+  if (typeof renderDirector === 'function' && document.getElementById('sel-director')) renderDirector();
+  if (typeof renderEjecutivo === 'function' && document.getElementById('sel-ejecutivo')) renderEjecutivo();
+};
