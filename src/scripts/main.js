@@ -5309,7 +5309,10 @@ function renderDirector(){
           <div class="quota-team-breakdown__eyebrow">DESGLOSE DE CUMPLIMIENTO POR EJECUTIVO • API POWER BI</div>
           <div class="quota-team-breakdown__subtitle">Detalle individual de cuota, ventas y margen logrado de los ${execs.length} comerciales del equipo</div>
         </div>
-        <span class="section-tag" style="background: var(--status-success-bg); color: var(--status-success-fg); border-color: rgba(13,191,130,0.3); font-weight: 700;">🟢 ${execs.length} Comerciales Evaluados</span>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button class="btn-excel-export" onclick="exportDirectorReportToExcel()">📊 Exportar Excel</button>
+          <span class="section-tag" style="background: var(--status-success-bg); color: var(--status-success-fg); border-color: rgba(13,191,130,0.3); font-weight: 700;">🟢 ${execs.length} Comerciales Evaluados</span>
+        </div>
       </div>
 
       <div style="overflow-x: auto;">
@@ -5592,9 +5595,12 @@ function renderEjecutivo(){
           <div class="quota-summary__title">${escHtml(ej)}</div>
           <div class="quota-summary__subtitle">Utilidad acumulada frente a la meta mensual</div>
         </div>
-        <div class="quota-summary__status">
-          <strong>${pctAvanceEjecutivo.toFixed(1)}%</strong>
-          <span>Cumplimiento</span>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <button class="btn-excel-export" onclick="exportEjecutivoReportToExcel()">📊 Exportar Excel</button>
+          <div class="quota-summary__status">
+            <strong>${pctAvanceEjecutivo.toFixed(1)}%</strong>
+            <span>Cumplimiento</span>
+          </div>
         </div>
       </div>
       <div class="quota-summary__metrics">

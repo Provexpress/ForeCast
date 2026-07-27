@@ -2945,3 +2945,24 @@ tr:hover td,.table-row-action:hover td{background:var(--surface-hover);color:var
   color: var(--status-danger-fg);
   border: 1px solid rgba(232, 64, 64, 0.3);
 }
+
+.btn-excel-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: #FFFFFF !important;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-excel-export:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+}
