@@ -27,6 +27,67 @@
     }
   }
 
+    const API_NAME_ALIASES = {
+    "johanna mojica": "Jasbleidy Johana Mojica",
+    "jasbleidy mojica": "Jasbleidy Johana Mojica",
+    "jasbleidy johana mojica": "Jasbleidy Johana Mojica",
+    "johana mojica": "Jasbleidy Johana Mojica",
+    
+    "yovanny herrera": "Jair Yovanny Herrea",
+    "jair yovanny herrera": "Jair Yovanny Herrea",
+    "jair yovanny herrea": "Jair Yovanny Herrea",
+    
+    "rosmira rojas": "Rosmira Rojas Puentes",
+    "mario reyes": "Mario Reyes Gutierrez",
+    "wilson sanchez": "Wilson Fernando Sanchez Monroy",
+    "maria eugenia cruz": "Maria Eugenia Cruz Herrera",
+    "javier cortes": "Javier Antonio Cortes Murcia",
+    "rosa mendoza": "Rosa Maria Mendoza Mendoza",
+    "mariela ramirez": "Mariela Ramírez Castro",
+    "jenny gonzalez": "Jenny Alexandra Gonzalez Buitrago",
+    "julieth galindo": "Julieth Milena Galindo Fino",
+    "angela torres": "Angela Rocio Torres Matallana",
+    "yurany andrea vargas": "Yurany Andrea Vargas Soler",
+    "andrea vargas": "Yurany Andrea Vargas Soler",
+    "alejandra velasquez": "Maria Alejandra Velásquez Espinosa",
+    "fernando quinonez": "Fernando Alberto Quiñonez",
+    "fernando alberto quinonez": "Fernando Alberto Quiñonez",
+    "johanna jaime": "Johanna Jaime Murcia",
+    "johanna jaime murcia": "Johanna Jaime Murcia",
+    "dayana chala": "Dayana Marcela Chala Rodríguez",
+    "cesar cespedes": "Cesar Augusto Cespedes Sabroso",
+    "daniel galindo": "Daniel Galindo Giron",
+    "gina garcia": "Gina Paola Garcia Quito",
+    "karent carrillo": "Karent Carrillo Marin",
+    "lington linares": "Lington Linares Linares",
+    "angelica alvarez": "Maria Angelica Alvarez Morales",
+    "andres pena": "Freddy Andres Peña Sanchez",
+    "freddy pena": "Freddy Andres Peña Sanchez",
+    "tatiana parra": "Angie Tatiana Parra Durán",
+    "claudia triana": "Claudia Patricia Triana Olaya",
+    "dilma cuesta": "Dilma Constanza Cuesta Rubiano",
+    "juan martinez": "Juan David Martínez Pedraza",
+    "astrid jimenez": "Leidy Astrid Jimenez Ossa",
+    "maria paola briceno": "Maria Paola Briceño Muñoz",
+    "paola briceno": "Maria Paola Briceño Muñoz",
+    "dafne ruiz": "Dafne Lizeth Ruiz Bernal",
+    "jessica valencia": "Jessica Lorena Valencia Isaza",
+    "lorena valencia": "Jessica Lorena Valencia Isaza",
+    "jhonatan acevedo": "Jhonatan Steven Acevedo Fonseca",
+    "steven acevedo": "Jhonatan Steven Acevedo Fonseca",
+    "camilo hernandez": "Jhonatan Camilo Hernandez Martinez",
+    "yeison urrego": "Yeison Alonso Urrego Cortes",
+    "diana castro": "Diana Catalina Castro Castro"
+  };
+
+  function normalizeName(str) {
+    return String(str || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  }
+
   // 2. Extraer Utilidad de la API para un Ejecutivo Comercial según el mes seleccionado
   window.getApiUtilidadForEjecutivo = function (ejName, selectedMonthKey) {
     let list = [];
@@ -39,14 +100,43 @@
 
     if (!list.length) return null;
 
-    const norm = String(ejName || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    const tokens = norm.split(/\s+/).filter(t => t.length > 2);
+    const normInput = normalizeName(ejName);
+    const aliasTarget = API_NAME_ALIASES[normInput] ? normalizeName(API_NAME_ALIASES[normInput]) : null;
 
-    const found = list.find(r => {
-      const desc = String(r.Descripcion || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      const matches = tokens.filter(tok => desc.includes(tok));
-      return matches.length >= 2 || (tokens.length === 1 && matches.length === 1) || desc.includes(norm) || norm.includes(desc);
-    });
+    // 1. Buscar por Alias explícito
+    let found = aliasTarget ? list.find(r => normalizeName(r.Descripcion) === aliasTarget) : null;
+
+    // 2. Buscar por coincidencia exacta de nombre limpio
+    if (!found) {
+      found = list.find(r => normalizeName(r.Descripcion) === normInput);
+    }
+
+    // 3. Buscar por puntuación de tokens
+    if (!found) {
+      const tokens = normInput.split(/\s+/).filter(t => t.length > 2);
+      let bestMatch = null;
+      let maxScore = 0;
+
+      list.forEach(r => {
+        const normApi = normalizeName(r.Descripcion);
+        const apiTokens = normApi.split(/\s+/).filter(t => t.length > 2);
+        
+        let score = 0;
+        tokens.forEach(t => {
+          if (apiTokens.includes(t)) score += 2;
+          else if (normApi.includes(t)) score += 1;
+        });
+
+        if (normApi.includes(normInput) || normInput.includes(normApi)) score += 3;
+
+        if (score > maxScore) {
+          maxScore = score;
+          bestMatch = r;
+        }
+      });
+
+      if (maxScore >= 2) found = bestMatch;
+    }
 
     if (!found) return null;
 
