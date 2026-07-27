@@ -2856,3 +2856,92 @@ tr:hover td,.table-row-action:hover td{background:var(--surface-hover);color:var
   .quota-metric{grid-template-columns:34px minmax(0,1fr);padding:12px}
   .quota-metric__icon{width:34px;height:34px}
 }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   TABLA DE DESGLOSE DE EQUIPO (CUMPLIMIENTO DE CUOTA) - DARK & LIGHT THEMES
+   ════════════════════════════════════════════════════════════════════════ */
+.quota-team-breakdown {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin: 20px 0 24px;
+  box-shadow: var(--shadow);
+}
+
+.quota-team-breakdown__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.quota-team-breakdown__eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--corp-cyan);
+}
+
+.quota-team-breakdown__subtitle {
+  font-size: 13px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+
+.quota-team-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.quota-team-table th {
+  background: var(--card2);
+  color: var(--text2);
+  padding: 12px 14px;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+
+.quota-team-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+
+.quota-team-table tr:hover {
+  background: var(--surface-hover);
+}
+
+.quota-team-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-block;
+}
+
+.quota-team-badge--completed {
+  background: var(--status-success-bg);
+  color: var(--status-success-fg);
+  border: 1px solid rgba(13, 191, 130, 0.3);
+}
+
+.quota-team-badge--progress {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
+  border: 1px solid rgba(240, 160, 32, 0.3);
+}
+
+.quota-team-badge--alert {
+  background: var(--status-danger-bg);
+  color: var(--status-danger-fg);
+  border: 1px solid rgba(232, 64, 64, 0.3);
+}
