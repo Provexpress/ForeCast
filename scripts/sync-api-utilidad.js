@@ -38,49 +38,78 @@ function postJSON(url, data, token) {
   });
 }
 
-function getFormattedMonthRange() {
+function getMonthRanges() {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return {
-    fechaInicial: `${year}-${month}-01`,
-    fechaFinal: `${year}-${month}-${day}`
+  const currentYear = now.getFullYear();
+  const currentMonthNum = now.getMonth() + 1;
+  const currentDay = String(now.getDate()).padStart(2, "0");
+
+  const ranges = {};
+
+  // 1. Mes actual (Julio 2026: del 1 al dia de hoy)
+  const curMonthKey = `${currentYear}-${String(currentMonthNum).padStart(2, "0")}`;
+  ranges[curMonthKey] = {
+    fechaInicial: `${curMonthKey}-01`,
+    fechaFinal: `${curMonthKey}-${currentDay}`
   };
+
+  // 2. Meses anteriores del año (Junio, Mayo, Abril, Marzo, Febrero, Enero)
+  for (let m = 1; m < currentMonthNum; m++) {
+    const mStr = String(m).padStart(2, "0");
+    const monthKey = `${currentYear}-${mStr}`;
+    const lastDayOfMonth = new Date(currentYear, m, 0).getDate();
+    ranges[monthKey] = {
+      fechaInicial: `${monthKey}-01`,
+      fechaFinal: `${monthKey}-${String(lastDayOfMonth).padStart(2, "0")}`
+    };
+  }
+
+  return ranges;
 }
 
 async function syncUtilidadData() {
-  console.log("📥 Conectando con la API de Utilidad Comercial en tiempo real...");
-  const range = getFormattedMonthRange();
+  console.log("📥 Conectando con la API de Utilidad Comercial para todos los meses del año...");
+  const monthRanges = getMonthRanges();
   
   try {
     const auth = await postJSON(API_AUTH_URL, API_CREDS);
     const token = auth.token || auth.access_token;
     if (!token) throw new Error("No se obtuvo token de autenticación de la API");
 
-    const dataResp = await postJSON(API_DATA_URL, {
-      Fecha_Inicial: range.fechaInicial,
-      Fecha_Final: range.fechaFinal,
-      Tipo_Utilidad: "venta"
-    }, token);
+    const mesesData = {};
 
-    const rows = dataResp.response || [];
-    console.log(`✅ API de Utilidad respondió exitosamente: ${rows.length} vendedores procesados`);
+    for (const [monthKey, range] of Object.entries(monthRanges)) {
+      console.log(`  └─ Consultando periodo ${monthKey} (${range.fechaInicial} al ${range.fechaFinal})...`);
+      const dataResp = await postJSON(API_DATA_URL, {
+        Fecha_Inicial: range.fechaInicial,
+        Fecha_Final: range.fechaFinal,
+        Tipo_Utilidad: "venta"
+      }, token);
+
+      const rows = dataResp.response || [];
+      mesesData[monthKey] = {
+        fechaInicial: range.fechaInicial,
+        fechaFinal: range.fechaFinal,
+        totalVendedores: rows.length,
+        vendedores: rows
+      };
+    }
 
     const outputDir = path.join(__dirname, "../src/data");
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
+    // Determinar vendedores del mes actual para compatibilidad
+    const currentMonthKey = Object.keys(monthRanges)[0];
     const payload = {
       updatedAt: new Date().toISOString(),
-      fechaInicial: range.fechaInicial,
-      fechaFinal: range.fechaFinal,
-      totalVendedores: rows.length,
-      vendedores: rows
+      currentMonthKey: currentMonthKey,
+      vendedores: mesesData[currentMonthKey]?.vendedores || [],
+      meses: mesesData
     };
 
     const filePath = path.join(outputDir, "api-utilidad-cache.json");
     fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), "utf8");
-    console.log(`💾 Cache sincronizado guardado en: ${filePath}`);
+    console.log(`✅ Sincronización multi-mes completada exitosamente. Guardado en: ${filePath}`);
     return payload;
   } catch (error) {
     console.error("❌ Error al sincronizar con la API de Utilidad:", error.message);

@@ -5262,7 +5262,7 @@ function renderDirector(){
   `;
   
   const totalCuotaGrupo = execs.reduce((sum, e) => sum + getExecutiveCuota(e), 0) || 180000000;
-  const apiDirData = typeof window.getApiUtilidadForDirector === 'function' ? window.getApiUtilidadForDirector(dir, execs) : null;
+  const apiDirData = typeof window.getApiUtilidadForDirector === 'function' ? window.getApiUtilidadForDirector(dir, execs, mes) : null;
   const utilidadGrupoTotal = apiDirData ? apiDirData.utilidad : (utilidadCOP + (utilidadUSD * trm));
   const pctAvanceGrupo = totalCuotaGrupo > 0 ? (utilidadGrupoTotal / totalCuotaGrupo) * 100 : 0;
   const faltanteGrupo = Math.max(0, totalCuotaGrupo - utilidadGrupoTotal);
@@ -5505,7 +5505,7 @@ function renderEjecutivo(){
   
   const linData=buildLineValueData(data);
   
-  const apiEjData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(ej) : null;
+  const apiEjData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(ej, mes) : null;
   const utilidadEjecutivoTotal = apiEjData ? apiEjData.utilidad : (sumUtilidad(data, 'COP') + (sumUtilidad(data, 'USD') * trm));
   const cuotaEjecutivo = getExecutiveCuota(ej);
   const pctAvanceEjecutivo = cuotaEjecutivo > 0 ? (utilidadEjecutivoTotal / cuotaEjecutivo) * 100 : 0;
