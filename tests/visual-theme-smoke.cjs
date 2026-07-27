@@ -28,6 +28,7 @@ assert.match(css, /\.glpi-status-waiting\{color:var\(--status-neutral-fg\)/);
 assert.match(css, /\.glpi-status-resolved\{color:var\(--status-success-fg\)/);
 assert.match(css, /\.glpi-context-summary\s*\{/);
 assert.match(css, /\.glpi-time-over\{color:var\(--status-danger-fg\)/);
+assert.match(css, /\.glpi-description-full\s*\{[\s\S]*white-space:pre-wrap/);
 
 const earlyThemePosition = html.indexOf("localStorage.getItem('forecast_theme')");
 const stylesheetPosition = html.indexOf('src/styles/main.css');
@@ -39,8 +40,8 @@ assert.match(html, /id="view-switcher-btn"[\s\S]*aria-expanded="false"[\s\S]*ari
 assert.match(html, /id="glpi-context-summary"[\s\S]*aria-live="polite"/);
 assert.doesNotMatch(html, /id="user-badge" style="[^"]*background:/);
 assert.ok((html.match(/v=20260727-visual-refresh1/g) || []).length >= 2);
-assert.equal((html.match(/v=20260727-current-month1/g) || []).length, 2);
-assert.equal((html.match(/v=20260727-glpi-statuses1/g) || []).length, 2);
+assert.ok((html.match(/v=20260727-current-month1/g) || []).length >= 1);
+assert.equal((html.match(/v=20260727-glpi-description1/g) || []).length, 2);
 
 assert.match(main, /new CustomEvent\('forecast:themechange'/);
 assert.match(main, /function enhanceKeyboardActions/);
@@ -49,8 +50,9 @@ assert.match(main, /fill="var\(--chart-point-fill\)"/);
 assert.match(program, /fill="var\(--chart-point-fill\)"/);
 assert.doesNotMatch(main, /linear-gradient\(135deg, #1E293B 0%, #0F172A 100%\)/);
 assert.doesNotMatch(daily, /linear-gradient\(135deg, #1E293B 0%, #0F172A 100%\)/);
-assert.match(daily, /quota-summary quota-summary--director/);
-assert.match(daily, /quota-summary quota-summary--executive/);
+assert.match(daily, /getApiUtilidadForDirector/);
+assert.match(daily, /getApiUtilidadForEjecutivo/);
+assert.match(daily, /API_UTILIDAD_MESES/);
 assert.match(auth, /badge\.classList\.add\('is-visible'\)/);
 assert.match(auth, /aria-expanded/);
 

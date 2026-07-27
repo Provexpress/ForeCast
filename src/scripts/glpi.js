@@ -55,6 +55,8 @@
   function cleanPlainText(value){
     return String(value == null ? '' : value)
       .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(?:p|div|section|article|li|tr|h[1-6])\s*>/gi, '\n')
+      .replace(/<li(?:\s[^>]*)?>/gi, '• ')
       .replace(/<[^>]*>/g, ' ')
       .replace(/&nbsp;/gi, ' ')
       .replace(/&amp;/gi, '&')
@@ -901,11 +903,15 @@
         <div><span>Categoría completa</span><strong>${escapeHtml(ticket.category)}</strong></div>
       </div>
       <section class="glpi-description-section">
-        <h3>Descripción y componentes</h3>
-        ${components.length ? `<div class="glpi-component-list">${components.map(component => `<article>
+        <h3>Descripción completa del caso</h3>
+        <p class="glpi-description-plain glpi-description-full">${escapeHtml(ticket.description || 'Sin descripción registrada')}</p>
+        ${components.length ? `<div class="glpi-components-section">
+          <h3>Campos identificados</h3>
+          <div class="glpi-component-list">${components.map(component => `<article>
           <span>${escapeHtml(component.label || 'Campo')}</span>
           <p>${escapeHtml(component.value || 'Sin información')}</p>
-        </article>`).join('')}</div>` : `<p class="glpi-description-plain">${escapeHtml(ticket.description || 'Sin descripción')}</p>`}
+        </article>`).join('')}</div>
+        </div>` : ''}
       </section>`;
   }
 

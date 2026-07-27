@@ -2275,6 +2275,7 @@ body.glpi-detail-open{overflow:hidden}
 .glpi-description-section h3{
   margin-bottom:12px;color:var(--text);font-family:'Plus Jakarta Sans',var(--font-body);font-size:13px;font-weight:650;
 }
+.glpi-components-section{margin-top:20px}
 .glpi-component-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .glpi-component-list article{
   min-width:0;padding:14px;border:1px solid var(--border);border-radius:7px;
@@ -2285,10 +2286,14 @@ body.glpi-detail-open{overflow:hidden}
   font-size:8px;font-weight:650;letter-spacing:.35px;text-transform:uppercase;
 }
 .glpi-component-list article p,.glpi-description-plain{
-  color:var(--text-soft);font-size:11px;line-height:1.6;overflow-wrap:anywhere;
+  color:var(--text-soft);font-size:11px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;
 }
 .glpi-description-plain{
   padding:15px;border:1px solid var(--border);border-radius:7px;background:rgba(255,255,255,.018);
+}
+.glpi-description-full{
+  max-height:none;margin:0;white-space:pre-wrap;word-break:break-word;overflow:visible;
+  font-size:12px;line-height:1.72;
 }
 [data-theme="light"] .glpi-filter-panel,
 [data-theme="light"] .glpi-kpi-card,

@@ -64,6 +64,7 @@ const exposed = [
   'renderFilterOptions',
   'renderGroups',
   'renderTable',
+  'renderDetail',
   'summarizeBy',
   'setGroup',
   'setRequester',
@@ -161,6 +162,7 @@ api.state.tickets = [
   ticket(9, 'resolved', 'Grupo B', 'Carla', { daysSolution:10 }),
   ticket(10, 'closed', 'Grupo B', 'Carla', { daysSolution:8, daysClosed:12 })
 ];
+api.state.tickets[0].description = 'Datos del formulario\n1) Empresa: Pluxee Colombia SAS\n2) Labor a realizar: Primera línea\nSegunda línea\nObservación final del caso';
 
 api.setGroup('Grupo A');
 let metrics = api.getContextMetrics();
@@ -180,6 +182,14 @@ assert.equal(metrics.medianClosedDays, 3);
 assert.equal(metrics.maxClosedDays, 4);
 assert.equal(metrics.statusMetrics.in_progress.averageDays, 7);
 assert.equal(metrics.statusMetrics.waiting.averageDays, 8);
+
+api.renderDetail(api.state.tickets[0]);
+const detailMarkup = getElement('glpi-detail-content').innerHTML;
+assert.match(detailMarkup, /Descripción completa del caso/);
+assert.match(detailMarkup, /Datos del formulario\n1\) Empresa: Pluxee Colombia SAS/);
+assert.match(detailMarkup, /Segunda línea\nObservación final del caso/);
+assert.match(detailMarkup, /Campos identificados/);
+assert.match(detailMarkup, /Pluxee Colombia SAS/);
 
 api.renderKpis();
 const groupCards = getElement('glpi-kpis').innerHTML;
