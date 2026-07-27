@@ -85,6 +85,45 @@
 
 
   // 5. Exportar Informe Profesional Excel para Director
+  
+  // Helper para resolver los ejecutivos de cualquier director
+  window.getDirectorExecs = function (dirName) {
+    const norm = String(dirName || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    
+    // 1. ESTRUCTURA_COMERCIAL_2026
+    const est = window.ESTRUCTURA_COMERCIAL_2026;
+    if (est && est.directores) {
+      for (const [gKey, dInfo] of Object.entries(est.directores)) {
+        const dNorm = String(dInfo.nombre || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        if (dNorm.includes(norm) || norm.includes(dNorm)) {
+          const vends = (est.vendedores || []).filter(v => v.grupo === gKey);
+          if (vends.length) return vends.map(v => v.nombre);
+        }
+      }
+    }
+
+    // 2. Fallback ALL_DATA & LOADED_FILES_BY_DIR
+    const allData = window.ALL_DATA || [];
+    const execsWithData = allData
+      .filter(r => {
+        const d = String(r['DIRECTOR'] || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return d.includes(norm) || norm.includes(d);
+      })
+      .map(r => (r['COMERCIAL'] || '').trim())
+      .filter(Boolean);
+
+    const loadedFiles = window.LOADED_FILES_BY_DIR || {};
+    let execsFromFiles = [];
+    for (const [dKey, files] of Object.entries(loadedFiles)) {
+      const dNorm = String(dKey || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (dNorm.includes(norm) || norm.includes(dNorm)) {
+        execsFromFiles = (files || []).map(f => f.name.replace(/\.(xlsx|xls)$/i, '').trim()).filter(Boolean);
+      }
+    }
+
+    return [...new Set([...execsWithData, ...execsFromFiles])].sort();
+  };
+
   window.exportDirectorReportToExcel = async function () {
     if (typeof ExcelJS === 'undefined') {
       alert('Cargando librería de Excel, por favor intenta de nuevo en un momento.');
