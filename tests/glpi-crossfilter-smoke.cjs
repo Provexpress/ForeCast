@@ -191,6 +191,8 @@ assert.match(detailMarkup, /class="glpi-description-number">1<\/span>/);
 assert.match(detailMarkup, /<strong>Empresa<\/strong>/);
 assert.match(detailMarkup, /Segunda línea\nObservación final del caso/);
 assert.match(detailMarkup, /Pluxee Colombia SAS/);
+assert.match(detailMarkup, /Desplázate para ver todos los campos/);
+assert.match(detailMarkup, /Fin del detalle del ticket/);
 assert.doesNotMatch(detailMarkup, /Datos del formularioSection1\)/);
 assert.doesNotMatch(detailMarkup, /Campos identificados/);
 

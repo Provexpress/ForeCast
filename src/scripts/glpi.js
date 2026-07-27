@@ -906,6 +906,7 @@
         <span class="glpi-status glpi-status-${getStatusClass(ticket.statusKey)}">${escapeHtml(ticket.status)}</span>
         <span>${escapeHtml(ticket.directorGroup)}</span>
       </div>
+      <div class="glpi-detail-scroll-cue"><span>Detalle completo del ticket</span><span>Desplázate para ver todos los campos ↓</span></div>
       <div class="glpi-detail-metrics">
         <div><span>Apertura</span><strong>${escapeHtml(formatDate(ticket.openDate))}</strong></div>
         <div><span>Solución</span><strong>${escapeHtml(formatDate(ticket.solutionDate))}</strong></div>
@@ -922,7 +923,8 @@
       <section class="glpi-description-section">
         <h3>Descripción completa del caso</h3>
         ${renderDescriptionContent(ticket.description, components)}
-      </section>`;
+      </section>
+      <div class="glpi-detail-end"><span>✓</span> Fin del detalle del ticket</div>`;
   }
 
   function renderSourceNote(){
@@ -1092,11 +1094,15 @@
     state.selectedId = ticket.id;
     renderDetail(ticket);
     const backdrop = document.getElementById('glpi-detail-backdrop');
+    const panel = document.getElementById('glpi-detail-panel');
+    if(panel) panel.scrollTop = 0;
     if(backdrop) {
       backdrop.classList.add('open');
       backdrop.setAttribute('aria-hidden', 'false');
     }
     document.body.classList.add('glpi-detail-open');
+    const closeButton = panel && panel.querySelector ? panel.querySelector('.glpi-detail-close') : null;
+    if(closeButton && typeof closeButton.focus === 'function') closeButton.focus({ preventScroll:true });
   }
 
   function closeDetail(event){

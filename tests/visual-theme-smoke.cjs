@@ -30,6 +30,8 @@ assert.match(css, /\.glpi-context-summary\s*\{/);
 assert.match(css, /\.glpi-time-over\{color:var\(--status-danger-fg\)/);
 assert.match(css, /\.glpi-description-full\s*\{[\s\S]*white-space:pre-wrap/);
 assert.match(css, /\.glpi-description-list li\s*\{[\s\S]*grid-template-columns:28px minmax\(0,1fr\)/);
+assert.match(css, /body\.glpi-detail-open \.app\{z-index:300\}/);
+assert.match(css, /\.glpi-detail-panel\s*\{[\s\S]*height:100dvh[\s\S]*overflow-y:scroll[\s\S]*scrollbar-gutter:stable/);
 
 const earlyThemePosition = html.indexOf("localStorage.getItem('forecast_theme')");
 const stylesheetPosition = html.indexOf('src/styles/main.css');
@@ -42,7 +44,7 @@ assert.match(html, /id="glpi-context-summary"[\s\S]*aria-live="polite"/);
 assert.doesNotMatch(html, /id="user-badge" style="[^"]*background:/);
 assert.ok((html.match(/v=20260727-visual-refresh1/g) || []).length >= 2);
 assert.ok((html.match(/v=20260727-current-month1/g) || []).length >= 1);
-assert.equal((html.match(/v=20260727-glpi-description2/g) || []).length, 2);
+assert.equal((html.match(/v=20260727-glpi-scroll1/g) || []).length, 2);
 
 assert.match(main, /new CustomEvent\('forecast:themechange'/);
 assert.match(main, /function enhanceKeyboardActions/);
