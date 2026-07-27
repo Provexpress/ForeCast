@@ -121,10 +121,23 @@
     return Number.isFinite(parsed) ? parsed : null;
   }
 
+  function getBogotaDateKey(date){
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone:'America/Bogota',
+      year:'numeric',
+      month:'2-digit',
+      day:'2-digit'
+    }).formatToParts(date || new Date()).reduce((acc, part) => {
+      if(part.type !== 'literal') acc[part.type] = part.value;
+      return acc;
+    }, {});
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  }
+
   function diffDays(startIso, endIso){
     if(!startIso) return null;
     const start = new Date(`${startIso}T00:00:00Z`);
-    const end = new Date(`${endIso || new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+    const end = new Date(`${endIso || getBogotaDateKey()}T00:00:00Z`);
     if(Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
     return Math.max(0, Math.round((end - start) / 86400000));
   }
@@ -241,10 +254,15 @@
     const technicians = splitPeople(getField(lookup, ['Asignado a: - Técnico', 'Asignado a - Técnico', 'Técnico']));
     const sourceDaysSolution = parseNumber(getField(lookup, ['Días en Solución', 'Dias en Solucion']));
     const sourceDaysOpen = parseNumber(getField(lookup, ['Días Abierto', 'Dias Abierto']));
-    const daysSolution = sourceDaysSolution === null ? diffDays(openDate, solutionDate) : sourceDaysSolution;
+    const daysSolution = sourceDaysSolution === null
+      ? (solutionDate ? diffDays(openDate, solutionDate) : null)
+      : sourceDaysSolution;
+    const calculatedDaysOpen = diffDays(openDate);
     const daysOpen = statusKey === 'closed'
       ? null
-      : (sourceDaysOpen === null ? diffDays(openDate) : sourceDaysOpen);
+      : (calculatedDaysOpen === null
+        ? sourceDaysOpen
+        : Math.max(calculatedDaysOpen, sourceDaysOpen === null ? 0 : sourceDaysOpen));
 
     return {
       id: id || `fila-${index + 1}`,
@@ -309,15 +327,7 @@
   }
 
   function getCurrentPeriod(){
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone:'America/Bogota',
-      year:'numeric',
-      month:'2-digit'
-    }).formatToParts(new Date()).reduce((acc, part) => {
-      if(part.type !== 'literal') acc[part.type] = part.value;
-      return acc;
-    }, {});
-    return `${parts.year}-${parts.month}`;
+    return getBogotaDateKey().slice(0, 7);
   }
 
   function getPeriods(){
@@ -362,9 +372,36 @@
     return Number(value).toLocaleString('es-CO', { maximumFractionDigits:1 });
   }
 
+  function formatDaysWithUnit(value){
+    return isFiniteMetric(value) ? `${formatDays(value)} días` : 'Sin dato';
+  }
+
+  function getFiniteNumbers(values){
+    return (values || [])
+      .filter(value => value !== null && value !== undefined && value !== '')
+      .map(Number)
+      .filter(Number.isFinite);
+  }
+
+  function isFiniteMetric(value){
+    return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+  }
+
   function average(values){
-    const valid = values.map(Number).filter(Number.isFinite);
+    const valid = getFiniteNumbers(values);
     return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : null;
+  }
+
+  function median(values){
+    const valid = getFiniteNumbers(values).sort((a, b) => a - b);
+    if(!valid.length) return null;
+    const middle = Math.floor(valid.length / 2);
+    return valid.length % 2 ? valid[middle] : (valid[middle - 1] + valid[middle]) / 2;
+  }
+
+  function maximum(values){
+    const valid = getFiniteNumbers(values);
+    return valid.length ? Math.max(...valid) : null;
   }
 
   function getMonthTickets(){
@@ -393,12 +430,57 @@
     );
   }
 
+  function getContextMetrics(tickets){
+    const context = tickets || getContextTickets();
+    const newTickets = context.filter(ticket => ticket.statusKey === 'new');
+    const openTickets = context.filter(ticket => ticket.statusKey === 'open');
+    const pendingTickets = [...newTickets, ...openTickets];
+    const closedTickets = context.filter(ticket => ticket.statusKey === 'closed');
+    const pendingDays = getFiniteNumbers(pendingTickets.map(ticket => ticket.daysOpen));
+    const closedDays = getFiniteNumbers(closedTickets.map(ticket => ticket.daysSolution));
+    const averageOpenDays = average(pendingDays);
+    const averageClosedDays = average(closedDays);
+    const aboveAverageTickets = averageOpenDays === null
+      ? []
+      : pendingTickets.filter(ticket => isFiniteMetric(ticket.daysOpen) && Number(ticket.daysOpen) > averageOpenDays);
+    return {
+      context,
+      newTickets,
+      openTickets,
+      pendingTickets,
+      closedTickets,
+      aboveAverageTickets,
+      averageOpenDays,
+      medianOpenDays:median(pendingDays),
+      maxOpenDays:maximum(pendingDays),
+      averageClosedDays,
+      medianClosedDays:median(closedDays),
+      maxClosedDays:maximum(closedDays)
+    };
+  }
+
+  function filterTicketsByStatus(tickets, status){
+    const context = tickets || [];
+    const selected = status || state.status;
+    if(selected === 'all') return context;
+    if(selected === 'pending') return context.filter(ticket => ticket.statusKey === 'new' || ticket.statusKey === 'open');
+    if(selected === 'above_average') return getContextMetrics(context).aboveAverageTickets;
+    return context.filter(ticket => ticket.statusKey === selected);
+  }
+
   function getFilteredTickets(){
-    return getContextTickets().filter(ticket => state.status === 'all' || ticket.statusKey === state.status);
+    return filterTicketsByStatus(getContextTickets(), state.status);
   }
 
   function getStatusLabel(key){
-    return ({ new:'Nuevo', open:'Abierto', closed:'Cerrado' })[key] || 'Sin estado';
+    return ({
+      all:'Todos los estados',
+      pending:'Pendientes',
+      new:'Nuevos',
+      open:'Abiertos',
+      above_average:'Pendientes sobre el promedio',
+      closed:'Cerrados'
+    })[key] || 'Sin estado';
   }
 
   function getStatusClass(key){
@@ -409,7 +491,12 @@
     const kpis = document.getElementById('glpi-kpis');
     const table = document.getElementById('glpi-ticket-table');
     const source = document.getElementById('glpi-source-note');
+    const context = document.getElementById('glpi-context-summary');
     if(source) source.textContent = 'Conectando con TICKETS-GLPI.xlsx en SharePoint…';
+    if(context) {
+      context.innerHTML = '';
+      context.hidden = true;
+    }
     if(kpis) kpis.innerHTML = '<div class="glpi-loading-card">Leyendo y organizando tickets…</div>';
     if(table) table.innerHTML = '<div class="glpi-empty-state">Preparando datos del Excel.</div>';
   }
@@ -419,7 +506,12 @@
     const source = document.getElementById('glpi-source-note');
     const kpis = document.getElementById('glpi-kpis');
     const table = document.getElementById('glpi-ticket-table');
+    const context = document.getElementById('glpi-context-summary');
     if(source) source.textContent = message;
+    if(context) {
+      context.innerHTML = '';
+      context.hidden = true;
+    }
     if(kpis) kpis.innerHTML = `<div class="glpi-error-card">${escapeHtml(message)}</div>`;
     if(table) table.innerHTML = '<div class="glpi-empty-state">Usa “Actualizar Excel” para intentar de nuevo.</div>';
   }
@@ -434,57 +526,118 @@
 
   function renderFilterOptions(){
     const monthTickets = getMonthTickets();
-    const groups = [...new Set(monthTickets.map(ticket => ticket.directorGroup).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
-    const requesters = [...new Set(monthTickets.map(ticket => ticket.requester).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    const allGroups = [...new Set(monthTickets.map(ticket => ticket.directorGroup).filter(Boolean))];
+    const allRequesters = [...new Set(monthTickets.map(ticket => ticket.requester).filter(Boolean))];
     const groupSelect = document.getElementById('glpi-group-filter');
     const requesterSelect = document.getElementById('glpi-requester-filter');
     const statusSelect = document.getElementById('glpi-status-filter');
     const searchInput = document.getElementById('glpi-search');
 
-    if(state.group && !groups.includes(state.group)) state.group = '';
-    if(state.requester && !requesters.includes(state.requester)) state.requester = '';
+    if(state.group && !allGroups.includes(state.group)) state.group = '';
+    if(state.requester && !allRequesters.includes(state.requester)) state.requester = '';
+    const searchTickets = monthTickets.filter(matchesSearch);
+    const groups = [...new Set(searchTickets
+      .filter(ticket => !state.requester || ticket.requester === state.requester)
+      .map(ticket => ticket.directorGroup)
+      .filter(Boolean))];
+    const requesters = [...new Set(searchTickets
+      .filter(ticket => !state.group || ticket.directorGroup === state.group)
+      .map(ticket => ticket.requester)
+      .filter(Boolean))];
+    if(state.group && !groups.includes(state.group)) groups.push(state.group);
+    if(state.requester && !requesters.includes(state.requester)) requesters.push(state.requester);
+    groups.sort((a, b) => a.localeCompare(b, 'es'));
+    requesters.sort((a, b) => a.localeCompare(b, 'es'));
+
     if(groupSelect) {
       groupSelect.innerHTML = '<option value="">Todos los grupos de directores</option>' + groups
         .map(group => `<option value="${escapeAttr(group)}"${group === state.group ? ' selected' : ''}>${escapeHtml(group)}</option>`)
         .join('');
+      groupSelect.value = state.group;
     }
     if(requesterSelect) {
       requesterSelect.innerHTML = '<option value="">Todos los solicitantes</option>' + requesters
         .map(requester => `<option value="${escapeAttr(requester)}"${requester === state.requester ? ' selected' : ''}>${escapeHtml(requester)}</option>`)
         .join('');
+      requesterSelect.value = state.requester;
     }
-    if(statusSelect) statusSelect.value = state.status;
+    if(statusSelect) {
+      statusSelect.innerHTML = [
+        ['all','Todos'],
+        ['pending','Pendientes (nuevos + abiertos)'],
+        ['new','Nuevos'],
+        ['open','Abiertos'],
+        ['above_average','Pendientes sobre el promedio'],
+        ['closed','Cerrados']
+      ].map(([value, label]) => `<option value="${value}"${value === state.status ? ' selected' : ''}>${label}</option>`).join('');
+      statusSelect.value = state.status;
+    }
     if(searchInput && searchInput.value !== state.search) searchInput.value = state.search;
   }
 
-  function kpiCard(kind, label, value, detail){
-    const active = state.status === kind;
-    const clickable = ['new','open','closed'].includes(kind);
-    const tag = clickable ? 'button' : 'article';
-    const action = clickable ? ` type="button" onclick="GlpiModule.setStatus('${kind}')"` : '';
-    return `<${tag} class="glpi-kpi-card glpi-kpi-${escapeAttr(kind)}${active ? ' active' : ''}"${action}>
+  function renderContextSummary(){
+    const host = document.getElementById('glpi-context-summary');
+    if(!host) return;
+    host.hidden = false;
+    const context = getContextTickets();
+    const chips = [
+      `<span class="glpi-context-chip glpi-context-period">${escapeHtml(formatMonth(state.period))}</span>`,
+      state.group
+        ? `<button type="button" class="glpi-context-chip" onclick="GlpiModule.setGroup('')" title="Quitar grupo">${escapeHtml(state.group)} <strong>×</strong></button>`
+        : '<span class="glpi-context-chip">Todos los grupos</span>',
+      state.requester
+        ? `<button type="button" class="glpi-context-chip" onclick="GlpiModule.setRequester('')" title="Quitar solicitante">${escapeHtml(state.requester)} <strong>×</strong></button>`
+        : '<span class="glpi-context-chip">Todos los solicitantes</span>',
+      state.status !== 'all'
+        ? `<button type="button" class="glpi-context-chip" onclick="GlpiModule.setStatus('all')" title="Quitar estado">${escapeHtml(getStatusLabel(state.status))} <strong>×</strong></button>`
+        : '',
+      state.search
+        ? `<button type="button" class="glpi-context-chip" onclick="GlpiModule.setSearch('')" title="Quitar búsqueda">Búsqueda: ${escapeHtml(state.search)} <strong>×</strong></button>`
+        : ''
+    ].filter(Boolean).join('');
+    host.innerHTML = `
+      <div>
+        <span class="glpi-context-eyebrow">Contexto de análisis</span>
+        <strong>${context.length.toLocaleString('es-CO')} tickets alimentan las métricas</strong>
+      </div>
+      <div class="glpi-context-chips">${chips}</div>`;
+  }
+
+  function kpiCard(kind, label, value, detail, filterValue, unit){
+    const active = state.status === filterValue;
+    return `<button type="button" class="glpi-kpi-card glpi-kpi-${escapeAttr(kind)}${active ? ' active' : ''}" onclick="GlpiModule.toggleStatus('${escapeAttr(filterValue)}')" aria-pressed="${active ? 'true' : 'false'}">
       <span class="glpi-kpi-label">${escapeHtml(label)}</span>
-      <strong>${escapeHtml(value)}</strong>
+      <span class="glpi-kpi-value-line"><strong>${escapeHtml(value)}</strong>${unit ? `<span>${escapeHtml(unit)}</span>` : ''}</span>
       <small>${escapeHtml(detail)}</small>
-    </${tag}>`;
+    </button>`;
   }
 
   function renderKpis(){
     const host = document.getElementById('glpi-kpis');
     if(!host) return;
-    const context = getContextTickets();
-    const newTickets = context.filter(ticket => ticket.statusKey === 'new');
-    const openTickets = context.filter(ticket => ticket.statusKey === 'open');
-    const closedTickets = context.filter(ticket => ticket.statusKey === 'closed');
-    const avgSolution = average(closedTickets.map(ticket => ticket.daysSolution));
-    const avgOpen = average([...newTickets, ...openTickets].map(ticket => ticket.daysOpen));
+    const metrics = getContextMetrics();
+    const openAverageLabel = metrics.averageOpenDays === null
+      ? 'Sin días calculables'
+      : `Prom. ${formatDaysWithUnit(metrics.averageOpenDays)} abiertos`;
+    const closedAverageLabel = metrics.averageClosedDays === null
+      ? 'Sin cierres calculables'
+      : `Prom. ${formatDaysWithUnit(metrics.averageClosedDays)} para cerrar`;
+    const openStatsDetail = metrics.averageOpenDays === null
+      ? 'Sin pendientes con fecha de apertura'
+      : `Promedio · mediana ${formatDaysWithUnit(metrics.medianOpenDays)} · máximo ${formatDaysWithUnit(metrics.maxOpenDays)}`;
+    const closedStatsDetail = metrics.averageClosedDays === null
+      ? (metrics.closedTickets.length ? 'Cerrados sin duración calculable' : 'Sin tickets cerrados')
+      : `Promedio · mediana ${formatDaysWithUnit(metrics.medianClosedDays)} · máximo ${formatDaysWithUnit(metrics.maxClosedDays)}`;
+    const closedCountDetail = metrics.averageClosedDays === null
+      ? closedStatsDetail
+      : `${closedAverageLabel} · máximo ${formatDaysWithUnit(metrics.maxClosedDays)}`;
     host.innerHTML = [
-      kpiCard('total', 'Tickets del mes', context.length.toLocaleString('es-CO'), formatMonth(state.period)),
-      kpiCard('new', 'Nuevos', newTickets.length.toLocaleString('es-CO'), 'Sin iniciar'),
-      kpiCard('open', 'Abiertos', openTickets.length.toLocaleString('es-CO'), 'En gestión'),
-      kpiCard('closed', 'Cerrados', closedTickets.length.toLocaleString('es-CO'), 'Resueltos o cerrados'),
-      kpiCard('solution', 'Días de solución', formatDays(avgSolution), 'Promedio de cerrados'),
-      kpiCard('age', 'Días abiertos', formatDays(avgOpen), 'Promedio pendiente')
+      kpiCard('total', 'Tickets del contexto', metrics.context.length.toLocaleString('es-CO'), formatMonth(state.period), 'all'),
+      kpiCard('pending', 'Pendientes', metrics.pendingTickets.length.toLocaleString('es-CO'), `${metrics.newTickets.length} nuevos · ${metrics.openTickets.length} en gestión · ${openAverageLabel}`, 'pending'),
+      kpiCard('age', 'Antigüedad abierta', formatDays(metrics.averageOpenDays), openStatsDetail, 'pending', metrics.averageOpenDays === null ? '' : 'días'),
+      kpiCard('above', 'Pendientes sobre promedio', metrics.aboveAverageTickets.length.toLocaleString('es-CO'), metrics.averageOpenDays === null ? 'Sin promedio comparable' : `Llevan más de ${formatDaysWithUnit(metrics.averageOpenDays)} abiertos`, 'above_average'),
+      kpiCard('closed', 'Cerrados', metrics.closedTickets.length.toLocaleString('es-CO'), closedCountDetail, 'closed'),
+      kpiCard('solution', 'Tiempo de cierre', formatDays(metrics.averageClosedDays), closedStatsDetail, 'closed', metrics.averageClosedDays === null ? '' : 'días')
     ].join('');
   }
 
@@ -492,15 +645,28 @@
     const groups = new Map();
     tickets.forEach(ticket => {
       const name = getter(ticket) || 'Sin grupo';
-      if(!groups.has(name)) groups.set(name, { name, total:0, new:0, open:0, closed:0, days:[] });
+      if(!groups.has(name)) groups.set(name, {
+        name,
+        total:0,
+        new:0,
+        open:0,
+        closed:0,
+        openDays:[],
+        closedDays:[]
+      });
       const group = groups.get(name);
       group.total += 1;
       group[ticket.statusKey] += 1;
-      const days = ticket.statusKey === 'closed' ? ticket.daysSolution : ticket.daysOpen;
-      if(Number.isFinite(Number(days))) group.days.push(Number(days));
+      if(ticket.statusKey === 'closed' && isFiniteMetric(ticket.daysSolution)) group.closedDays.push(Number(ticket.daysSolution));
+      if(ticket.statusKey !== 'closed' && isFiniteMetric(ticket.daysOpen)) group.openDays.push(Number(ticket.daysOpen));
     });
     return [...groups.values()]
-      .map(group => ({ ...group, averageDays: average(group.days) }))
+      .map(group => ({
+        ...group,
+        pending:group.new + group.open,
+        averageOpenDays:average(group.openDays),
+        averageClosedDays:average(group.closedDays)
+      }))
       .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'es'));
   }
 
@@ -513,28 +679,72 @@
     }
     const max = Math.max(...groups.map(group => group.total), 1);
     host.innerHTML = groups.slice(0, 12).map(group => {
+      const active = filterType === 'group' ? state.group === group.name : state.requester === group.name;
       const action = filterType === 'group'
-        ? `GlpiModule.setGroup(${jsString(group.name)})`
-        : `GlpiModule.setRequester(${jsString(group.name)})`;
-      return `<button class="glpi-rank-row" type="button" onclick="${escapeAttr(action)}">
+        ? `GlpiModule.toggleGroup(${jsString(group.name)})`
+        : `GlpiModule.toggleRequester(${jsString(group.name)})`;
+      return `<button class="glpi-rank-row${active ? ' active' : ''}" type="button" onclick="${escapeAttr(action)}" aria-pressed="${active ? 'true' : 'false'}">
         <span class="glpi-rank-main">
           <span class="glpi-rank-name" title="${escapeAttr(group.name)}">${escapeHtml(group.name)}</span>
           <span class="glpi-rank-value">${group.total.toLocaleString('es-CO')}</span>
         </span>
         <span class="glpi-rank-track"><span style="width:${Math.max(4, group.total / max * 100).toFixed(1)}%"></span></span>
         <span class="glpi-rank-meta">
-          <span>${group.open + group.new} pendientes</span>
-          <span>${group.closed} cerrados</span>
-          <span>${formatDays(group.averageDays)} días prom.</span>
+          <span><strong>${group.pending}</strong> pendientes · ${formatDaysWithUnit(group.averageOpenDays)} abiertos</span>
+          <span><strong>${group.closed}</strong> cerrados · ${formatDaysWithUnit(group.averageClosedDays)} para cerrar</span>
         </span>
       </button>`;
     }).join('');
   }
 
+  function getDimensionTickets(filterType){
+    let tickets = getMonthTickets().filter(matchesSearch);
+    if(filterType !== 'group' && state.group) tickets = tickets.filter(ticket => ticket.directorGroup === state.group);
+    if(filterType !== 'requester' && state.requester) tickets = tickets.filter(ticket => ticket.requester === state.requester);
+    return filterTicketsByStatus(tickets, state.status);
+  }
+
   function renderGroups(){
-    const tickets = getFilteredTickets();
-    renderRankedList('glpi-category-groups', summarizeBy(tickets, ticket => ticket.directorGroup), 'group');
-    renderRankedList('glpi-requester-groups', summarizeBy(tickets, ticket => ticket.requester), 'requester');
+    renderRankedList(
+      'glpi-category-groups',
+      summarizeBy(getDimensionTickets('group'), ticket => ticket.directorGroup),
+      'group'
+    );
+    renderRankedList(
+      'glpi-requester-groups',
+      summarizeBy(getDimensionTickets('requester'), ticket => ticket.requester),
+      'requester'
+    );
+  }
+
+  function getTicketTimeInfo(ticket, metrics){
+    const closed = ticket.statusKey === 'closed';
+    const days = closed ? ticket.daysSolution : ticket.daysOpen;
+    const averageDays = closed ? metrics.averageClosedDays : metrics.averageOpenDays;
+    const delta = isFiniteMetric(days) && isFiniteMetric(averageDays)
+      ? Number(days) - Number(averageDays)
+      : null;
+    return {
+      days,
+      averageDays,
+      delta,
+      label:closed ? 'Días que tardó en cerrar' : 'Días que lleva abierto',
+      comparisonClass:delta === null || Math.abs(delta) < .05 ? 'neutral' : (delta > 0 ? 'over' : 'under'),
+      comparison:delta === null
+        ? 'Sin promedio comparable'
+        : (Math.abs(delta) < .05
+          ? 'En el promedio'
+          : `${formatDays(Math.abs(delta))} días ${delta > 0 ? 'sobre' : 'bajo'} el promedio`)
+    };
+  }
+
+  function renderTicketTimeCell(ticket, metrics){
+    const time = getTicketTimeInfo(ticket, metrics);
+    return `<span class="glpi-time-cell">
+      <strong>${escapeHtml(formatDaysWithUnit(time.days))}</strong>
+      <span>${escapeHtml(time.label)}</span>
+      <em class="glpi-time-${time.comparisonClass}">${escapeHtml(time.comparison)}</em>
+    </span>`;
   }
 
   function renderTable(){
@@ -543,8 +753,9 @@
     const more = document.getElementById('glpi-table-more');
     if(!host) return;
     const tickets = getFilteredTickets();
+    const metrics = getContextMetrics();
     const visible = tickets.slice(0, state.limit);
-    if(meta) meta.textContent = `${tickets.length.toLocaleString('es-CO')} tickets después de filtros · clic en una fila para ver el detalle`;
+    if(meta) meta.textContent = `${tickets.length.toLocaleString('es-CO')} tickets · ${getStatusLabel(state.status)} · clic en una fila para ver el detalle`;
     if(!visible.length) {
       host.innerHTML = '<div class="glpi-empty-state">No hay tickets para los filtros seleccionados.</div>';
       if(more) more.innerHTML = '';
@@ -554,9 +765,9 @@
     host.innerHTML = `<table class="responsive-table glpi-table">
       <thead><tr>
         <th>ID</th><th>Título</th><th>Estado</th><th>Apertura</th><th>Grupo director</th>
-        <th>Categoría</th><th>Solicitante</th><th>Técnico</th><th>Días solución</th><th>Días abierto</th>
+        <th>Categoría</th><th>Solicitante</th><th>Técnico</th><th>Tiempo del ticket</th>
       </tr></thead>
-      <tbody>${visible.map(ticket => `<tr class="glpi-ticket-row" onclick="GlpiModule.openTicket('${escapeAttr(ticket.id)}')" tabindex="0" onkeydown="if(event.key==='Enter')GlpiModule.openTicket('${escapeAttr(ticket.id)}')">
+      <tbody>${visible.map(ticket => `<tr class="glpi-ticket-row" role="button" onclick="GlpiModule.openTicket('${escapeAttr(ticket.id)}')" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();GlpiModule.openTicket('${escapeAttr(ticket.id)}')}">
         <td class="td-mono" data-label="ID">#${escapeHtml(ticket.id)}</td>
         <td class="glpi-title-cell" data-label="Título" title="${escapeAttr(ticket.title)}">${escapeHtml(ticket.title)}</td>
         <td data-label="Estado"><span class="glpi-status glpi-status-${getStatusClass(ticket.statusKey)}">${escapeHtml(ticket.status)}</span></td>
@@ -565,8 +776,7 @@
         <td data-label="Categoría">${escapeHtml(ticket.categoryGroup)}</td>
         <td data-label="Solicitante">${escapeHtml(ticket.requester)}</td>
         <td data-label="Técnico">${escapeHtml(ticket.technicians.join(', ') || 'Sin asignar')}</td>
-        <td class="td-mono" data-label="Días solución">${escapeHtml(formatDays(ticket.daysSolution))}</td>
-        <td class="td-mono" data-label="Días abierto">${escapeHtml(formatDays(ticket.daysOpen))}</td>
+        <td data-label="Tiempo del ticket">${renderTicketTimeCell(ticket, metrics)}</td>
       </tr>`).join('')}</tbody>
     </table>`;
 
@@ -612,6 +822,7 @@
     const host = document.getElementById('glpi-detail-content');
     if(!host) return;
     const components = parseDescriptionComponents(ticket.description);
+    const time = getTicketTimeInfo(ticket, getContextMetrics());
     host.innerHTML = `
       <div class="glpi-detail-eyebrow">Ticket #${escapeHtml(ticket.id)}</div>
       <h2 id="glpi-detail-title">${escapeHtml(ticket.title)}</h2>
@@ -622,8 +833,8 @@
       <div class="glpi-detail-metrics">
         <div><span>Apertura</span><strong>${escapeHtml(formatDate(ticket.openDate))}</strong></div>
         <div><span>Solución</span><strong>${escapeHtml(formatDate(ticket.solutionDate))}</strong></div>
-        <div><span>Días solución</span><strong>${escapeHtml(formatDays(ticket.daysSolution))}</strong></div>
-        <div><span>Días abierto</span><strong>${escapeHtml(formatDays(ticket.daysOpen))}</strong></div>
+        <div><span>${escapeHtml(time.label)}</span><strong>${escapeHtml(formatDaysWithUnit(time.days))}</strong></div>
+        <div><span>Vs. promedio del contexto</span><strong class="glpi-time-${time.comparisonClass}">${escapeHtml(time.comparison)}</strong></div>
       </div>
       <div class="glpi-detail-info">
         <div><span>Solicitante</span><strong>${escapeHtml(ticket.requester)}</strong></div>
@@ -660,6 +871,7 @@
     if(!state.loaded) return;
     renderFilterOptions();
     renderSourceNote();
+    renderContextSummary();
     renderKpis();
     renderGroups();
     renderTable();
@@ -744,7 +956,14 @@
   }
 
   function setStatus(value){
-    state.status = ['all','new','open','closed'].includes(value) ? value : 'all';
+    state.status = ['all','pending','new','open','above_average','closed'].includes(value) ? value : 'all';
+    resetPaging();
+    renderAll();
+  }
+
+  function toggleStatus(value){
+    const selected = ['all','pending','new','open','above_average','closed'].includes(value) ? value : 'all';
+    state.status = selected !== 'all' && state.status === selected ? 'all' : selected;
     resetPaging();
     renderAll();
   }
@@ -755,8 +974,20 @@
     renderAll();
   }
 
+  function toggleGroup(value){
+    state.group = state.group === value ? '' : (value || '');
+    resetPaging();
+    renderAll();
+  }
+
   function setRequester(value){
     state.requester = value || '';
+    resetPaging();
+    renderAll();
+  }
+
+  function toggleRequester(value){
+    state.requester = state.requester === value ? '' : (value || '');
     resetPaging();
     renderAll();
   }
@@ -822,8 +1053,11 @@
     loadFromSharePoint,
     setPeriod,
     setStatus,
+    toggleStatus,
     setGroup,
+    toggleGroup,
     setRequester,
+    toggleRequester,
     setSearch,
     clearFilters,
     showMore,

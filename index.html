@@ -20,7 +20,7 @@
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="src/styles/main.css?v=20260727-visual-refresh1">
+<link rel="stylesheet" href="src/styles/main.css?v=20260727-glpi-analytics1">
 
 <!-- Microsoft Authentication Library -->
 <script src="src/config/estructura-comercial-2026.js?v=20260727-adriana1"></script>
@@ -552,7 +552,7 @@
           <h2>TICKETS-GLPI</h2>
           <span class="section-tag">OPERACIÓN · SOPORTE</span>
         </div>
-        <p class="glpi-copy">Seguimiento mensual de tickets, tiempos de atención y carga por solicitante.</p>
+        <p class="glpi-copy">Cruza mes, grupo y solicitante para ver cuántos tickets siguen abiertos, cuánto tiempo llevan y cuánto tardaron los cerrados. Los cards también filtran el detalle.</p>
       </div>
       <button class="glpi-refresh-btn" type="button" onclick="GlpiModule.reload()">Actualizar Excel</button>
     </div>
@@ -566,8 +566,10 @@
         <span>Estado</span>
         <select id="glpi-status-filter" onchange="GlpiModule.setStatus(this.value)">
           <option value="all">Todos</option>
+          <option value="pending">Pendientes (nuevos + abiertos)</option>
           <option value="new">Nuevos</option>
           <option value="open">Abiertos</option>
+          <option value="above_average">Pendientes sobre el promedio</option>
           <option value="closed">Cerrados</option>
         </select>
       </label>
@@ -590,15 +592,16 @@
     </section>
 
     <div id="glpi-source-note" class="glpi-source-note"></div>
+    <section id="glpi-context-summary" class="glpi-context-summary" aria-live="polite" hidden></section>
     <section id="glpi-kpis" class="glpi-kpi-grid" aria-live="polite"></section>
 
     <section class="glpi-analysis-grid">
       <article class="chart-card glpi-analysis-card">
-        <div class="chart-hd">Grupos de directores <span>según solicitante</span></div>
+        <div class="chart-hd">Grupos de directores <span>pendientes y tiempo de cierre</span></div>
         <div id="glpi-category-groups" class="glpi-ranked-list"></div>
       </article>
       <article class="chart-card glpi-analysis-card">
-        <div class="chart-hd">Solicitantes <span>volumen y tiempos</span></div>
+        <div class="chart-hd">Solicitantes <span>días abiertos y días para cerrar</span></div>
         <div id="glpi-requester-groups" class="glpi-ranked-list"></div>
       </article>
     </section>
@@ -671,7 +674,7 @@
 </main>
 
 <script src="src/scripts/programa-puntos-canal.js?v=20260727-visual-refresh1"></script>
-<script src="src/scripts/glpi.js?v=20260727-current-month1"></script>
+<script src="src/scripts/glpi.js?v=20260727-glpi-analytics1"></script>
 <script src="src/scripts/main.js?v=20260727-current-month1"></script>
 
 
