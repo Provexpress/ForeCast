@@ -92,13 +92,19 @@
     
     // 1. ESTRUCTURA_COMERCIAL_2026
     const est = window.ESTRUCTURA_COMERCIAL_2026;
-    if (est && est.directores) {
-      for (const [gKey, dInfo] of Object.entries(est.directores)) {
-        const dNorm = String(dInfo.nombre || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    if (est && est.directores && est.ejecutivos) {
+      let grupoId = null;
+      for (const info of Object.values(est.directores)) {
+        const dNorm = String(info.nombre || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         if (dNorm.includes(norm) || norm.includes(dNorm)) {
-          const vends = (est.vendedores || []).filter(v => v.grupo === gKey);
-          if (vends.length) return vends.map(v => v.nombre);
+          grupoId = info.grupo;
+          break;
         }
+      }
+      if (grupoId) {
+        return Object.values(est.ejecutivos)
+          .filter(e => e.grupo === grupoId)
+          .map(e => e.nombre);
       }
     }
 
