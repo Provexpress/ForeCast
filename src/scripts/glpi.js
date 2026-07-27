@@ -308,15 +308,29 @@
     );
   }
 
+  function getCurrentPeriod(){
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone:'America/Bogota',
+      year:'numeric',
+      month:'2-digit'
+    }).formatToParts(new Date()).reduce((acc, part) => {
+      if(part.type !== 'literal') acc[part.type] = part.value;
+      return acc;
+    }, {});
+    return `${parts.year}-${parts.month}`;
+  }
+
   function getPeriods(){
-    return [...new Set(state.tickets.map(ticket => ticket.period).filter(Boolean))].sort().reverse();
+    return [...new Set([
+      getCurrentPeriod(),
+      ...state.tickets.map(ticket => ticket.period)
+    ].filter(period => /^\d{4}-\d{2}$/.test(String(period || ''))))].sort().reverse();
   }
 
   function ensureDefaultPeriod(){
     const periods = getPeriods();
     if(state.period && periods.includes(state.period)) return;
-    const current = new Date().toISOString().slice(0, 7);
-    state.period = periods.includes(current) ? current : (periods[0] || '');
+    state.period = getCurrentPeriod();
   }
 
   function formatMonth(period){
@@ -633,6 +647,8 @@
   }
 
   function renderAll(){
+    ensureDefaultPeriod();
+    renderPeriodOptions();
     if(state.loading) {
       renderLoading();
       return;
@@ -642,8 +658,6 @@
       return;
     }
     if(!state.loaded) return;
-    ensureDefaultPeriod();
-    renderPeriodOptions();
     renderFilterOptions();
     renderSourceNote();
     renderKpis();
@@ -816,4 +830,6 @@
     openTicket,
     closeDetail
   };
+  ensureDefaultPeriod();
+  renderPeriodOptions();
 })();

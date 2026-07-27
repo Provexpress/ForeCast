@@ -47,8 +47,8 @@ const GERENCIA_ESTADOS = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'];
 const GERENCIA_ESTADO_COLORS = {
   GANADA: '#0DBF82',
   PENDIENTE: '#F0A020',
-  PERDIDA: '#2D4FD6',
-  APLAZADO: '#E84040'
+  PERDIDA: '#E84040',
+  APLAZADO: '#8B5FC8'
 };
 const GERENCIA_ESTADO_FALLBACK_COLOR = '#8A9ACC';
 const GERENCIA_COMITE_THRESHOLD_COP = 1000000000;
@@ -175,9 +175,19 @@ function applyAppTheme(theme){
   try { localStorage.setItem(APP_THEME_KEY, selected); } catch(_) {}
   const btn = document.getElementById('theme-toggle-btn');
   if(btn) {
-    btn.textContent = selected === 'light' ? '☀' : '☾';
+    const glyph = btn.querySelector && btn.querySelector('.theme-toggle-glyph');
+    const label = btn.querySelector && btn.querySelector('.theme-toggle-label');
+    if(glyph && label) {
+      glyph.textContent = selected === 'light' ? '☀' : '☾';
+      label.textContent = selected === 'light' ? 'Claro' : 'Oscuro';
+    } else {
+      btn.innerHTML = `<span class="theme-toggle-glyph" aria-hidden="true">${selected === 'light' ? '☀' : '☾'}</span><span class="theme-toggle-label">${selected === 'light' ? 'Claro' : 'Oscuro'}</span>`;
+    }
     btn.title = selected === 'light' ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro';
     btn.setAttribute('aria-label', btn.title);
+  }
+  if(typeof document.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+    document.dispatchEvent(new CustomEvent('forecast:themechange', { detail:{ theme:selected } }));
   }
 }
 
@@ -1941,6 +1951,14 @@ function getGerenciaEstadoColor(estado){
   return GERENCIA_ESTADO_COLORS[estado] || GERENCIA_ESTADO_FALLBACK_COLOR;
 }
 
+function getGerenciaEstadoTextColor(estado){
+  if(estado === 'GANADA') return 'var(--status-success-fg)';
+  if(estado === 'PENDIENTE') return 'var(--status-warning-fg)';
+  if(estado === 'PERDIDA') return 'var(--status-danger-fg)';
+  if(estado === 'APLAZADO') return 'var(--corp-purple2)';
+  return 'var(--text3)';
+}
+
 function getGerenciaEstadosForRows(rows){
   const present = [...new Set((rows || []).map(getGerenciaEstadoValue))].filter(Boolean);
   const extras = present
@@ -1982,6 +2000,14 @@ function positionChartTooltip(e, tip){
   tip.style.top = y + 'px';
 }
 
+function positionChartTooltipAtNode(node, tip){
+  const bounds = node.getBoundingClientRect();
+  positionChartTooltip({
+    clientX: bounds.left + (bounds.width / 2),
+    clientY: bounds.top + Math.min(bounds.height / 2, 18)
+  }, tip);
+}
+
 function attachChartTooltips(container){
   if(!container) return;
   const nodes = container.querySelectorAll('[data-tooltip]');
@@ -2003,7 +2029,47 @@ function attachChartTooltips(container){
     node.addEventListener('pointerleave', () => {
       tip.classList.remove('show');
     });
+    node.addEventListener('focus', () => {
+      const text = node.getAttribute('data-tooltip');
+      if(!text) return;
+      tip.textContent = text;
+      tip.classList.add('show');
+      positionChartTooltipAtNode(node, tip);
+    });
+    node.addEventListener('blur', () => {
+      tip.classList.remove('show');
+    });
   });
+}
+
+function enhanceKeyboardActions(root){
+  if(!root) return;
+  const selector = '.table-row-action,[onclick].exec-card,[onclick].glpi-ticket-row';
+  const nodes = [];
+  if(typeof root.matches === 'function' && root.matches(selector)) nodes.push(root);
+  if(typeof root.querySelectorAll === 'function') nodes.push(...root.querySelectorAll(selector));
+  nodes.forEach(node => {
+    if(!node.hasAttribute('role')) node.setAttribute('role','button');
+    if(!node.hasAttribute('tabindex')) node.setAttribute('tabindex','0');
+    if(node.hasAttribute('onkeydown') || node.dataset.keyboardBound) return;
+    node.dataset.keyboardBound = '1';
+    node.addEventListener('keydown', event => {
+      if(event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      node.click();
+    });
+  });
+}
+
+if(typeof MutationObserver === 'function' && document.body) {
+  enhanceKeyboardActions(document);
+  const keyboardActionObserver = new MutationObserver(mutations => {
+    mutations.forEach(mutation => mutation.addedNodes.forEach(node => {
+      if(node.nodeType !== 1) return;
+      enhanceKeyboardActions(node);
+    }));
+  });
+  keyboardActionObserver.observe(document.body, { childList:true, subtree:true });
 }
 
 function toCOP(row){
@@ -2315,32 +2381,47 @@ function getCurrentForecastMonth(){
   return getBogotaDateKey().slice(0,7);
 }
 
+function getMonthFilterOptions(months, preservedMonth){
+  return [...new Set([
+    getCurrentForecastMonth(),
+    preservedMonth,
+    ...(months || [])
+  ].filter(month => /^\d{4}-\d{2}$/.test(String(month || ''))))].sort();
+}
+
+function getMonthFilterLabel(monthKey){
+  return `${getMonthLongLabel(monthKey)} ${String(monthKey).slice(0,4)}`;
+}
+
 function syncMonthSelectOptions(selectId, months){
   const sel = document.getElementById(selectId);
   if(!sel) return '';
-  const current = sel.value;
-  sel.innerHTML = optionHtml('', 'Todos', false) + buildOptionList(months, {
-    getLabel: getMonthLongLabel
+  const previous = /^\d{4}-\d{2}$/.test(String(sel.value || '')) ? sel.value : '';
+  const initialized = sel.dataset.monthFilterInitialized === 'true';
+  const monthOptions = getMonthFilterOptions(months, previous);
+  sel.innerHTML = optionHtml('', 'Todos', false) + buildOptionList(monthOptions, {
+    getLabel: getMonthFilterLabel
   });
-  if(current && months.includes(current)) sel.value = current;
-  else sel.value = '';
+  sel.value = initialized ? previous : getCurrentForecastMonth();
+  sel.dataset.monthFilterInitialized = 'true';
   return sel.value;
 }
 
 function syncGerenciaMonthFilter(rows){
   const sel = document.getElementById('sel-gerencia-mes');
-  const months = getForecastMonths(rows || getVisibleData());
+  const current = /^\d{4}-\d{2}$/.test(String(GERENCIA_CROSSFILTERS.mes || ''))
+    ? GERENCIA_CROSSFILTERS.mes
+    : '';
+  const months = getMonthFilterOptions(getForecastMonths(rows || getVisibleData()), current);
   if(!GERENCIA_MONTH_INITIALIZED) {
-    const currentMonth = getCurrentForecastMonth();
-    GERENCIA_CROSSFILTERS.mes = months.includes(currentMonth) ? currentMonth : '';
+    GERENCIA_CROSSFILTERS.mes = getCurrentForecastMonth();
     GERENCIA_MONTH_INITIALIZED = true;
   }
   if(!sel) return GERENCIA_CROSSFILTERS.mes || '';
-  const current = GERENCIA_CROSSFILTERS.mes || '';
   sel.innerHTML = optionHtml('', 'Todos los meses', false) + buildOptionList(months, {
-    getLabel: month => `${getMonthLongLabel(month)} ${String(month).slice(0,4)}`
+    getLabel: getMonthFilterLabel
   });
-  sel.value = current && months.includes(current) ? current : '';
+  sel.value = GERENCIA_CROSSFILTERS.mes || '';
   GERENCIA_CROSSFILTERS.mes = sel.value;
   return sel.value;
 }
@@ -2350,6 +2431,8 @@ function refreshForecastMonthFilters(){
   syncGerenciaMonthFilter(getVisibleData());
   syncMonthSelectOptions('sel-dir-mes', months);
   syncMonthSelectOptions('sel-ej-mes', months);
+  syncMonthSelectOptions('sel-sales-mes', getForecastMonths(getVisibleSalesData()));
+  syncMonthSelectOptions('sel-preventa-mes', getForecastMonths(getVisiblePreventaData()));
 }
 
 /* Today string */
@@ -2799,6 +2882,33 @@ function renderVisiblePage(){
 /* ══════════════════════════════════════
    NAV
 ══════════════════════════════════════ */
+function setPageEmptyState(pageId, visible){
+  const page = document.getElementById('page-' + pageId);
+  if(!page) return;
+  const current = page.querySelector && page.querySelector('[data-page-empty-state]');
+  if(!visible) {
+    if(current) current.remove();
+    return;
+  }
+  if(current) return;
+  const copyByPage = {
+    director: ['Sin datos para el director', 'Cuando se carguen los archivos comerciales, aquí verás cuota, utilidad, equipo y detalle de negocios.'],
+    ejecutivo: ['Sin datos de ejecutivos', 'Esta vista mostrará el avance individual, la cuota, la utilidad y el pipeline cuando haya información disponible.'],
+    sales: ['Sin datos de Sales Support', 'Carga o actualiza la fuente operativa para consultar responsables, pendientes y seguimiento.'],
+    preventa: ['Sin datos de Preventa', 'Carga los archivos de Preventa para consultar responsables, resultados y oportunidades.'],
+    divisas: ['Sin datos de divisas', 'Los totales COP, USD y su liquidación por TRM aparecerán cuando exista información comercial.'],
+    marcas: ['Sin datos de marcas y líneas', 'Al cargar el forecast se habilitarán los rankings, filtros y detalles por categoría.'],
+    resumen: ['Sin información para consolidar', 'El resumen financiero se construirá automáticamente con los archivos comerciales cargados.']
+  };
+  const copy = copyByPage[pageId] || ['Sin datos disponibles', 'Aún no hay información para mostrar en esta sección.'];
+  const empty = document.createElement('section');
+  empty.className = 'app-empty-state';
+  empty.setAttribute('data-page-empty-state','');
+  empty.setAttribute('aria-live','polite');
+  empty.innerHTML = `<div><div class="app-empty-state__icon" aria-hidden="true">◇</div><h3>${copy[0]}</h3><p>${copy[1]}</p></div>`;
+  page.appendChild(empty);
+}
+
 function showPage(id,btn){
   if(id === 'programas' && (!window.ProgramChannelModule || !window.ProgramChannelModule.canAccess())) {
     console.warn('[PROGRAMAS] acceso denegado para la vista actual');
@@ -2808,13 +2918,22 @@ function showPage(id,btn){
   if(currentPage === 'negocio' && id !== 'negocio') NEGOCIO_DETAIL_STATE = null;
   if(currentPage === 'marca-linea-detail' && id !== 'marca-linea-detail' && id !== 'negocio') MARCA_LINEA_DETAIL_STATE = null;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    b.classList.remove('active');
+    if(typeof b.removeAttribute === 'function') b.removeAttribute('aria-current');
+  });
   document.getElementById('page-'+id).classList.add('active');
-  if(btn) btn.classList.add('active');
+  if(btn) {
+    btn.classList.add('active');
+    if(typeof btn.setAttribute === 'function') btn.setAttribute('aria-current','page');
+  }
   const hasLoadedForecastFiles = Object.values(LOADED_FILES_BY_DIR || {}).some(files => files && files.length);
   const hasLoadedData = ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length || PREVENTA_DATA.length || hasLoadedForecastFiles;
   if(hasLoadedData || id === 'finanzas' || id === 'programas' || id === 'glpi' || id === 'negocio' || id === 'marca-linea-detail') {
+    setPageEmptyState(id, false);
     renderPage(id);
+  } else if(id !== 'gerencia') {
+    setPageEmptyState(id, true);
   }
 }
 
@@ -3215,7 +3334,7 @@ function renderMarcaLineaDetail(){
             <div style="font-size:11px;color:var(--text2)">Agrupado por producto o numero de parte y cliente. La cantidad muestra cuantos registros tiene ese producto o cliente dentro de la seleccion y el valor se consolida en COP.</div>
           </div>
           <div class="director-table-filter">
-            <div class="filter-label">Estado</div>
+            <label class="filter-label" for="sel-marca-linea-estado">Estado</label>
             <select id="sel-marca-linea-estado" onchange="setMarcaLineaDetailEstado(this.value)">
               <option value="">Todos</option>
               <option value="GANADA"${estadoFilter==='GANADA'?' selected':''}>GANADA</option>
@@ -3335,7 +3454,7 @@ function renderBars(containerId, items, color, fmtFn, opts){
       <div class="bar-name ${escAttr(nameClass)}" title="${escAttr(it.name)}">${escHtml(it.name)}</div>
       <div class="bar-track">
         <div class="bar-fill" style="width:${pct}%;background:${c}20;border:1px solid ${c}40">
-          <span class="bar-val" style="color:${c}">${fmtFn?fmtFn(it.val):abr(it.val)}</span>
+          <span class="bar-val">${fmtFn?fmtFn(it.val):abr(it.val)}</span>
         </div>
       </div>
     </div>`;
@@ -3369,7 +3488,7 @@ function renderDonut(svgId, legId, items, opts){
     paths+=`<path class="donut-slice ${isSelected ? 'chart-selected' : ''}" d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z" fill="${c}" opacity="${activeMode ? '.35' : '.85'}" stroke="${isSelected ? c : 'transparent'}" stroke-width="${isSelected ? '2.2' : '0'}"${actionAttrs}/>`;
     angle+=slice;
   });
-  svg.innerHTML=paths+`<circle cx="50" cy="50" r="22" fill="#0B0F1E"/>`;
+  svg.innerHTML=paths+`<circle class="donut-hole" cx="50" cy="50" r="22" fill="var(--chart-point-fill)"/>`;
   
   leg.innerHTML=items.slice(0,6).map((it,i)=>{
     const pct=((it.val/total)*100).toFixed(1);
@@ -3440,7 +3559,7 @@ function renderEvoChart(containerId, dataByDir, months, opts){
         const c = COLORS[di%COLORS.length];
         const cx = x + barW/2;
         svg+=`<path d="M${(x+2).toFixed(1)},${(padT+8).toFixed(1)} L${(x+barW-2).toFixed(1)},${(padT+3).toFixed(1)} M${(x+2).toFixed(1)},${(padT+14).toFixed(1)} L${(x+barW-2).toFixed(1)},${(padT+9).toFixed(1)}" stroke="${c}" stroke-width="1.5" stroke-linecap="round" opacity=".95"></path>`;
-        svg+=`<text x="${cx.toFixed(1)}" y="${(padT-9).toFixed(1)}" text-anchor="middle" font-size="7.5" font-weight="700" fill="${c}" font-family="IBM Plex Mono,monospace">${abr(v)}</text>`;
+        svg+=`<text x="${cx.toFixed(1)}" y="${(padT-9).toFixed(1)}" text-anchor="middle" font-size="7.5" font-weight="700" fill="var(--text)" font-family="IBM Plex Mono,monospace">${abr(v)}</text>`;
       }
     });
     // Month label
@@ -3542,7 +3661,7 @@ function renderGerencia(){
   });
   
   // Evo por director mensual
-  const monthsForEvo = getForecastMonths(ALL_DATA);
+  const monthsForEvo = activeMonth ? [activeMonth] : getForecastMonths(ALL_DATA);
   const dirsForEvo=dirData.map(item => item.name);
   const evoByDir={};
   dirsForEvo.forEach(d=>{
@@ -3594,6 +3713,7 @@ function renderGerenciaEstadoTables(data) {
 
   el.innerHTML = estados.map(estado => {
     const color = getGerenciaEstadoColor(estado);
+    const textColor = getGerenciaEstadoTextColor(estado);
     const rows = data
       .filter(r => getGerenciaEstadoValue(r) === estado)
       .sort((a,b) => toCOP(b) - toCOP(a));
@@ -3602,7 +3722,7 @@ function renderGerenciaEstadoTables(data) {
 
     if(!rows.length) return `
       <div class="estado-card estado-card-empty" style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${color};border-radius:12px;padding:16px">
-        <div style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:${color};margin-bottom:6px">${escHtml(estado)}</div>
+        <div style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:${textColor};margin-bottom:6px">${escHtml(estado)}</div>
         <div style="font-size:11px;color:var(--text3)">Sin registros</div>
       </div>`;
 
@@ -3617,7 +3737,7 @@ function renderGerenciaEstadoTables(data) {
           <td style="padding:5px 8px;font-size:10px;color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(cliente)}">${escHtml(cliente)}</td>
           <td style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap">${escHtml(comercial)}</td>
           <td style="padding:5px 8px;font-size:10px;color:var(--text3);font-weight:500;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis" title="${escAttr(linea)}">${escHtml(linea)}</td>
-          <td style="padding:5px 8px;font-size:10px;color:${color};text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap">${abr(valor)}</td>
+          <td style="padding:5px 8px;font-size:10px;color:${textColor};text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap">${abr(valor)}</td>
         </tr>`;
     }).join('');
 
@@ -3631,7 +3751,7 @@ function renderGerenciaEstadoTables(data) {
       <div class="estado-card" style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${color};border-radius:12px;overflow:hidden">
         <div class="estado-card-head" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">
           <div>
-            <span style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:${color}">${escHtml(estado)}</span>
+            <span style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:${textColor}">${escHtml(estado)}</span>
             <span style="font-size:9px;color:var(--text3);margin-left:8px;font-family:var(--font-body)">${rows.length} negocio${rows.length!==1?'s':''}</span>
           </div>
           <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--text)">${abr(total)}</span>
@@ -3650,7 +3770,7 @@ function renderGerenciaEstadoTables(data) {
             <tfoot style="background:var(--bg2);border-top:1px solid var(--border)">
               <tr>
                 <td colspan="3" style="padding:6px 8px;font-size:9px;font-family:var(--font-display);color:var(--text);font-weight:700">TOTAL ${rows.length} NEGOCIOS</td>
-                <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:var(--font-mono);color:${color};font-weight:700">${abr(total)}</td>
+                <td style="padding:6px 8px;font-size:11px;text-align:right;font-family:var(--font-mono);color:${textColor};font-weight:700">${abr(total)}</td>
               </tr>
             </tfoot>
           </table>
@@ -4999,7 +5119,7 @@ function renderDirector(){
         <div class="director-table-toolbar-meta">Estado sincronizado con el filtro superior del director</div>
       </div>
       <div class="filter-group director-table-filter">
-        <div class="filter-label">Estado tabla</div>
+        <label class="filter-label" for="sel-dir-estado-detail">Estado tabla</label>
         <select id="sel-dir-estado-detail" onchange="setDirectorEstadoFilter(this.value)">
           ${buildOptionList(estadoOptions, { getValue: opt => opt.value, getLabel: opt => opt.label, selectedValue: est })}
         </select>
@@ -5021,7 +5141,9 @@ function renderDirector(){
   const execs=[...new Set([...execsWithDataDir,...execsFromFilesDir])].sort();
   
   // Evolution del director
-  const evoMonthKeys = getForecastMonths(data.length ? data : ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir));
+  const evoMonthKeys = mes
+    ? [mes]
+    : getForecastMonths(data.length ? data : ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir));
   const evoMonths = {};
   evoMonthKeys.forEach(m => { evoMonths[m] = 0; });
   data.forEach(r=>{const m=getMonth(getRowDateValue(r));if(evoMonths[m]!==undefined)evoMonths[m]+=toCOP(r);});
@@ -5065,10 +5187,11 @@ function renderDirector(){
     const c=COLORS[i%COLORS.length];
     const ini=e.split(' ').slice(0,2).map(w=>w[0]).join('');
     const isSelected=(SELECTED_EXEC_BY_DIR[dir]||'')===e;
-    return `<div class="kpi exec-card ${isSelected?'selected':''}" style="--ac:${c};min-width:160px;opacity:${hasD?1:.55}" onclick="${escAttr(jsCall('selectDirectorExec', e))}">
+    const selectAction=jsCall('selectDirectorExec', e);
+    return `<div class="kpi exec-card ${isSelected?'selected':''} ${hasD?'':'no-data'}" style="--ac:${c};min-width:160px" role="button" tabindex="0" onclick="${escAttr(selectAction)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${selectAction}}`)}">
       <div class="kpi-accent"></div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <div style="width:30px;height:30px;border-radius:50%;background:${c}30;border:1px solid ${c}60;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:11px;font-weight:700;color:${c}">${escHtml(ini)}</div>
+        <div class="team-avatar" style="--avatar-accent:${c}">${escHtml(ini)}</div>
         <div>
           <div style="font-size:11px;font-family:var(--font-display);font-weight:700;color:var(--text)">${escHtml(e.split(' ')[0])}</div>
           <div style="font-size:9px;color:var(--text3)">${hasD?ejData.length+' negocios':'Sin datos aún'}</div>
@@ -5144,40 +5267,39 @@ function renderDirector(){
   const faltanteGrupo = Math.max(0, totalCuotaGrupo - utilidadGrupoTotal);
 
   document.getElementById('director-content').innerHTML=`
-    <div style="background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); border: 1px solid rgba(56,189,248,0.3); border-radius: 12px; padding: 22px; margin: 16px 0 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+    <section class="quota-summary quota-summary--director" aria-label="Avance de cuota y utilidad de ${escAttr(dir)}">
+      <div class="quota-summary__header">
         <div>
-          <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.4px; color: #38BDF8; display: flex; align-items: center; gap: 6px;">
-            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #38BDF8;"></span>
-            AVANCE DIARIO DE CUOTA Y UTILIDAD • ${escHtml(dir.toUpperCase())}
-          </div>
-          <div style="font-size: 13px; color: #94A3B8; margin-top: 4px;">Seguimiento acumulado vs Cuota del Grupo (${execs.length} ejecutivos asignados)</div>
+          <div class="quota-summary__eyebrow"><span class="quota-summary__signal" aria-hidden="true"></span>Avance diario de cuota y utilidad</div>
+          <div class="quota-summary__title">${escHtml(dir)}</div>
+          <div class="quota-summary__subtitle">Seguimiento acumulado del grupo · ${execs.length} comerciales asignados</div>
         </div>
-        <div style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #34D399; font-weight: 800; font-size: 14px; padding: 8px 18px; border-radius: 20px;">
-          ${pctAvanceGrupo.toFixed(1)}% CUMPLIMIENTO
-        </div>
-      </div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #3B82F6; padding: 14px 16px; border-radius: 8px;">
-          <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Cuota Mensual Grupo</div>
-          <div style="font-size: 22px; font-weight: 800; color: #F8FAFC; margin-top: 4px;">${fmtCOP(totalCuotaGrupo)}</div>
-          <div style="font-size: 11px; color: #64748B; margin-top: 2px;">${execs.length} comerciales asignados</div>
-        </div>
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #10B981; padding: 14px 16px; border-radius: 8px;">
-          <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Utilidad Lograda (Avance)</div>
-          <div style="font-size: 22px; font-weight: 800; color: #10B981; margin-top: 4px;">${fmtCOP(utilidadGrupoTotal)}</div>
-          <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Margen acumulado en el mes</div>
-        </div>
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #F59E0B; padding: 14px 16px; border-radius: 8px;">
-          <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Faltante para la Meta</div>
-          <div style="font-size: 22px; font-weight: 800; color: #F59E0B; margin-top: 4px;">${fmtCOP(faltanteGrupo)}</div>
-          <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Diferencia sobre cuota</div>
+        <div class="quota-summary__status">
+          <strong>${pctAvanceGrupo.toFixed(1)}%</strong>
+          <span>Cumplimiento</span>
         </div>
       </div>
-      <div style="background: rgba(255,255,255,0.08); height: 10px; border-radius: 5px; overflow: hidden;">
-        <div style="background: linear-gradient(90deg, #3B82F6, #10B981); height: 100%; width: ${Math.min(pctAvanceGrupo, 100)}%;"></div>
+      <div class="quota-summary__metrics">
+        <article class="quota-metric quota-metric--quota">
+          <span class="quota-metric__icon" aria-hidden="true">◎</span>
+          <div><span>Cuota mensual grupo</span><strong>${fmtCOP(totalCuotaGrupo)}</strong><small>${execs.length} comerciales asignados</small></div>
+        </article>
+        <article class="quota-metric quota-metric--profit">
+          <span class="quota-metric__icon" aria-hidden="true">↗</span>
+          <div><span>Utilidad lograda</span><strong>${fmtCOP(utilidadGrupoTotal)}</strong><small>Margen acumulado en el mes</small></div>
+        </article>
+        <article class="quota-metric quota-metric--remaining">
+          <span class="quota-metric__icon" aria-hidden="true">△</span>
+          <div><span>Faltante para la meta</span><strong>${fmtCOP(faltanteGrupo)}</strong><small>Diferencia sobre cuota</small></div>
+        </article>
       </div>
-    </div>
+      <div class="quota-summary__progress-row">
+        <div class="quota-summary__progress" role="progressbar" aria-label="Cumplimiento de cuota" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(Math.max(pctAvanceGrupo,0),100).toFixed(1)}">
+          <span style="--progress:${Math.min(Math.max(pctAvanceGrupo,0),100)}%"></span>
+        </div>
+        <strong>${pctAvanceGrupo.toFixed(1)}%</strong>
+      </div>
+    </section>
 
     <div class="section-hd"><h2>${escHtml(dir)}</h2><span class="section-tag">DIRECTOR</span></div>
     
@@ -5320,29 +5442,33 @@ function renderEjecutivo(){
   if(focusedBrand) execMonthRows = execMonthRows.filter(r => normalizeCategoryValue(getRowBrandName(r)) === brandKey);
   const mes=syncMonthSelectOptions('sel-ej-mes', getForecastMonths(execMonthRows));
   document.getElementById('persona-grid').innerHTML=execs.map((e,i)=>{
-    const ed=ALL_DATA.filter(r=>namesMatch(r['COMERCIAL'], e));
+    const allExecutiveRows=ALL_DATA.filter(r=>namesMatch(r['COMERCIAL'], e));
+    const ed=mes
+      ? allExecutiveRows.filter(r=>getMonth(getRowDateValue(r))===mes)
+      : allExecutiveRows;
     const cop=ed.reduce((s,r)=>s+toCOP(r),0);
     const gan=ed.filter(r=>r['ESTADO']==='GANADA').length;
     const pen=ed.filter(r=>r['ESTADO']==='PENDIENTE').length;
     const c=COLORS[i%COLORS.length];
-    const dirFromData=ed[0]?ed[0]['DIRECTOR']||'':'';
+    const dirFromData=allExecutiveRows[0]?allExecutiveRows[0]['DIRECTOR']||'':'';
     const dirFromFile=Object.entries(LOADED_FILES_BY_DIR||{}).find(([d,fs])=>fs.some(f=>f.name.replace(/\.(xlsx|xls)$/i,'').trim()===e));
     const dir=dirFromData||(dirFromFile?dirFromFile[0]:'—');
     const hasData=ed.length>0;
     const selected=namesMatch(e, ej)?'selected':'';
-    return `<div class="persona-card ${selected} ${hasData?'':'no-data'}" onclick="${escAttr(jsCall('selectEjecutivo', e))}">
-      <div class="persona-avatar" style="background:${c}${hasData?'25':'10'};border:2px solid ${c}${hasData?'50':'20'};color:${hasData?c:'var(--text2)'}">${escHtml(initials(e))}</div>
+    const selectAction=jsCall('selectEjecutivo', e);
+    return `<div class="persona-card ${selected} ${hasData?'':'no-data'}" role="button" tabindex="0" onclick="${escAttr(selectAction)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${selectAction}}`)}">
+      <div class="persona-avatar" style="--avatar-accent:${c}">${escHtml(initials(e))}</div>
       <div class="persona-name" style="color:${hasData?'var(--text)':'var(--text2)'}">${escHtml(e)}</div>
       <div class="persona-role">${escHtml(dir)}</div>
       ${renderLastConnection(e)}
       ${hasData
         ?`<div class="persona-stats">
-        <div class="p-stat"><div class="p-stat-label">Total</div><div class="p-stat-val" style="color:${c};font-size:11px">${abr(cop)}</div></div>
+        <div class="p-stat"><div class="p-stat-label">Total</div><div class="p-stat-val" style="font-size:11px">${abr(cop)}</div></div>
         <div class="p-stat"><div class="p-stat-label">Negoc.</div><div class="p-stat-val">${ed.length}</div></div>
         <div class="p-stat"><div class="p-stat-label">Ganadas</div><div class="p-stat-val" style="color:var(--corp-green)">${gan}</div></div>
         <div class="p-stat"><div class="p-stat-label">Pend.</div><div class="p-stat-val" style="color:var(--corp-amber)">${pen}</div></div>
       </div>`
-        :`<div style="font-size:9px;color:var(--text3);font-family:var(--font-display);margin-top:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;letter-spacing:.5px">📋 Sin registros aún</div>`}
+        :`<div class="persona-empty-note">Sin registros aún</div>`}
     </div>`;
   }).join('');
   
@@ -5384,36 +5510,41 @@ function renderEjecutivo(){
   const faltanteEjecutivo = Math.max(0, cuotaEjecutivo - utilidadEjecutivoTotal);
 
   document.getElementById('ejecutivo-content').innerHTML=`
-    <div style="background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); border: 1px solid rgba(192,132,252,0.3); border-radius: 12px; padding: 22px; margin: 16px 0 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+    <section class="quota-summary quota-summary--executive" aria-label="Cuota y utilidad de ${escAttr(ej)}">
+      <div class="quota-summary__header">
         <div>
-          <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.4px; color: #C084FC;">MI CUOTA Y AVANCE DIARIO COMERCIAL</div>
-          <div style="font-size: 18px; font-weight: 800; color: #F8FAFC; margin-top: 2px;">${escHtml(ej)}</div>
+          <div class="quota-summary__eyebrow"><span class="quota-summary__signal" aria-hidden="true"></span>Mi cuota y avance comercial</div>
+          <div class="quota-summary__title">${escHtml(ej)}</div>
+          <div class="quota-summary__subtitle">Utilidad acumulada frente a la meta mensual</div>
         </div>
-        <div style="background: rgba(192,132,252,0.15); border: 1px solid rgba(192,132,252,0.4); color: #C084FC; font-weight: 800; font-size: 14px; padding: 8px 18px; border-radius: 20px;">
-          ${pctAvanceEjecutivo.toFixed(1)}% CUMPLIMIENTO DE CUOTA
-        </div>
-      </div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px;">
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #8B5CF6; padding: 14px 16px; border-radius: 8px;">
-          <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Mi Cuota Mensual</div>
-          <div style="font-size: 22px; font-weight: 800; color: #F8FAFC; margin-top: 4px;">${fmtCOP(cuotaEjecutivo)}</div>
-        </div>
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #10B981; padding: 14px 16px; border-radius: 8px;">
-          <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Utilidad Lograda (Avance)</div>
-          <div style="font-size: 22px; font-weight: 800; color: #10B981; margin-top: 4px;">${fmtCOP(utilidadEjecutivoTotal)}</div>
-        </div>
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #F59E0B; padding: 14px 16px; border-radius: 8px;">
-          <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Faltante para la Meta</div>
-          <div style="font-size: 22px; font-weight: 800; color: #F59E0B; margin-top: 4px;">${fmtCOP(faltanteEjecutivo)}</div>
+        <div class="quota-summary__status">
+          <strong>${pctAvanceEjecutivo.toFixed(1)}%</strong>
+          <span>Cumplimiento</span>
         </div>
       </div>
-      <div style="background: rgba(255,255,255,0.08); height: 10px; border-radius: 5px; overflow: hidden;">
-        <div style="background: linear-gradient(90deg, #8B5CF6, #10B981); height: 100%; width: ${Math.min(pctAvanceEjecutivo, 100)}%;"></div>
+      <div class="quota-summary__metrics">
+        <article class="quota-metric quota-metric--quota">
+          <span class="quota-metric__icon" aria-hidden="true">◎</span>
+          <div><span>Mi cuota mensual</span><strong>${fmtCOP(cuotaEjecutivo)}</strong><small>Meta comercial asignada</small></div>
+        </article>
+        <article class="quota-metric quota-metric--profit">
+          <span class="quota-metric__icon" aria-hidden="true">↗</span>
+          <div><span>Utilidad lograda</span><strong>${fmtCOP(utilidadEjecutivoTotal)}</strong><small>Avance acumulado</small></div>
+        </article>
+        <article class="quota-metric quota-metric--remaining">
+          <span class="quota-metric__icon" aria-hidden="true">△</span>
+          <div><span>Faltante para la meta</span><strong>${fmtCOP(faltanteEjecutivo)}</strong><small>Valor pendiente por alcanzar</small></div>
+        </article>
       </div>
-    </div>
+      <div class="quota-summary__progress-row">
+        <div class="quota-summary__progress" role="progressbar" aria-label="Cumplimiento de cuota" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(Math.max(pctAvanceEjecutivo,0),100).toFixed(1)}">
+          <span style="--progress:${Math.min(Math.max(pctAvanceEjecutivo,0),100)}%"></span>
+        </div>
+        <strong>${pctAvanceEjecutivo.toFixed(1)}%</strong>
+      </div>
+    </section>
 
-    <div class="section-hd" style="margin-top:16px"><h2>${escHtml(ej)}</h2><span class="section-tag" style="background:${ejColor}20;color:${ejColor};border-color:${ejColor}40">EJECUTIVO</span>${focusBadge}${directorFocusBadge}${focusClear}</div>
+    <div class="section-hd" style="margin-top:16px"><h2>${escHtml(ej)}</h2><span class="section-tag section-tag--series" style="--tag-accent:${ejColor}">EJECUTIVO</span>${focusBadge}${directorFocusBadge}${focusClear}</div>
     ${buildVisualCrossfilterBar('ejecutivo', ejecutivoBaseData.length, data.length, [['linea','Linea']])}
     
     <div class="kpi-grid kpi-grid-4" style="margin-bottom:16px">
@@ -5502,7 +5633,13 @@ function openExecNegociosFromMarcas(execName, directorName, brandName){
   const ejMonth = document.getElementById('sel-ej-mes');
   const ejEstado = document.getElementById('sel-ej-estado');
   if(ejSelect) ejSelect.value = targetExec;
-  if(ejMonth) ejMonth.value = '';
+  if(ejMonth) {
+    ejMonth.dataset.monthFilterInitialized = 'false';
+    syncMonthSelectOptions(
+      'sel-ej-mes',
+      getForecastMonths(ALL_DATA.filter(row => namesMatch(row['COMERCIAL'], targetExec)))
+    );
+  }
   if(ejEstado) ejEstado.value = '';
   EJECUTIVO_BRAND_FOCUS = targetBrand ? {
     execName: targetExec,
@@ -5565,8 +5702,14 @@ function syncSalesViewButtons(){
   const mode = getSalesViewMode();
   const btnReporte = document.getElementById('btn-sales-reporte');
   const btnPendientes = document.getElementById('btn-sales-pendientes');
-  if(btnReporte) btnReporte.classList.toggle('active', mode === 'reporte');
-  if(btnPendientes) btnPendientes.classList.toggle('active', mode === 'pendientes');
+  if(btnReporte) {
+    btnReporte.classList.toggle('active', mode === 'reporte');
+    btnReporte.setAttribute('aria-selected', mode === 'reporte' ? 'true' : 'false');
+  }
+  if(btnPendientes) {
+    btnPendientes.classList.toggle('active', mode === 'pendientes');
+    btnPendientes.setAttribute('aria-selected', mode === 'pendientes' ? 'true' : 'false');
+  }
 }
 
 function setSalesFilterVisibility(mode){
@@ -5584,6 +5727,10 @@ function setSalesFilterVisibility(mode){
 
 function setSalesView(mode){
   SALES_VIEW_MODE = mode === 'pendientes' ? 'pendientes' : 'reporte';
+  const reportButton = document.getElementById('btn-sales-reporte');
+  const pendingButton = document.getElementById('btn-sales-pendientes');
+  if(reportButton) reportButton.setAttribute('aria-selected', SALES_VIEW_MODE === 'reporte' ? 'true' : 'false');
+  if(pendingButton) pendingButton.setAttribute('aria-selected', SALES_VIEW_MODE === 'pendientes' ? 'true' : 'false');
   renderSales();
 }
 
@@ -5694,12 +5841,7 @@ function renderSales(){
 
   if(mode === 'reporte') {
     const monthValues = [...new Set(allSales.map(r=>getMonth(getRowDateValue(r))).filter(Boolean))].sort();
-    const currentMonth = selMes.value;
-    selMes.innerHTML = optionHtml('', 'Todos', false) + buildOptionList(monthValues, {
-      getLabel: getMonthLabel
-    });
-    if(currentMonth && monthValues.includes(currentMonth)) selMes.value = currentMonth;
-    else selMes.value = '';
+    syncMonthSelectOptions('sel-sales-mes', monthValues);
   } else if(selPendiente && selCategoria) {
     const supportPendingRows = allPending.filter(r => namesMatch(getSalesPendingSupportName(r), selectedSupport));
     const pendingTypes = [...new Set(supportPendingRows.map(getSalesPendingType).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
@@ -5715,9 +5857,12 @@ function renderSales(){
   }
 
   grid.innerHTML = allSupports.map((supportName, idx)=>{
-    const supportRows = mode === 'pendientes'
+    const allSupportRows = mode === 'pendientes'
       ? allPending.filter(r => namesMatch(getSalesPendingSupportName(r), supportName))
       : allSales.filter(r => namesMatch(getSalesSupportName(r), supportName));
+    const supportRows = mode === 'reporte' && selMes.value
+      ? allSupportRows.filter(r => getMonth(getRowDateValue(r)) === selMes.value)
+      : allSupportRows;
     const totalCOP = mode === 'pendientes'
       ? supportRows.reduce((sum,row)=>sum+getSalesPendingInvoiceValue(row),0)
       : supportRows.reduce((sum,row)=>sum+toCOP(row),0);
@@ -5740,8 +5885,9 @@ function renderSales(){
     const c = COLORS[idx % COLORS.length];
     const hasData = supportRows.length > 0;
     const selected = namesMatch(selectedSupport, supportName) ? 'selected' : '';
-    return `<div class="persona-card ${selected} ${hasData?'':'no-data'}" onclick="${escAttr(jsCall('selectSalesSupport', supportName))}">
-      <div class="persona-avatar" style="background:${c}${hasData?'25':'10'};border:2px solid ${c}${hasData?'50':'20'};color:${hasData?c:'var(--text2)'}">${escHtml(initials(supportName))}</div>
+    const selectAction = jsCall('selectSalesSupport', supportName);
+    return `<div class="persona-card ${selected} ${hasData?'':'no-data'}" role="button" tabindex="0" onclick="${escAttr(selectAction)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${selectAction}}`)}">
+      <div class="persona-avatar" style="--avatar-accent:${c}">${escHtml(initials(supportName))}</div>
       <div class="persona-name" style="color:${hasData?'var(--text)':'var(--text2)'}">${escHtml(supportName)}</div>
       <div class="persona-role">Sales Support</div>
       ${hasData
@@ -5749,15 +5895,15 @@ function renderSales(){
           ? `<div class="persona-stats persona-stats-3">
               <div class="p-stat"><div class="p-stat-label">Facturas</div><div class="p-stat-val" style="color:var(--corp-green)">${supportFacturaCount}</div></div>
               <div class="p-stat"><div class="p-stat-label">GLPI</div><div class="p-stat-val" style="color:var(--corp-amber)">${supportGlpiCount}</div></div>
-              <div class="p-stat"><div class="p-stat-label">Pedidos</div><div class="p-stat-val" style="color:${c}">${supportPedidoCount}</div></div>
+              <div class="p-stat"><div class="p-stat-label">Pedidos</div><div class="p-stat-val">${supportPedidoCount}</div></div>
             </div>`
           : `<div class="persona-stats">
-              <div class="p-stat"><div class="p-stat-label">Total</div><div class="p-stat-val" style="color:${c};font-size:11px">${abr(totalCOP)}</div></div>
+              <div class="p-stat"><div class="p-stat-label">Total</div><div class="p-stat-val" style="font-size:11px">${abr(totalCOP)}</div></div>
               <div class="p-stat"><div class="p-stat-label">Registros</div><div class="p-stat-val">${supportRows.length}</div></div>
               <div class="p-stat"><div class="p-stat-label">Ganadas</div><div class="p-stat-val" style="color:var(--corp-green)">${totalGanadas}</div></div>
               <div class="p-stat"><div class="p-stat-label">Soporta</div><div class="p-stat-val">${supportedCount}</div></div>
             </div>`)
-        : `<div style="font-size:9px;color:var(--text3);font-family:var(--font-display);margin-top:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;letter-spacing:.5px">Sin registros aun</div>`}
+        : `<div class="persona-empty-note">Sin registros aún</div>`}
     </div>`;
   }).join('');
 
@@ -5989,25 +6135,29 @@ function renderPreventa(){
   const estado = selEstado.value;
 
   grid.innerHTML = allNames.map((name, idx)=>{
-    const rows = allPreventa.filter(r => namesMatch(getPreventaName(r), name));
+    const allRows = allPreventa.filter(r => namesMatch(getPreventaName(r), name));
+    const rows = mes
+      ? allRows.filter(r => getMonth(getRowDateValue(r)) === mes)
+      : allRows;
     const totalCOP = rows.reduce((sum,row)=>sum+toCOP(row),0);
     const ganadas = rows.filter(r=>cleanDisplayText(r['ESTADO'],'').toUpperCase()==='GANADA').length;
     const pendientes = rows.filter(r=>cleanDisplayText(r['ESTADO'],'').toUpperCase()==='PENDIENTE').length;
     const c = COLORS[idx % COLORS.length];
     const hasData = rows.length > 0;
     const active = namesMatch(selected, name) ? 'selected' : '';
-    return `<div class="persona-card ${active} ${hasData?'':'no-data'}" onclick="${escAttr(jsCall('selectPreventa', name))}">
-      <div class="persona-avatar" style="background:${c}${hasData?'25':'10'};border:2px solid ${c}${hasData?'50':'20'};color:${hasData?c:'var(--text2)'}">${escHtml(initials(name))}</div>
+    const selectAction = jsCall('selectPreventa', name);
+    return `<div class="persona-card ${active} ${hasData?'':'no-data'}" role="button" tabindex="0" onclick="${escAttr(selectAction)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${selectAction}}`)}">
+      <div class="persona-avatar" style="--avatar-accent:${c}">${escHtml(initials(name))}</div>
       <div class="persona-name" style="color:${hasData?'var(--text)':'var(--text2)'}">${escHtml(name)}</div>
       <div class="persona-role">Preventa</div>
       ${hasData
         ? `<div class="persona-stats">
-            <div class="p-stat"><div class="p-stat-label">Total</div><div class="p-stat-val" style="color:${c};font-size:11px">${abr(totalCOP)}</div></div>
+            <div class="p-stat"><div class="p-stat-label">Total</div><div class="p-stat-val" style="font-size:11px">${abr(totalCOP)}</div></div>
             <div class="p-stat"><div class="p-stat-label">Registros</div><div class="p-stat-val">${rows.length}</div></div>
             <div class="p-stat"><div class="p-stat-label">Ganadas</div><div class="p-stat-val" style="color:var(--corp-green)">${ganadas}</div></div>
             <div class="p-stat"><div class="p-stat-label">Pend.</div><div class="p-stat-val" style="color:var(--corp-amber)">${pendientes}</div></div>
           </div>`
-        : `<div style="font-size:9px;color:var(--text3);font-family:var(--font-display);margin-top:8px;padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px;letter-spacing:.5px">Sin registros aun</div>`}
+        : `<div class="persona-empty-note">Sin registros aún</div>`}
     </div>`;
   }).join('');
 
@@ -6403,7 +6553,7 @@ function renderMarcas(){
       const topColor = topIdx >= 0 ? COLORS[topIdx%COLORS.length] : 'var(--text3)';
       return `<tr class="table-row-action" onclick="${escAttr(jsCall('openExecNegociosFromMarcas', e, execDirector, topMarca))}" title="Abrir negocios del ejecutivo">
         <td style="font-family:var(--font-display);font-weight:600;color:var(--text)" data-label="Ejecutivo">${escHtml(e)}</td>
-        <td style="font-family:var(--font-display);font-weight:700;color:${topColor}" data-label="Top Marca">${escHtml(topMarca)}</td>
+        <td class="series-label" style="--series-accent:${topColor}" data-label="Top Marca">${escHtml(topMarca)}</td>
         <td class="td-mono" data-label="Cantidad">${fmtNum(topMarcaCount)}</td>
       </tr>`;
     }).join('') : `<tr><td colspan="3" style="text-align:center;color:var(--text2);padding:20px 14px">Sin ejecutivos con datos para este grupo.</td></tr>`}</tbody>
@@ -7664,6 +7814,8 @@ function applyRoleTabs() {
 
 // ── Auto-cargar al abrir desde SharePoint ────
 window.addEventListener('DOMContentLoaded', () => {
+  refreshForecastMonthFilters();
+  setFinanceInputs();
   // Cargar TRM automáticamente
   fetchTRM();
   // Pre-cargar MSAL y auto-login siempre

@@ -60,6 +60,7 @@ const optionsHtml = getElement('view-panel-options').innerHTML;
 assert.match(optionsHtml, /Vista como comercial/);
 assert.match(optionsHtml, /Rosmira Rojas/);
 assert.match(optionsHtml, /Rafael Novoa/);
+assert.match(optionsHtml, /Adriana Cucaita/);
 assert.ok((optionsHtml.match(/class="view-opt-btn view-opt-executive"/g) || []).length > 20);
 
 const executiveButton = {

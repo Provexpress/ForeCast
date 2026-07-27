@@ -1931,10 +1931,10 @@
       svg += `<text x="${left-8}" y="${y+4}" text-anchor="end" fill="var(--text3)" font-size="9" font-family="Plus Jakarta Sans,sans-serif">${escapeHtml(formatCompact(maxValue * step, state.filters.unidad))}</text>`;
     });
     svg += `<polygon points="${area}" fill="url(#programTrendArea)"/>`;
-    svg += `<polyline points="${line}" fill="none" stroke="#2ABFDF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+    svg += `<polyline points="${line}" fill="none" stroke="var(--corp-cyan)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
     points.forEach((point,index) => {
       const x = xFor(index), y = yFor(point.val);
-      svg += `<circle cx="${x}" cy="${y}" r="4" fill="#06071A" stroke="#2ABFDF" stroke-width="2" data-tooltip="${escapeAttr(`${point.period}: ${formatMoney(point.val, state.filters.unidad)}`)}"/>`;
+      svg += `<circle cx="${x}" cy="${y}" r="4" fill="var(--chart-point-fill)" stroke="var(--corp-cyan)" stroke-width="2" data-tooltip="${escapeAttr(`${point.period}: ${formatMoney(point.val, state.filters.unidad)}`)}"/>`;
       if(index % labelStep === 0 || index === points.length - 1) {
         svg += `<text x="${x}" y="${height-13}" text-anchor="middle" fill="var(--text3)" font-size="9.5" font-family="Plus Jakarta Sans,sans-serif">${escapeHtml(point.period)}</text>`;
       }
@@ -2911,6 +2911,12 @@
     if(state.workbook.status === 'idle') reloadEmbeddedReport();
     renderWorkbookReport();
   }
+
+  document.addEventListener('forecast:themechange', () => {
+    if(state.workbook.status !== 'loaded' || state.workbook.view !== 'report') return;
+    const activeSheet = getActiveWorkbookSheet();
+    if(activeSheet) renderWorkbookCharts(activeSheet);
+  });
 
   async function exportExcel(){
     const rows = getVisibleRows();

@@ -270,7 +270,10 @@ function showNoPermissionScreen(email){
 function showUserBadge() {
   if(!CURRENT_USER) return;
   const badge = document.getElementById('user-badge');
-  if(badge) badge.style.display = 'flex';
+  if(badge) {
+    badge.classList.add('is-visible');
+    badge.style.display = 'flex';
+  }
   const displayName = CURRENT_USER.name || CURRENT_USER.email || 'Usuario';
   const av = document.getElementById('user-avatar');
   if(av) av.textContent = displayName.split(' ').slice(0,2).map(w=>w[0]).join('');
@@ -291,7 +294,7 @@ function showUserBadge() {
   const gearBtn = document.getElementById('view-switcher-btn');
   if(gearBtn && (CURRENT_USER.role === 'gerencia' || CURRENT_USER.role === 'gerencia_director')) {
     renderViewPanelOptions();
-    gearBtn.style.display = 'block';
+    gearBtn.style.display = 'grid';
   }
 }
 
@@ -350,7 +353,10 @@ function switchExecutiveView(buttonEl){
 function toggleViewPanel() {
   const panel = document.getElementById('view-panel');
   if(!panel) return;
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  const willOpen = panel.style.display === 'none';
+  panel.style.display = willOpen ? 'block' : 'none';
+  const btn = document.getElementById('view-switcher-btn');
+  if(btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
 }
 
 // Close view panel clicking outside
@@ -359,6 +365,7 @@ document.addEventListener('click', e => {
   const btn   = document.getElementById('view-switcher-btn');
   if(panel && btn && !panel.contains(e.target) && !btn.contains(e.target)) {
     panel.style.display = 'none';
+    btn.setAttribute('aria-expanded','false');
   }
 });
 
@@ -392,6 +399,8 @@ function switchView(buttonEl, role, directorGroup, nameOverride) {
   // Close panel
   const panel = document.getElementById('view-panel');
   if(panel) panel.style.display = 'none';
+  const viewButton = document.getElementById('view-switcher-btn');
+  if(viewButton && typeof viewButton.setAttribute === 'function') viewButton.setAttribute('aria-expanded','false');
 }
 
 // ── overlay helpers ──────────────────────────

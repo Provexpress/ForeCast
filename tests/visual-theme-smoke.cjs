@@ -1,0 +1,50 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const root = path.resolve(__dirname, '..');
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'src', 'styles', 'main.css'), 'utf8');
+const main = fs.readFileSync(path.join(root, 'src', 'scripts', 'main.js'), 'utf8');
+const auth = fs.readFileSync(path.join(root, 'src', 'scripts', 'auth.js'), 'utf8');
+const program = fs.readFileSync(path.join(root, 'src', 'scripts', 'programa-puntos-canal.js'), 'utf8');
+const daily = fs.readFileSync(path.join(root, 'src', 'scripts', 'avance-diario.js'), 'utf8');
+
+assert.match(css, /:root\s*\{[\s\S]*color-scheme:dark/);
+assert.match(css, /\[data-theme="light"\]\s*\{[\s\S]*color-scheme:light/);
+assert.match(css, /--control-border:/);
+assert.match(css, /--focus-color:/);
+assert.match(css, /--status-success-fg:/);
+assert.match(css, /\.quota-summary\s*\{/);
+assert.match(css, /\.quota-summary__metrics\s*\{/);
+assert.match(css, /\.quota-summary__progress\s*\{/);
+assert.match(css, /\.nav-btn::before\s*\{[\s\S]*content:attr\(data-icon\)/);
+assert.match(css, /\.filters:not\(\.program-channel-filters\)/);
+assert.match(css, /\.app-empty-state\s*\{/);
+assert.match(css, /\[data-theme="light"\] td\.td-cop/);
+assert.match(css, /\.glpi-status-new\{color:var\(--status-info-fg\)/);
+
+const earlyThemePosition = html.indexOf("localStorage.getItem('forecast_theme')");
+const stylesheetPosition = html.indexOf('src/styles/main.css');
+assert.ok(earlyThemePosition >= 0 && earlyThemePosition < stylesheetPosition, 'El tema guardado debe aplicarse antes del CSS');
+assert.equal((html.match(/class="nav-btn[^"]*" data-icon=/g) || []).length, 11);
+assert.ok((html.match(/<label class="filter-label"/g) || []).length >= 17);
+assert.match(html, /id="theme-toggle-btn"[\s\S]*theme-toggle-label/);
+assert.match(html, /id="view-switcher-btn"[\s\S]*aria-expanded="false"[\s\S]*aria-controls="view-panel"/);
+assert.doesNotMatch(html, /id="user-badge" style="[^"]*background:/);
+assert.ok((html.match(/v=20260727-visual-refresh1/g) || []).length >= 3);
+assert.equal((html.match(/v=20260727-current-month1/g) || []).length, 3);
+
+assert.match(main, /new CustomEvent\('forecast:themechange'/);
+assert.match(main, /function enhanceKeyboardActions/);
+assert.match(program, /addEventListener\('forecast:themechange'/);
+assert.match(main, /fill="var\(--chart-point-fill\)"/);
+assert.match(program, /fill="var\(--chart-point-fill\)"/);
+assert.doesNotMatch(main, /linear-gradient\(135deg, #1E293B 0%, #0F172A 100%\)/);
+assert.doesNotMatch(daily, /linear-gradient\(135deg, #1E293B 0%, #0F172A 100%\)/);
+assert.match(daily, /quota-summary quota-summary--director/);
+assert.match(daily, /quota-summary quota-summary--executive/);
+assert.match(auth, /badge\.classList\.add\('is-visible'\)/);
+assert.match(auth, /aria-expanded/);
+
+console.log('Tema visual: dark/light, navegación, filtros y cuota validados correctamente.');

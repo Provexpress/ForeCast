@@ -14,16 +14,49 @@
     return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(val);
   }
 
+  function getBogotaDateParts() {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Bogota",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).formatToParts(new Date()).reduce((parts, part) => {
+      if (part.type !== "literal") parts[part.type] = part.value;
+      return parts;
+    }, {});
+  }
+
   function getMonthDateRange() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
+    const { year, month, day } = getBogotaDateParts();
 
     return {
       fechaInicial: `${year}-${month}-01`,
       fechaFinal: `${year}-${month}-${day}`
     };
+  }
+
+  function isCurrentMonthRow(row) {
+    const currentMonth = getMonthDateRange().fechaInicial.slice(0, 7);
+    if (typeof window.getMonth === "function" && typeof window.getRowDateValue === "function") {
+      return window.getMonth(window.getRowDateValue(row)) === currentMonth;
+    }
+    const raw = row && (row["FECHA DIA/MES/AÑO"] || row.FECHA);
+    if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Bogota",
+        year: "numeric",
+        month: "2-digit"
+      }).formatToParts(raw).reduce((acc, part) => {
+        if (part.type !== "literal") acc[part.type] = part.value;
+        return acc;
+      }, {});
+      return `${parts.year}-${parts.month}` === currentMonth;
+    }
+    const text = String(raw || "").trim();
+    const isoMatch = text.match(/^(\d{4})[-/](\d{1,2})/);
+    if (isoMatch) return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}` === currentMonth;
+    const localMatch = text.match(/^\d{1,2}[/-](\d{1,2})[/-](\d{4})/);
+    return Boolean(localMatch && `${localMatch[2]}-${localMatch[1].padStart(2, "0")}` === currentMonth);
   }
 
   // Estructura oficial de cuotas y grupos 2026
@@ -53,16 +86,17 @@
     caballero: {
       nombre: "Angélica Caballero",
       vendedores: [
-        { nombre: "Ángela Rocío Torres", cuota: 18000000 },
+        { nombre: "Ángela Torres", cuota: 18000000 },
         { nombre: "Yurany Andrea Vargas", cuota: 18000000 },
-        { nombre: "María Alejandra Velásquez", cuota: 18000000 },
-        { nombre: "Fernando Alberto Quiñonez", cuota: 18000000 },
-        { nombre: "María Angélica Caballero", cuota: 48000000 },
-        { nombre: "César Augusto Céspedes", cuota: 28000000 },
-        { nombre: "Gina Paola García Quintero", cuota: 18000000 },
-        { nombre: "Jessica Lorena Valencia", cuota: 18000000 },
-        { nombre: "María Angélica Alvarado", cuota: 18000000 },
-        { nombre: "Juan David Martínez", cuota: 14000000 }
+        { nombre: "Alejandra Velásquez", cuota: 18000000 },
+        { nombre: "Fernando Quiñonez", cuota: 18000000 },
+        { nombre: "Jasbleidy Mójica", cuota: 48000000 },
+        { nombre: "Johanna Jaime", cuota: 18000000 },
+        { nombre: "Dayana Chala", cuota: 18000000 },
+        { nombre: "Yovanny Herrera", cuota: 18000000 },
+        { nombre: "César Céspedes", cuota: 28000000 },
+        { nombre: "Daniel Galindo", cuota: 28000000 },
+        { nombre: "Adriana Cucaita", cuota: 18000000 }
       ]
     },
     beltran: {
@@ -178,7 +212,9 @@
 
     // Si la API no respondió por CORS, extraer de window.ALL_DATA de Forecast
     if (totalUtilidadGrupo === 0 && window.ALL_DATA && window.ALL_DATA.length) {
-      const dataDir = window.ALL_DATA.filter(r => normText(r['DIRECTOR']).includes(dirKey));
+      const dataDir = window.ALL_DATA.filter(r =>
+        normText(r['DIRECTOR']).includes(dirKey) && isCurrentMonthRow(r)
+      );
       totalUtilidadGrupo = dataDir.reduce((sum, r) => {
         const utilObj = typeof window.getUtilidad === 'function' ? window.getUtilidad(r) : { valor: 0 };
         return sum + (utilObj.valor || 0);
@@ -193,46 +229,58 @@
     const pctAvance = totalCuotaGrupo > 0 ? (totalUtilidadGrupo / totalCuotaGrupo) * 100 : 0;
     const faltante = Math.max(0, totalCuotaGrupo - totalUtilidadGrupo);
 
+    const pctAvanceLimitado = Math.min(Math.max(pctAvance, 0), 100);
+
     container.innerHTML = `
-      <div style="background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); border: 1px solid rgba(56,189,248,0.3); border-radius: 12px; padding: 22px; margin: 16px 0 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); position: relative; overflow: hidden;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+      <section class="quota-summary quota-summary--director" aria-label="Avance de cuota y utilidad de ${dirInfo.nombre}">
+        <div class="quota-summary__header">
           <div>
-            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.4px; color: #38BDF8; display: flex; align-items: center; gap: 6px;">
-              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #38BDF8;"></span>
-              AVANCE DIARIO DE CUOTA Y UTILIDAD • ${dirInfo.nombre.toUpperCase()}
+            <div class="quota-summary__eyebrow"><span class="quota-summary__signal" aria-hidden="true"></span>Avance diario de cuota y utilidad</div>
+            <div class="quota-summary__title">${dirInfo.nombre}</div>
+            <div class="quota-summary__subtitle">Seguimiento acumulado vs Cuota del Grupo (${vendedores.length} ejecutivos asignados)</div>
+          </div>
+          <div class="quota-summary__status">
+            <strong>${pctAvance.toFixed(1)}%</strong>
+            <span>Cumplimiento</span>
+          </div>
+        </div>
+
+        <div class="quota-summary__metrics">
+          <article class="quota-metric quota-metric--quota">
+            <span class="quota-metric__icon" aria-hidden="true">◎</span>
+            <div>
+              <span>Cuota Mensual Grupo</span>
+              <strong>${formatCOP(totalCuotaGrupo)}</strong>
+              <small>Meta asignada para ${vendedores.length} ejecutivos</small>
             </div>
-            <div style="font-size: 13px; color: #94A3B8; margin-top: 4px;">Seguimiento acumulado vs Cuota del Grupo (${vendedores.length} ejecutivos asignados)</div>
-          </div>
-          
-          <div style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #34D399; font-weight: 800; font-size: 14px; padding: 8px 18px; border-radius: 20px;">
-            ${pctAvance.toFixed(1)}% CUMPLIMIENTO
-          </div>
+          </article>
+
+          <article class="quota-metric quota-metric--profit">
+            <span class="quota-metric__icon" aria-hidden="true">↗</span>
+            <div>
+              <span>Utilidad Lograda (Avance)</span>
+              <strong>${formatCOP(totalUtilidadGrupo)}</strong>
+              <small>Margen acumulado en el mes</small>
+            </div>
+          </article>
+
+          <article class="quota-metric quota-metric--remaining">
+            <span class="quota-metric__icon" aria-hidden="true">△</span>
+            <div>
+              <span>Faltante para la Meta</span>
+              <strong>${formatCOP(faltante)}</strong>
+              <small>Diferencia sobre cuota</small>
+            </div>
+          </article>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #3B82F6; padding: 14px 16px; border-radius: 8px;">
-            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Cuota Mensual Grupo</div>
-            <div style="font-size: 22px; font-weight: 800; color: #F8FAFC; margin-top: 4px;">${formatCOP(totalCuotaGrupo)}</div>
-            <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Meta asignada para ${vendedores.length} ejecutivos</div>
+        <div class="quota-summary__progress-row">
+          <div class="quota-summary__progress" role="progressbar" aria-label="Cumplimiento de cuota del grupo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctAvanceLimitado.toFixed(1)}">
+            <span style="--progress:${pctAvanceLimitado}%"></span>
           </div>
-
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #10B981; padding: 14px 16px; border-radius: 8px;">
-            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Utilidad Lograda (Avance)</div>
-            <div style="font-size: 22px; font-weight: 800; color: #10B981; margin-top: 4px;">${formatCOP(totalUtilidadGrupo)}</div>
-            <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Margen acumulado en el mes</div>
-          </div>
-
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #F59E0B; padding: 14px 16px; border-radius: 8px;">
-            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Faltante para la Meta</div>
-            <div style="font-size: 22px; font-weight: 800; color: #F59E0B; margin-top: 4px;">${formatCOP(faltante)}</div>
-            <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Diferencia sobre cuota</div>
-          </div>
+          <strong>${pctAvance.toFixed(1)}%</strong>
         </div>
-
-        <div style="background: rgba(255,255,255,0.08); height: 10px; border-radius: 5px; overflow: hidden;">
-          <div style="background: linear-gradient(90deg, #3B82F6, #10B981); height: 100%; width: ${Math.min(pctAvance, 100)}%;"></div>
-        </div>
-      </div>
+      </section>
     `;
   };
 
@@ -265,7 +313,9 @@
     }
 
     if (avanceUtilidad === 0 && window.ALL_DATA && window.ALL_DATA.length) {
-      const dataEj = window.ALL_DATA.filter(r => normText(r['COMERCIAL']).includes(eNorm.split(" ")[0]));
+      const dataEj = window.ALL_DATA.filter(r =>
+        normText(r['COMERCIAL']).includes(eNorm.split(" ")[0]) && isCurrentMonthRow(r)
+      );
       avanceUtilidad = dataEj.reduce((sum, r) => {
         const utilObj = typeof window.getUtilidad === 'function' ? window.getUtilidad(r) : { valor: 0 };
         return sum + (utilObj.valor || 0);
@@ -279,39 +329,58 @@
 
     const pctAvance = cuota > 0 ? (avanceUtilidad / cuota) * 100 : 0;
 
+    const pctAvanceLimitado = Math.min(Math.max(pctAvance, 0), 100);
+
     container.innerHTML = `
-      <div style="background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); border: 1px solid rgba(192,132,252,0.3); border-radius: 12px; padding: 22px; margin: 16px 0 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+      <section class="quota-summary quota-summary--executive" aria-label="Cuota y utilidad de ${execName || 'Ejecutivo Comercial'}">
+        <div class="quota-summary__header">
           <div>
-            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.4px; color: #C084FC;">MI CUOTA Y AVANCE DIARIO COMERCIAL</div>
-            <div style="font-size: 18px; font-weight: 800; color: #F8FAFC; margin-top: 2px;">${execName || 'Ejecutivo Comercial'}</div>
+            <div class="quota-summary__eyebrow"><span class="quota-summary__signal" aria-hidden="true"></span>Mi cuota y avance diario comercial</div>
+            <div class="quota-summary__title">${execName || 'Ejecutivo Comercial'}</div>
+            <div class="quota-summary__subtitle">Utilidad acumulada frente a la meta mensual</div>
           </div>
-          <div style="background: rgba(192,132,252,0.15); border: 1px solid rgba(192,132,252,0.4); color: #C084FC; font-weight: 800; font-size: 14px; padding: 8px 18px; border-radius: 20px;">
-            ${pctAvance.toFixed(1)}% DE CUOTA ALCANZADA
-          </div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px;">
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #8B5CF6; padding: 14px 16px; border-radius: 8px;">
-            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Mi Cuota Mensual</div>
-            <div style="font-size: 22px; font-weight: 800; color: #F8FAFC; margin-top: 4px;">${formatCOP(cuota)}</div>
-          </div>
-
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #10B981; padding: 14px 16px; border-radius: 8px;">
-            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Utilidad Lograda (Avance)</div>
-            <div style="font-size: 22px; font-weight: 800; color: #10B981; margin-top: 4px;">${formatCOP(avanceUtilidad)}</div>
-          </div>
-
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #3B82F6; padding: 14px 16px; border-radius: 8px;">
-            <div style="font-size: 10px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Ventas Totales Brutas</div>
-            <div style="font-size: 22px; font-weight: 800; color: #3B82F6; margin-top: 4px;">${formatCOP(mercancia)}</div>
+          <div class="quota-summary__status">
+            <strong>${pctAvance.toFixed(1)}%</strong>
+            <span>De cuota alcanzada</span>
           </div>
         </div>
 
-        <div style="background: rgba(255,255,255,0.08); height: 10px; border-radius: 5px; overflow: hidden;">
-          <div style="background: linear-gradient(90deg, #8B5CF6, #10B981); height: 100%; width: ${Math.min(pctAvance, 100)}%;"></div>
+        <div class="quota-summary__metrics">
+          <article class="quota-metric quota-metric--quota">
+            <span class="quota-metric__icon" aria-hidden="true">◎</span>
+            <div>
+              <span>Mi Cuota Mensual</span>
+              <strong>${formatCOP(cuota)}</strong>
+              <small>Meta comercial asignada</small>
+            </div>
+          </article>
+
+          <article class="quota-metric quota-metric--profit">
+            <span class="quota-metric__icon" aria-hidden="true">↗</span>
+            <div>
+              <span>Utilidad Lograda (Avance)</span>
+              <strong>${formatCOP(avanceUtilidad)}</strong>
+              <small>Margen acumulado en el mes</small>
+            </div>
+          </article>
+
+          <article class="quota-metric quota-metric--sales">
+            <span class="quota-metric__icon" aria-hidden="true">$</span>
+            <div>
+              <span>Ventas Totales Brutas</span>
+              <strong>${formatCOP(mercancia)}</strong>
+              <small>Mercancía acumulada en el mes</small>
+            </div>
+          </article>
         </div>
-      </div>
+
+        <div class="quota-summary__progress-row">
+          <div class="quota-summary__progress" role="progressbar" aria-label="Cumplimiento de cuota del ejecutivo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctAvanceLimitado.toFixed(1)}">
+            <span style="--progress:${pctAvanceLimitado}%"></span>
+          </div>
+          <strong>${pctAvance.toFixed(1)}%</strong>
+        </div>
+      </section>
     `;
   };
 

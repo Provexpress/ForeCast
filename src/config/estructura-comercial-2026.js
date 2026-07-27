@@ -129,6 +129,11 @@
         nombre: 'Daniel Galindo',
         archivo: 'Daniel Galindo.xlsx'
       },
+      'adriana.cucaita@provexpress.com.co': {
+        grupo: 2,
+        nombre: 'Adriana Cucaita',
+        archivo: 'Adriana Cucaita.xlsx'
+      },
       'paola.garcia@provexpress.com.co': {
         grupo: 3,
         nombre: 'Gina García',

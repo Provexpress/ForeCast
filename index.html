@@ -3,18 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
 <title>Forecast 2026 · Provexpress</title>
 <link rel="icon" type="image/png" href="src/icono-provexpress.png">
+<script>
+  (function () {
+    try {
+      var savedTheme = localStorage.getItem('forecast_theme');
+      document.documentElement.setAttribute('data-theme', savedTheme === 'light' ? 'light' : 'dark');
+    } catch (_) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="src/styles/main.css?v=20260724-executive-switch1">
+<link rel="stylesheet" href="src/styles/main.css?v=20260727-visual-refresh1">
 
 <!-- Microsoft Authentication Library -->
-<script src="src/config/estructura-comercial-2026.js?v=20260706-redist2"></script>
-<script src="src/scripts/auth.js?v=20260724-executive-switch1"></script>
-<script src="src/scripts/avance-diario.js?v=20260724-cachebust3"></script>
+<script src="src/config/estructura-comercial-2026.js?v=20260727-adriana1"></script>
+<script src="src/scripts/auth.js?v=20260727-visual-refresh1"></script>
+<script src="src/scripts/avance-diario.js?v=20260727-current-month1"></script>
 
 </head>
 <body>
@@ -32,7 +43,7 @@
 
   <div class="trm-bar">
     <div class="trm-pill">
-      <span class="trm-label">TRM Día</span>
+      <label class="trm-label" for="trm-input">TRM Día</label>
       <div class="trm-input-wrap">
         <span style="font-size:11px;color:var(--text2)">$</span>
         <input class="trm-input" id="trm-input" type="number" value="" placeholder="—" step="0.01" min="1000" inputmode="decimal">
@@ -46,38 +57,41 @@
         <div style="font-size:9px;color:var(--text2);font-family:var(--font-display)" id="last-update-hd"></div>
       </div>
     </div>
-    <div id="user-badge" style="display:none;align-items:center;gap:8px;padding:5px 12px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid var(--border);position:relative">
-      <div id="user-avatar" style="width:26px;height:26px;border-radius:50%;background:var(--corp-blue2);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:10px;font-weight:700;color:#fff"></div>
-      <button id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleAppTheme()" type="button" title="Cambiar tema" aria-label="Cambiar tema">☾</button>
-      <div>
-        <div id="user-name" style="font-size:10px;font-family:var(--font-display);font-weight:700;color:var(--text)"></div>
-        <div id="user-role-badge" style="font-size:9px;color:var(--text2)"></div>
+    <div id="user-badge" style="display:none">
+      <div id="user-avatar" aria-hidden="true"></div>
+      <button id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleAppTheme()" type="button" title="Cambiar a modo claro" aria-label="Cambiar a modo claro">
+        <span class="theme-toggle-glyph" aria-hidden="true">☾</span>
+        <span class="theme-toggle-label">Oscuro</span>
+      </button>
+      <div class="user-copy">
+        <div id="user-name"></div>
+        <div id="user-role-badge"></div>
       </div>
       <!-- Botón de vista -->
-      <button id="view-switcher-btn" onclick="toggleViewPanel()" style="display:none;margin-left:4px;background:rgba(107,63,160,.2);border:1px solid rgba(107,63,160,.4);color:var(--corp-purple2);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:12px;transition:var(--transition)" title="Cambiar vista">⚙</button>
+      <button id="view-switcher-btn" class="view-switcher-btn" onclick="toggleViewPanel()" style="display:none" type="button" title="Cambiar vista" aria-label="Cambiar vista" aria-expanded="false" aria-controls="view-panel">⚙</button>
     </div>
 
     <!-- Panel de cambio de vista -->
-    <div id="view-panel" class="view-panel" style="display:none;position:fixed;top:70px;right:16px;z-index:500;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:16px;min-width:220px;box-shadow:var(--shadow-lg)">
-      <div style="font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text2);margin-bottom:12px;text-transform:uppercase">Vista activa</div>
-      <div id="view-panel-options" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div id="view-panel" class="view-panel" style="display:none" role="dialog" aria-label="Cambiar vista de la aplicación">
+      <div class="view-panel-title">Vista activa</div>
+      <div id="view-panel-options" class="view-panel-options"></div>
     </div>
   </div>
 </header>
 
 <!-- NAV -->
-<nav>
-  <button id="tab-gerencia" class="nav-btn active" onclick="showPage('gerencia',this)">🏢 Gerencia General</button>
-  <button id="tab-director" class="nav-btn" onclick="showPage('director',this)">👔 Por Director</button>
-  <button id="tab-ejecutivo" class="nav-btn" onclick="showPage('ejecutivo',this)">👤 Por Ejecutivo</button>
-  <button id="tab-sales" class="nav-btn" onclick="showPage('sales',this)">🤝 Sales</button>
-  <button id="tab-preventa" class="nav-btn" onclick="showPage('preventa',this)">Preventa</button>
-  <button id="tab-divisas" class="nav-btn" onclick="showPage('divisas',this)">💱 COP / USD</button>
-  <button id="tab-marcas" class="nav-btn" onclick="showPage('marcas',this)">🏷 Marcas & Líneas</button>
-  <button id="tab-resumen" class="nav-btn" onclick="showPage('resumen',this)">📊 Resumen Total</button>
-  <button id="tab-finanzas" class="nav-btn" onclick="showPage('finanzas',this)">Finanzas</button>
-  <button id="tab-programas" class="nav-btn" onclick="showPage('programas',this)">Informe puntos</button>
-  <button id="tab-glpi" class="nav-btn" onclick="showPage('glpi',this)">TICKETS-GLPI</button>
+<nav aria-label="Secciones principales">
+  <button id="tab-gerencia" class="nav-btn active" data-icon="▦" onclick="showPage('gerencia',this)" aria-current="page"><span>Gerencia General</span></button>
+  <button id="tab-director" class="nav-btn" data-icon="◫" onclick="showPage('director',this)"><span>Por Director</span></button>
+  <button id="tab-ejecutivo" class="nav-btn" data-icon="◉" onclick="showPage('ejecutivo',this)"><span>Por Ejecutivo</span></button>
+  <button id="tab-sales" class="nav-btn" data-icon="↔" onclick="showPage('sales',this)"><span>Sales</span></button>
+  <button id="tab-preventa" class="nav-btn" data-icon="◇" onclick="showPage('preventa',this)"><span>Preventa</span></button>
+  <button id="tab-divisas" class="nav-btn" data-icon="$" onclick="showPage('divisas',this)"><span>COP / USD</span></button>
+  <button id="tab-marcas" class="nav-btn" data-icon="◆" onclick="showPage('marcas',this)"><span>Marcas & Líneas</span></button>
+  <button id="tab-resumen" class="nav-btn" data-icon="▥" onclick="showPage('resumen',this)"><span>Resumen Total</span></button>
+  <button id="tab-finanzas" class="nav-btn" data-icon="∑" onclick="showPage('finanzas',this)"><span>Finanzas</span></button>
+  <button id="tab-programas" class="nav-btn" data-icon="★" onclick="showPage('programas',this)"><span>Informe puntos</span></button>
+  <button id="tab-glpi" class="nav-btn" data-icon="⚙" onclick="showPage('glpi',this)"><span>Tickets GLPI</span></button>
 </nav>
 
 <main class="app">
@@ -120,7 +134,7 @@
 
     <div class="filters gerencia-period-controls">
       <div class="filter-group">
-        <div class="filter-label">Mes gerencia</div>
+        <label class="filter-label" for="sel-gerencia-mes">Mes gerencia</label>
         <select id="sel-gerencia-mes" onchange="setGerenciaMonthFilter(this.value)">
           <option value="">Todos los meses</option>
         </select>
@@ -188,17 +202,17 @@
 <div class="page" id="page-director">
   <div class="filters">
     <div class="filter-group">
-      <div class="filter-label">Director</div>
+      <label class="filter-label" for="sel-director">Director</label>
       <select id="sel-director" onchange="renderDirector()"></select>
     </div>
     <div class="filter-group">
-      <div class="filter-label">Mes</div>
+      <label class="filter-label" for="sel-dir-mes">Mes</label>
       <select id="sel-dir-mes" onchange="renderDirector()">
         <option value="">Todos</option>
       </select>
     </div>
     <div class="filter-group">
-      <div class="filter-label">Estado</div>
+      <label class="filter-label" for="sel-dir-estado">Estado</label>
       <select id="sel-dir-estado" onchange="renderDirector()">
         <option value="">Todos</option>
         <option value="GANADA">GANADA</option>
@@ -236,17 +250,17 @@
 
   <div class="filters" style="margin-top:8px">
     <div class="filter-group">
-      <div class="filter-label">Ejecutivo</div>
+      <label class="filter-label" for="sel-ejecutivo">Ejecutivo</label>
       <select id="sel-ejecutivo" onchange="renderEjecutivo()"></select>
     </div>
     <div class="filter-group">
-      <div class="filter-label">Mes</div>
+      <label class="filter-label" for="sel-ej-mes">Mes</label>
       <select id="sel-ej-mes" onchange="renderEjecutivo()">
         <option value="">Todos</option>
       </select>
     </div>
     <div class="filter-group">
-      <div class="filter-label">Estado</div>
+      <label class="filter-label" for="sel-ej-estado">Estado</label>
       <select id="sel-ej-estado" onchange="renderEjecutivo()">
         <option value="">Todos</option>
         <option value="GANADA">GANADA</option>
@@ -265,24 +279,24 @@
 <div class="page" id="page-sales">
   <div class="section-hd"><h2>Sales Support</h2><span class="section-tag">REPORTE OPERATIVO</span></div>
   <div class="sales-subnav" role="tablist" aria-label="Vista Sales Support">
-    <button id="btn-sales-reporte" class="sales-subnav-btn active" type="button" onclick="setSalesView('reporte')">Sales Support</button>
-    <button id="btn-sales-pendientes" class="sales-subnav-btn" type="button" onclick="setSalesView('pendientes')">Pendientes</button>
+    <button id="btn-sales-reporte" class="sales-subnav-btn active" type="button" role="tab" aria-selected="true" onclick="setSalesView('reporte')">Sales Support</button>
+    <button id="btn-sales-pendientes" class="sales-subnav-btn" type="button" role="tab" aria-selected="false" onclick="setSalesView('pendientes')">Pendientes</button>
   </div>
   <div class="persona-grid" id="sales-support-grid"></div>
 
   <div class="filters" style="margin-top:8px">
     <div class="filter-group">
-      <div class="filter-label">Sales Support</div>
+      <label class="filter-label" for="sel-sales-support">Sales Support</label>
       <select id="sel-sales-support" onchange="renderSales()"></select>
     </div>
     <div class="filter-group" id="sales-month-filter">
-      <div class="filter-label">Mes</div>
+      <label class="filter-label" for="sel-sales-mes">Mes</label>
       <select id="sel-sales-mes" onchange="renderSales()">
         <option value="">Todos</option>
       </select>
     </div>
     <div class="filter-group" id="sales-state-filter">
-      <div class="filter-label">Estado</div>
+      <label class="filter-label" for="sel-sales-estado">Estado</label>
       <select id="sel-sales-estado" onchange="renderSales()">
         <option value="">Todos</option>
         <option value="GANADA">GANADA</option>
@@ -292,13 +306,13 @@
       </select>
     </div>
     <div class="filter-group" id="sales-pending-type-filter" style="display:none">
-      <div class="filter-label">Pendiente</div>
+      <label class="filter-label" for="sel-sales-pendiente">Pendiente</label>
       <select id="sel-sales-pendiente" onchange="setSalesPendingFilter('pendiente', this.value)">
         <option value="">Todos</option>
       </select>
     </div>
     <div class="filter-group" id="sales-pending-category-filter" style="display:none">
-      <div class="filter-label">Categoria</div>
+      <label class="filter-label" for="sel-sales-categoria">Categoría</label>
       <select id="sel-sales-categoria" onchange="setSalesPendingFilter('categoria', this.value)">
         <option value="">Todas</option>
       </select>
@@ -322,17 +336,17 @@
 
   <div class="filters" style="margin-top:8px">
     <div class="filter-group">
-      <div class="filter-label">Preventa</div>
+      <label class="filter-label" for="sel-preventa">Preventa</label>
       <select id="sel-preventa" onchange="renderPreventa()"></select>
     </div>
     <div class="filter-group">
-      <div class="filter-label">Mes</div>
+      <label class="filter-label" for="sel-preventa-mes">Mes</label>
       <select id="sel-preventa-mes" onchange="renderPreventa()">
         <option value="">Todos</option>
       </select>
     </div>
     <div class="filter-group">
-      <div class="filter-label">Estado</div>
+      <label class="filter-label" for="sel-preventa-estado">Estado</label>
       <select id="sel-preventa-estado" onchange="renderPreventa()">
         <option value="">Todos</option>
         <option value="GANADA">GANADA</option>
@@ -357,7 +371,7 @@
 
   <div class="filters" style="margin-top:4px">
     <div class="filter-group">
-      <div class="filter-label">Estado detalle</div>
+      <label class="filter-label" for="sel-divisa-estado">Estado detalle</label>
       <select id="sel-divisa-estado" onchange="setDivisaEstadoFilter(this.value)">
         <option value="">Todos</option>
         <option value="GANADA" selected>GANADA</option>
@@ -431,7 +445,7 @@
       <div class="chart-hd">Top Marca por Ejecutivo</div>
       <div class="filters" id="marca-director-filter" style="margin:-2px 0 12px">
         <div class="filter-group">
-          <div class="filter-label">Grupo Director</div>
+          <label class="filter-label" for="sel-marca-director">Grupo Director</label>
           <select id="sel-marca-director" onchange="renderMarcas()"></select>
         </div>
       </div>
@@ -656,9 +670,9 @@
 
 </main>
 
-<script src="src/scripts/programa-puntos-canal.js?v=20260715-report2"></script>
-<script src="src/scripts/glpi.js?v=20260728-glpi2"></script>
-<script src="src/scripts/main.js?v=20260724-ejecutivo1"></script>
+<script src="src/scripts/programa-puntos-canal.js?v=20260727-visual-refresh1"></script>
+<script src="src/scripts/glpi.js?v=20260727-current-month1"></script>
+<script src="src/scripts/main.js?v=20260727-current-month1"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->
