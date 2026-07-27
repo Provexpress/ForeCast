@@ -162,7 +162,7 @@ api.state.tickets = [
   ticket(9, 'resolved', 'Grupo B', 'Carla', { daysSolution:10 }),
   ticket(10, 'closed', 'Grupo B', 'Carla', { daysSolution:8, daysClosed:12 })
 ];
-api.state.tickets[0].description = 'Datos del formulario\n1) Empresa: Pluxee Colombia SAS\n2) Labor a realizar: Primera línea\nSegunda línea\nObservación final del caso';
+api.state.tickets[0].description = 'Datos del formularioSection1) Empresa. : Pluxee Colombia SAS2) Labor a realizar: Primera línea\nSegunda línea\nObservación final del caso';
 
 api.setGroup('Grupo A');
 let metrics = api.getContextMetrics();
@@ -186,10 +186,13 @@ assert.equal(metrics.statusMetrics.waiting.averageDays, 8);
 api.renderDetail(api.state.tickets[0]);
 const detailMarkup = getElement('glpi-detail-content').innerHTML;
 assert.match(detailMarkup, /Descripción completa del caso/);
-assert.match(detailMarkup, /Datos del formulario\n1\) Empresa: Pluxee Colombia SAS/);
+assert.match(detailMarkup, /class="glpi-description-list"/);
+assert.match(detailMarkup, /class="glpi-description-number">1<\/span>/);
+assert.match(detailMarkup, /<strong>Empresa<\/strong>/);
 assert.match(detailMarkup, /Segunda línea\nObservación final del caso/);
-assert.match(detailMarkup, /Campos identificados/);
 assert.match(detailMarkup, /Pluxee Colombia SAS/);
+assert.doesNotMatch(detailMarkup, /Datos del formularioSection1\)/);
+assert.doesNotMatch(detailMarkup, /Campos identificados/);
 
 api.renderKpis();
 const groupCards = getElement('glpi-kpis').innerHTML;

@@ -871,10 +871,27 @@
       const segment = source.slice(start.index + start.markerLength, next ? next.index : source.length).trim();
       const separator = segment.indexOf(':');
       return {
-        label: separator >= 0 ? segment.slice(0, separator).trim() : `Campo ${start.number}`,
-        value: separator >= 0 ? segment.slice(separator + 1).trim() : segment
+        label: separator >= 0
+          ? segment.slice(0, separator).replace(/^[\s.:\-]+|[\s.:\-]+$/g, '').trim()
+          : `Campo ${start.number}`,
+        value: separator >= 0
+          ? segment.slice(separator + 1).replace(/^[\s.:\-]+/, '').trim()
+          : segment
       };
     }).filter(item => item.label || item.value);
+  }
+
+  function renderDescriptionContent(description, components){
+    if(!components.length) {
+      return `<p class="glpi-description-plain glpi-description-full">${escapeHtml(description || 'Sin descripción registrada')}</p>`;
+    }
+    return `<ol class="glpi-description-list">${components.map((component, index) => `<li>
+      <span class="glpi-description-number">${index + 1}</span>
+      <div>
+        <strong>${escapeHtml(component.label || `Campo ${index + 1}`)}</strong>
+        <p>${escapeHtml(component.value || 'Sin información')}</p>
+      </div>
+    </li>`).join('')}</ol>`;
   }
 
   function renderDetail(ticket){
@@ -904,14 +921,7 @@
       </div>
       <section class="glpi-description-section">
         <h3>Descripción completa del caso</h3>
-        <p class="glpi-description-plain glpi-description-full">${escapeHtml(ticket.description || 'Sin descripción registrada')}</p>
-        ${components.length ? `<div class="glpi-components-section">
-          <h3>Campos identificados</h3>
-          <div class="glpi-component-list">${components.map(component => `<article>
-          <span>${escapeHtml(component.label || 'Campo')}</span>
-          <p>${escapeHtml(component.value || 'Sin información')}</p>
-        </article>`).join('')}</div>
-        </div>` : ''}
+        ${renderDescriptionContent(ticket.description, components)}
       </section>`;
   }
 
