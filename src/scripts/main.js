@@ -5302,6 +5302,79 @@ function renderDirector(){
       </div>
     </section>
 
+    <!-- DESGLOSE DE CUMPLIMIENTO POR EJECUTIVO COMERCIAL -->
+    <section class="quota-team-breakdown" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; margin: 20px 0 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--corp-cyan);">DESGLOSE DE CUMPLIMIENTO POR EJECUTIVO • API POWER BI</div>
+          <div style="font-size: 13px; color: var(--text2); margin-top: 2px;">Detalle individual de cuota, ventas y margen logrado de los ${execs.length} comerciales del equipo</div>
+        </div>
+        <span class="section-tag" style="background: rgba(16,185,129,0.12); color: var(--corp-green); border-color: rgba(16,185,129,0.3); font-weight: 700;">🟢 ${execs.length} Comerciales Evaluados</span>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="forecast-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+          <thead>
+            <tr style="background: rgba(255,255,255,0.03); color: var(--text2); text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">
+              <th style="padding: 12px 14px; text-align: left;">Ejecutivo Comercial</th>
+              <th style="padding: 12px 14px; text-align: right;">Cuota Mensual</th>
+              <th style="padding: 12px 14px; text-align: right;">Utilidad API (Avance)</th>
+              <th style="padding: 12px 14px; text-align: right;">Ventas Totales</th>
+              <th style="padding: 12px 14px; text-align: right;">Faltante Meta</th>
+              <th style="padding: 12px 14px; text-align: center; width: 170px;">% Cumplimiento</th>
+              <th style="padding: 12px 14px; text-align: center;">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${execs.map((e, idx) => {
+              const eCuota = getExecutiveCuota(e);
+              const eApiData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(e, mes) : null;
+              const eData = data.filter(r => (r['COMERCIAL']||'').trim() === e);
+              const eUtilidad = eApiData ? eApiData.utilidad : (sumUtilidad(eData, 'COP') + (sumUtilidad(eData, 'USD') * trm));
+              const eVentas = eApiData ? eApiData.mercancia : eData.reduce((s,r) => s + toCOP(r), 0);
+              const ePct = eCuota > 0 ? (eUtilidad / eCuota) * 100 : 0;
+              const eFaltante = Math.max(0, eCuota - eUtilidad);
+              const c = COLORS[idx % COLORS.length];
+              
+              let badgeStyle = 'background: rgba(239, 68, 68, 0.15); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.3);';
+              let badgeLabel = '⚠️ En Riesgo';
+              if (ePct >= 100) {
+                badgeStyle = 'background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.3);';
+                badgeLabel = '🏆 Meta Alcanzada';
+              } else if (ePct >= 50) {
+                badgeStyle = 'background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.3);';
+                badgeLabel = '📈 En Camino';
+              }
+
+              return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer;" onclick="${escAttr(jsCall('selectDirectorExec', e))}">
+                <td style="padding: 12px 14px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 10px;">
+                  <div style="width: 28px; height: 28px; border-radius: 50%; background: ${c}25; border: 1.5px solid ${c}60; color: ${c}; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800;">
+                    ${escHtml(initials(e))}
+                  </div>
+                  <span>${escHtml(e)}</span>
+                </td>
+                <td style="padding: 12px 14px; text-align: right; color: var(--text2); font-weight: 600;">${fmtCOP(eCuota)}</td>
+                <td style="padding: 12px 14px; text-align: right; color: var(--corp-green); font-weight: 800;">${fmtCOP(eUtilidad)}</td>
+                <td style="padding: 12px 14px; text-align: right; color: var(--corp-blue2); font-weight: 600;">${fmtCOP(eVentas)}</td>
+                <td style="padding: 12px 14px; text-align: right; color: ${eFaltante > 0 ? 'var(--corp-amber)' : 'var(--text3)'}; font-weight: 600;">${fmtCOP(eFaltante)}</td>
+                <td style="padding: 12px 14px; text-align: center;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="flex: 1; background: rgba(255,255,255,0.08); height: 8px; border-radius: 4px; overflow: hidden;">
+                      <div style="background: linear-gradient(90deg, ${c}, #10B981); height: 100%; width: ${Math.min(Math.max(ePct, 0), 100)}%;"></div>
+                    </div>
+                    <span style="font-size: 11px; font-weight: 800; color: var(--text); min-width: 40px; text-align: right;">${ePct.toFixed(1)}%</span>
+                  </div>
+                </td>
+                <td style="padding: 12px 14px; text-align: center;">
+                  <span style="padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 700; ${badgeStyle}">${badgeLabel}</span>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <div class="section-hd"><h2>${escHtml(dir)}</h2><span class="section-tag">DIRECTOR</span></div>
     
     <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
