@@ -20,7 +20,7 @@
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="src/styles/main.css?v=20260727-glpi-analytics1">
+<link rel="stylesheet" href="src/styles/main.css?v=20260727-glpi-statuses1">
 
 <!-- Microsoft Authentication Library -->
 <script src="src/config/estructura-comercial-2026.js?v=20260727-adriana1"></script>
@@ -566,11 +566,11 @@
         <span>Estado</span>
         <select id="glpi-status-filter" onchange="GlpiModule.setStatus(this.value)">
           <option value="all">Todos</option>
-          <option value="pending">Pendientes (nuevos + abiertos)</option>
-          <option value="new">Nuevos</option>
-          <option value="open">Abiertos</option>
-          <option value="above_average">Pendientes sobre el promedio</option>
-          <option value="closed">Cerrados</option>
+          <option value="new">Nuevo</option>
+          <option value="in_progress">En curso (asignada)</option>
+          <option value="waiting">En espera</option>
+          <option value="resolved">Resueltas</option>
+          <option value="closed">Cerrado</option>
         </select>
       </label>
       <label class="glpi-field">
@@ -674,7 +674,7 @@
 </main>
 
 <script src="src/scripts/programa-puntos-canal.js?v=20260727-visual-refresh1"></script>
-<script src="src/scripts/glpi.js?v=20260727-glpi-analytics1"></script>
+<script src="src/scripts/glpi.js?v=20260727-glpi-statuses1"></script>
 <script src="src/scripts/main.js?v=20260727-current-month1"></script>
 
 

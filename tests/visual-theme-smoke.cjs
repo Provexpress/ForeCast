@@ -23,6 +23,9 @@ assert.match(css, /\.filters:not\(\.program-channel-filters\)/);
 assert.match(css, /\.app-empty-state\s*\{/);
 assert.match(css, /\[data-theme="light"\] td\.td-cop/);
 assert.match(css, /\.glpi-status-new\{color:var\(--status-info-fg\)/);
+assert.match(css, /\.glpi-status-in-progress\{color:var\(--status-warning-fg\)/);
+assert.match(css, /\.glpi-status-waiting\{color:var\(--status-neutral-fg\)/);
+assert.match(css, /\.glpi-status-resolved\{color:var\(--status-success-fg\)/);
 assert.match(css, /\.glpi-context-summary\s*\{/);
 assert.match(css, /\.glpi-time-over\{color:var\(--status-danger-fg\)/);
 
@@ -37,7 +40,7 @@ assert.match(html, /id="glpi-context-summary"[\s\S]*aria-live="polite"/);
 assert.doesNotMatch(html, /id="user-badge" style="[^"]*background:/);
 assert.ok((html.match(/v=20260727-visual-refresh1/g) || []).length >= 2);
 assert.equal((html.match(/v=20260727-current-month1/g) || []).length, 2);
-assert.equal((html.match(/v=20260727-glpi-analytics1/g) || []).length, 2);
+assert.equal((html.match(/v=20260727-glpi-statuses1/g) || []).length, 2);
 
 assert.match(main, /new CustomEvent\('forecast:themechange'/);
 assert.match(main, /function enhanceKeyboardActions/);

@@ -145,8 +145,19 @@
   function getStatusKey(value){
     const normalized = normalizeText(value);
     if(normalized.includes('nuevo')) return 'new';
-    if(normalized.includes('cerrad') || normalized.includes('resuelt') || normalized.includes('solucion')) return 'closed';
-    return 'open';
+    if(normalized.includes('espera')) return 'waiting';
+    if(normalized.includes('resuelt') || normalized.includes('solucion')) return 'resolved';
+    if(normalized.includes('cerrad')) return 'closed';
+    if(normalized.includes('curso') || normalized.includes('asignad')) return 'in_progress';
+    return 'unknown';
+  }
+
+  function isActiveStatus(statusKey){
+    return ['new','in_progress','waiting'].includes(statusKey);
+  }
+
+  function isTerminalStatus(statusKey){
+    return ['resolved','closed'].includes(statusKey);
   }
 
   function splitPeople(value){
@@ -246,6 +257,7 @@
     const id = normalizeTicketId(getField(lookup, ['ID']));
     const openDate = dateToIso(getField(lookup, ['Fecha de Apertura']));
     const solutionDate = dateToIso(getField(lookup, ['Fecha de solución', 'Fecha de solucion']));
+    const closeDate = dateToIso(getField(lookup, ['Fecha de cierre', 'Fecha de cerrado']));
     const status = cleanPlainText(getField(lookup, ['Estado'])) || 'Sin estado';
     const statusKey = getStatusKey(status);
     const requester = cleanPersonName(getField(lookup, ['Solicitante - Solicitante', 'Solicitante'])) || 'Sin solicitante';
@@ -253,12 +265,16 @@
     const directorGroup = resolveDirectorGroup(requester);
     const technicians = splitPeople(getField(lookup, ['Asignado a: - Técnico', 'Asignado a - Técnico', 'Técnico']));
     const sourceDaysSolution = parseNumber(getField(lookup, ['Días en Solución', 'Dias en Solucion']));
+    const sourceDaysClosed = parseNumber(getField(lookup, ['Días en Cierre', 'Dias en Cierre', 'Días para cerrar', 'Dias para cerrar']));
     const sourceDaysOpen = parseNumber(getField(lookup, ['Días Abierto', 'Dias Abierto']));
     const daysSolution = sourceDaysSolution === null
       ? (solutionDate ? diffDays(openDate, solutionDate) : null)
       : sourceDaysSolution;
+    const daysClosed = sourceDaysClosed === null
+      ? (closeDate ? diffDays(openDate, closeDate) : daysSolution)
+      : sourceDaysClosed;
     const calculatedDaysOpen = diffDays(openDate);
-    const daysOpen = statusKey === 'closed'
+    const daysOpen = isTerminalStatus(statusKey)
       ? null
       : (calculatedDaysOpen === null
         ? sourceDaysOpen
@@ -271,6 +287,7 @@
       statusKey,
       openDate,
       solutionDate,
+      closeDate,
       period: openDate.slice(0, 7),
       technicians,
       category,
@@ -281,6 +298,7 @@
       description: cleanPlainText(getField(lookup, ['Descripción', 'Descripcion'])),
       requester,
       daysSolution,
+      daysClosed,
       daysOpen
     };
   }
@@ -292,6 +310,7 @@
       candidate.status,
       candidate.openDate,
       candidate.solutionDate,
+      candidate.closeDate,
       candidate.category,
       candidate.description,
       candidate.requester
@@ -300,6 +319,7 @@
       current.status,
       current.openDate,
       current.solutionDate,
+      current.closeDate,
       current.category,
       current.description,
       current.requester
@@ -309,6 +329,7 @@
     merged.technicians = [...new Set([...(current.technicians || []), ...(candidate.technicians || [])])];
     if((candidate.description || '').length > (current.description || '').length) merged.description = candidate.description;
     if(current.daysSolution !== null && current.daysSolution !== undefined) merged.daysSolution = current.daysSolution;
+    if(current.daysClosed !== null && current.daysClosed !== undefined) merged.daysClosed = current.daysClosed;
     if(current.daysOpen !== null && current.daysOpen !== undefined) merged.daysOpen = current.daysOpen;
     return merged;
   }
@@ -433,29 +454,50 @@
   function getContextMetrics(tickets){
     const context = tickets || getContextTickets();
     const newTickets = context.filter(ticket => ticket.statusKey === 'new');
-    const openTickets = context.filter(ticket => ticket.statusKey === 'open');
-    const pendingTickets = [...newTickets, ...openTickets];
+    const inProgressTickets = context.filter(ticket => ticket.statusKey === 'in_progress');
+    const waitingTickets = context.filter(ticket => ticket.statusKey === 'waiting');
+    const activeTickets = context.filter(ticket => isActiveStatus(ticket.statusKey));
+    const resolvedTickets = context.filter(ticket => ticket.statusKey === 'resolved');
     const closedTickets = context.filter(ticket => ticket.statusKey === 'closed');
-    const pendingDays = getFiniteNumbers(pendingTickets.map(ticket => ticket.daysOpen));
-    const closedDays = getFiniteNumbers(closedTickets.map(ticket => ticket.daysSolution));
-    const averageOpenDays = average(pendingDays);
+    const activeDays = getFiniteNumbers(activeTickets.map(ticket => ticket.daysOpen));
+    const resolvedDays = getFiniteNumbers(resolvedTickets.map(ticket => ticket.daysSolution));
+    const closedDays = getFiniteNumbers(closedTickets.map(ticket => ticket.daysClosed));
+    const averageOpenDays = average(activeDays);
+    const averageResolvedDays = average(resolvedDays);
     const averageClosedDays = average(closedDays);
-    const aboveAverageTickets = averageOpenDays === null
-      ? []
-      : pendingTickets.filter(ticket => isFiniteMetric(ticket.daysOpen) && Number(ticket.daysOpen) > averageOpenDays);
+    const buildStatusMetrics = (statusTickets, field) => {
+      const values = getFiniteNumbers(statusTickets.map(ticket => ticket[field]));
+      return {
+        count:statusTickets.length,
+        averageDays:average(values),
+        medianDays:median(values),
+        maxDays:maximum(values)
+      };
+    };
     return {
       context,
       newTickets,
-      openTickets,
-      pendingTickets,
+      inProgressTickets,
+      waitingTickets,
+      activeTickets,
+      resolvedTickets,
       closedTickets,
-      aboveAverageTickets,
       averageOpenDays,
-      medianOpenDays:median(pendingDays),
-      maxOpenDays:maximum(pendingDays),
+      medianOpenDays:median(activeDays),
+      maxOpenDays:maximum(activeDays),
+      averageResolvedDays,
+      medianResolvedDays:median(resolvedDays),
+      maxResolvedDays:maximum(resolvedDays),
       averageClosedDays,
       medianClosedDays:median(closedDays),
-      maxClosedDays:maximum(closedDays)
+      maxClosedDays:maximum(closedDays),
+      statusMetrics:{
+        new:buildStatusMetrics(newTickets, 'daysOpen'),
+        in_progress:buildStatusMetrics(inProgressTickets, 'daysOpen'),
+        waiting:buildStatusMetrics(waitingTickets, 'daysOpen'),
+        resolved:buildStatusMetrics(resolvedTickets, 'daysSolution'),
+        closed:buildStatusMetrics(closedTickets, 'daysClosed')
+      }
     };
   }
 
@@ -463,8 +505,6 @@
     const context = tickets || [];
     const selected = status || state.status;
     if(selected === 'all') return context;
-    if(selected === 'pending') return context.filter(ticket => ticket.statusKey === 'new' || ticket.statusKey === 'open');
-    if(selected === 'above_average') return getContextMetrics(context).aboveAverageTickets;
     return context.filter(ticket => ticket.statusKey === selected);
   }
 
@@ -475,16 +515,22 @@
   function getStatusLabel(key){
     return ({
       all:'Todos los estados',
-      pending:'Pendientes',
-      new:'Nuevos',
-      open:'Abiertos',
-      above_average:'Pendientes sobre el promedio',
-      closed:'Cerrados'
+      new:'Nuevo',
+      in_progress:'En curso (asignada)',
+      waiting:'En espera',
+      resolved:'Resueltas',
+      closed:'Cerrado'
     })[key] || 'Sin estado';
   }
 
   function getStatusClass(key){
-    return ({ new:'new', open:'open', closed:'closed' })[key] || 'open';
+    return ({
+      new:'new',
+      in_progress:'in-progress',
+      waiting:'waiting',
+      resolved:'resolved',
+      closed:'closed'
+    })[key] || 'unknown';
   }
 
   function renderLoading(){
@@ -564,11 +610,11 @@
     if(statusSelect) {
       statusSelect.innerHTML = [
         ['all','Todos'],
-        ['pending','Pendientes (nuevos + abiertos)'],
-        ['new','Nuevos'],
-        ['open','Abiertos'],
-        ['above_average','Pendientes sobre el promedio'],
-        ['closed','Cerrados']
+        ['new','Nuevo'],
+        ['in_progress','En curso (asignada)'],
+        ['waiting','En espera'],
+        ['resolved','Resueltas'],
+        ['closed','Cerrado']
       ].map(([value, label]) => `<option value="${value}"${value === state.status ? ' selected' : ''}>${label}</option>`).join('');
       statusSelect.value = state.status;
     }
@@ -603,41 +649,41 @@
       <div class="glpi-context-chips">${chips}</div>`;
   }
 
-  function kpiCard(kind, label, value, detail, filterValue, unit){
-    const active = state.status === filterValue;
-    return `<button type="button" class="glpi-kpi-card glpi-kpi-${escapeAttr(kind)}${active ? ' active' : ''}" onclick="GlpiModule.toggleStatus('${escapeAttr(filterValue)}')" aria-pressed="${active ? 'true' : 'false'}">
+  function kpiCard(kind, label, value, detail, filterValue){
+    const clickable = Boolean(filterValue);
+    const active = clickable && state.status === filterValue;
+    const tag = clickable ? 'button' : 'article';
+    const action = clickable
+      ? ` type="button" onclick="GlpiModule.toggleStatus('${escapeAttr(filterValue)}')" aria-pressed="${active ? 'true' : 'false'}"`
+      : '';
+    return `<${tag} class="glpi-kpi-card glpi-kpi-${escapeAttr(kind)}${active ? ' active' : ''}"${action}>
       <span class="glpi-kpi-label">${escapeHtml(label)}</span>
-      <span class="glpi-kpi-value-line"><strong>${escapeHtml(value)}</strong>${unit ? `<span>${escapeHtml(unit)}</span>` : ''}</span>
+      <span class="glpi-kpi-value-line"><strong>${escapeHtml(value)}</strong></span>
       <small>${escapeHtml(detail)}</small>
-    </button>`;
+    </${tag}>`;
+  }
+
+  function formatStatusTimeDetail(metrics, action){
+    if(!metrics.count) return 'Sin tickets en este estado';
+    if(metrics.averageDays === null) return `Sin tiempo calculable · ${metrics.count} tickets`;
+    return `Prom. ${formatDaysWithUnit(metrics.averageDays)} ${action} · máximo ${formatDaysWithUnit(metrics.maxDays)}`;
   }
 
   function renderKpis(){
     const host = document.getElementById('glpi-kpis');
     if(!host) return;
     const metrics = getContextMetrics();
-    const openAverageLabel = metrics.averageOpenDays === null
-      ? 'Sin días calculables'
-      : `Prom. ${formatDaysWithUnit(metrics.averageOpenDays)} abiertos`;
-    const closedAverageLabel = metrics.averageClosedDays === null
-      ? 'Sin cierres calculables'
-      : `Prom. ${formatDaysWithUnit(metrics.averageClosedDays)} para cerrar`;
-    const openStatsDetail = metrics.averageOpenDays === null
-      ? 'Sin pendientes con fecha de apertura'
-      : `Promedio · mediana ${formatDaysWithUnit(metrics.medianOpenDays)} · máximo ${formatDaysWithUnit(metrics.maxOpenDays)}`;
-    const closedStatsDetail = metrics.averageClosedDays === null
-      ? (metrics.closedTickets.length ? 'Cerrados sin duración calculable' : 'Sin tickets cerrados')
-      : `Promedio · mediana ${formatDaysWithUnit(metrics.medianClosedDays)} · máximo ${formatDaysWithUnit(metrics.maxClosedDays)}`;
-    const closedCountDetail = metrics.averageClosedDays === null
-      ? closedStatsDetail
-      : `${closedAverageLabel} · máximo ${formatDaysWithUnit(metrics.maxClosedDays)}`;
+    const activeDetail = metrics.averageOpenDays === null
+      ? 'Sin antigüedad calculable'
+      : `Prom. ${formatDaysWithUnit(metrics.averageOpenDays)} abiertos · máximo ${formatDaysWithUnit(metrics.maxOpenDays)}`;
     host.innerHTML = [
       kpiCard('total', 'Tickets del contexto', metrics.context.length.toLocaleString('es-CO'), formatMonth(state.period), 'all'),
-      kpiCard('pending', 'Pendientes', metrics.pendingTickets.length.toLocaleString('es-CO'), `${metrics.newTickets.length} nuevos · ${metrics.openTickets.length} en gestión · ${openAverageLabel}`, 'pending'),
-      kpiCard('age', 'Antigüedad abierta', formatDays(metrics.averageOpenDays), openStatsDetail, 'pending', metrics.averageOpenDays === null ? '' : 'días'),
-      kpiCard('above', 'Pendientes sobre promedio', metrics.aboveAverageTickets.length.toLocaleString('es-CO'), metrics.averageOpenDays === null ? 'Sin promedio comparable' : `Llevan más de ${formatDaysWithUnit(metrics.averageOpenDays)} abiertos`, 'above_average'),
-      kpiCard('closed', 'Cerrados', metrics.closedTickets.length.toLocaleString('es-CO'), closedCountDetail, 'closed'),
-      kpiCard('solution', 'Tiempo de cierre', formatDays(metrics.averageClosedDays), closedStatsDetail, 'closed', metrics.averageClosedDays === null ? '' : 'días')
+      kpiCard('active', 'Tickets activos', metrics.activeTickets.length.toLocaleString('es-CO'), activeDetail),
+      kpiCard('new', 'Nuevo', metrics.newTickets.length.toLocaleString('es-CO'), formatStatusTimeDetail(metrics.statusMetrics.new, 'abiertos'), 'new'),
+      kpiCard('in-progress', 'En curso (asignada)', metrics.inProgressTickets.length.toLocaleString('es-CO'), formatStatusTimeDetail(metrics.statusMetrics.in_progress, 'abiertos'), 'in_progress'),
+      kpiCard('waiting', 'En espera', metrics.waitingTickets.length.toLocaleString('es-CO'), formatStatusTimeDetail(metrics.statusMetrics.waiting, 'abiertos'), 'waiting'),
+      kpiCard('resolved', 'Resueltas', metrics.resolvedTickets.length.toLocaleString('es-CO'), formatStatusTimeDetail(metrics.statusMetrics.resolved, 'para resolverse'), 'resolved'),
+      kpiCard('closed', 'Cerrado', metrics.closedTickets.length.toLocaleString('es-CO'), formatStatusTimeDetail(metrics.statusMetrics.closed, 'para cerrar'), 'closed')
     ].join('');
   }
 
@@ -649,22 +695,27 @@
         name,
         total:0,
         new:0,
-        open:0,
+        in_progress:0,
+        waiting:0,
+        resolved:0,
         closed:0,
         openDays:[],
+        resolvedDays:[],
         closedDays:[]
       });
       const group = groups.get(name);
       group.total += 1;
-      group[ticket.statusKey] += 1;
-      if(ticket.statusKey === 'closed' && isFiniteMetric(ticket.daysSolution)) group.closedDays.push(Number(ticket.daysSolution));
-      if(ticket.statusKey !== 'closed' && isFiniteMetric(ticket.daysOpen)) group.openDays.push(Number(ticket.daysOpen));
+      if(Object.prototype.hasOwnProperty.call(group, ticket.statusKey)) group[ticket.statusKey] += 1;
+      if(isActiveStatus(ticket.statusKey) && isFiniteMetric(ticket.daysOpen)) group.openDays.push(Number(ticket.daysOpen));
+      if(ticket.statusKey === 'resolved' && isFiniteMetric(ticket.daysSolution)) group.resolvedDays.push(Number(ticket.daysSolution));
+      if(ticket.statusKey === 'closed' && isFiniteMetric(ticket.daysClosed)) group.closedDays.push(Number(ticket.daysClosed));
     });
     return [...groups.values()]
       .map(group => ({
         ...group,
-        pending:group.new + group.open,
+        active:group.new + group.in_progress + group.waiting,
         averageOpenDays:average(group.openDays),
+        averageResolvedDays:average(group.resolvedDays),
         averageClosedDays:average(group.closedDays)
       }))
       .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'es'));
@@ -690,7 +741,8 @@
         </span>
         <span class="glpi-rank-track"><span style="width:${Math.max(4, group.total / max * 100).toFixed(1)}%"></span></span>
         <span class="glpi-rank-meta">
-          <span><strong>${group.pending}</strong> pendientes · ${formatDaysWithUnit(group.averageOpenDays)} abiertos</span>
+          <span><strong>${group.active}</strong> activos · ${formatDaysWithUnit(group.averageOpenDays)} abiertos</span>
+          <span><strong>${group.resolved}</strong> resueltas · ${formatDaysWithUnit(group.averageResolvedDays)} para resolverse</span>
           <span><strong>${group.closed}</strong> cerrados · ${formatDaysWithUnit(group.averageClosedDays)} para cerrar</span>
         </span>
       </button>`;
@@ -718,17 +770,22 @@
   }
 
   function getTicketTimeInfo(ticket, metrics){
-    const closed = ticket.statusKey === 'closed';
-    const days = closed ? ticket.daysSolution : ticket.daysOpen;
-    const averageDays = closed ? metrics.averageClosedDays : metrics.averageOpenDays;
+    const days = ticket.statusKey === 'closed'
+      ? ticket.daysClosed
+      : (ticket.statusKey === 'resolved' ? ticket.daysSolution : ticket.daysOpen);
+    const statusMetric = metrics.statusMetrics[ticket.statusKey];
+    const averageDays = statusMetric ? statusMetric.averageDays : null;
     const delta = isFiniteMetric(days) && isFiniteMetric(averageDays)
       ? Number(days) - Number(averageDays)
       : null;
+    const label = ticket.statusKey === 'resolved'
+      ? 'Días que tardó en resolverse'
+      : (ticket.statusKey === 'closed' ? 'Días que tardó en cerrar' : 'Días que lleva abierto');
     return {
       days,
       averageDays,
       delta,
-      label:closed ? 'Días que tardó en cerrar' : 'Días que lleva abierto',
+      label,
       comparisonClass:delta === null || Math.abs(delta) < .05 ? 'neutral' : (delta > 0 ? 'over' : 'under'),
       comparison:delta === null
         ? 'Sin promedio comparable'
@@ -833,6 +890,7 @@
       <div class="glpi-detail-metrics">
         <div><span>Apertura</span><strong>${escapeHtml(formatDate(ticket.openDate))}</strong></div>
         <div><span>Solución</span><strong>${escapeHtml(formatDate(ticket.solutionDate))}</strong></div>
+        <div><span>Cierre</span><strong>${escapeHtml(formatDate(ticket.closeDate))}</strong></div>
         <div><span>${escapeHtml(time.label)}</span><strong>${escapeHtml(formatDaysWithUnit(time.days))}</strong></div>
         <div><span>Vs. promedio del contexto</span><strong class="glpi-time-${time.comparisonClass}">${escapeHtml(time.comparison)}</strong></div>
       </div>
@@ -956,13 +1014,13 @@
   }
 
   function setStatus(value){
-    state.status = ['all','pending','new','open','above_average','closed'].includes(value) ? value : 'all';
+    state.status = ['all','new','in_progress','waiting','resolved','closed'].includes(value) ? value : 'all';
     resetPaging();
     renderAll();
   }
 
   function toggleStatus(value){
-    const selected = ['all','pending','new','open','above_average','closed'].includes(value) ? value : 'all';
+    const selected = ['all','new','in_progress','waiting','resolved','closed'].includes(value) ? value : 'all';
     state.status = selected !== 'all' && state.status === selected ? 'all' : selected;
     resetPaging();
     renderAll();
