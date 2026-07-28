@@ -8,9 +8,26 @@
   window.API_UTILIDAD_MESES = {};
 
   
-  // Función para realizar consulta EN VIVO a la API (idéntico a Postman)
+  
+  // Función para realizar consulta EN VIVO a través del Proxy local sin CORS (Idéntico a Postman)
   async function fetchLiveUtilidadFromApi(fechaInicial, fechaFinal) {
     try {
+      // 1. Intentar Proxy local (http://localhost:5001/api/utilidad)
+      const proxyUrl = `http://localhost:5001/api/utilidad?fechaInicial=${fechaInicial}&fechaFinal=${fechaFinal}`;
+      const proxyResp = await fetch(proxyUrl, { method: "GET" });
+      if (proxyResp.ok) {
+        const proxyData = await proxyResp.json();
+        if (proxyData && proxyData.response && proxyData.response.length) {
+          console.log("⚡ [PROXY EN VIVO] Petición en tiempo real exitosa:", proxyData.response.length, "vendedores");
+          return proxyData.response;
+        }
+      }
+    } catch (e) {
+      console.log("ℹ️ Proxy local no activo o no alcanzable, intentando petición directa.");
+    }
+
+    try {
+      // 2. Intentar petición directa por si el navegador lo permite
       const authResp = await fetch("http://152.200.146.226:50010/api/getKey", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -39,7 +56,6 @@
       const resultData = await dataResp.json();
       return resultData.response || [];
     } catch (e) {
-      console.warn("⚠️ La llamada directa del navegador a la API por HTTP/CORS fue prevenida, usando datos sincronizados:", e.message);
       return null;
     }
   }
