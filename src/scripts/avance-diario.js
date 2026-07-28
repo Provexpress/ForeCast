@@ -7,27 +7,90 @@
   window.API_UTILIDAD_DATA = [];
   window.API_UTILIDAD_MESES = {};
 
-  // 1. Cargar datos de la API de Utilidad en el cliente
+  
+  // Función para realizar consulta EN VIVO a la API (idéntico a Postman)
+  async function fetchLiveUtilidadFromApi(fechaInicial, fechaFinal) {
+    try {
+      const authResp = await fetch("http://152.200.146.226:50010/api/getKey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "powerbi", password: "3xpress#2025" })
+      });
+      
+      if (!authResp.ok) return null;
+      const authData = await authResp.json();
+      const token = authData.token || authData.access_token;
+      if (!token) return null;
+
+      const dataResp = await fetch("http://152.200.146.226:50010/consultas/api/consultaUtilidadComercialesDashboardPBI", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({
+          Fecha_Inicial: fechaInicial,
+          Fecha_Final: fechaFinal,
+          Tipo_Utilidad: "venta"
+        })
+      });
+
+      if (!dataResp.ok) return null;
+      const resultData = await dataResp.json();
+      return resultData.response || [];
+    } catch (e) {
+      console.warn("⚠️ La llamada directa del navegador a la API por HTTP/CORS fue prevenida, usando datos sincronizados:", e.message);
+      return null;
+    }
+  }
+
+  // 1. Cargar datos de la API de Utilidad en el cliente (Intenta EN VIVO primero, luego cache)
   async function loadApiUtilidadCache() {
     try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      const curMonthKey = `${year}-${month}`;
+      const fechaInicial = `${curMonthKey}-01`;
+      const fechaFinal = `${year}-${month}-${day}`;
+
+      // Intentar peticion directa EN VIVO a la API (tipo Postman)
+      const liveRows = await fetchLiveUtilidadFromApi(fechaInicial, fechaFinal);
+      if (liveRows && liveRows.length) {
+        window.API_UTILIDAD_DATA = liveRows;
+        if (!window.API_UTILIDAD_MESES) window.API_UTILIDAD_MESES = {};
+        window.API_UTILIDAD_MESES[curMonthKey] = {
+          fechaInicial,
+          fechaFinal,
+          totalVendedores: liveRows.length,
+          vendedores: liveRows
+        };
+        console.log('⚡ Conexión EN VIVO a la API de Power BI establecida exitosamente:', liveRows.length, 'registros');
+      }
+
+      // Cargar cache de respaldo
       const cachePath = 'src/data/api-utilidad-cache.json?v=' + Date.now();
       const resp = await fetch(cachePath);
       if (resp.ok) {
         const data = await resp.json();
-        window.API_UTILIDAD_DATA = data.vendedores || [];
-        window.API_UTILIDAD_MESES = data.meses || {};
-        console.log('✅ API Utilidad Comercial cargada en ForeCast con', Object.keys(window.API_UTILIDAD_MESES).length, 'meses sincronizados');
-        
-        if (typeof window.refreshAvanceDiarioViews === 'function') {
-          window.refreshAvanceDiarioViews();
+        if (!window.API_UTILIDAD_DATA || !window.API_UTILIDAD_DATA.length) {
+          window.API_UTILIDAD_DATA = data.vendedores || [];
         }
+        window.API_UTILIDAD_MESES = Object.assign({}, data.meses || {}, window.API_UTILIDAD_MESES || {});
+        console.log('✅ Base de datos de API cargada en ForeCast con', Object.keys(window.API_UTILIDAD_MESES).length, 'meses');
+      }
+
+      if (typeof window.refreshAvanceDiarioViews === 'function') {
+        window.refreshAvanceDiarioViews();
       }
     } catch (e) {
-      console.warn('⚠️ No se pudo cargar api-utilidad-cache.json, usando fallback local.', e.message);
+      console.warn('⚠️ Error al cargar datos de API Utilidad:', e.message);
     }
   }
 
-    const API_NAME_ALIASES = {
+
+  const API_NAME_ALIASES = {
     "johanna mojica": "Jasbleidy Johana Mojica",
     "jasbleidy mojica": "Jasbleidy Johana Mojica",
     "jasbleidy johana mojica": "Jasbleidy Johana Mojica",
