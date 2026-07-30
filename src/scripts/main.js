@@ -7249,6 +7249,17 @@ async function getForecastFolders(siteId, token){
     .filter(item => item && item.folder)
     .map(item => item.name)
     .filter(name => /^(Grupo|Gupo)\s+/i.test(name) && !isPreventaFolderName(name));
+
+  const role = CURRENT_USER ? CURRENT_USER.role : null;
+  const isGerenciaScope = role === 'gerencia' || role === 'gerencia_director' || isOscarMarcasGlobalScope();
+  if(isGerenciaScope) {
+    const configured = getConfiguredForecastFolders();
+    const merged = [...new Set([...folders, ...configured])];
+    _forecastFolders = merged;
+    console.log('[FORECAST FOLDERS GERENCIA]', { source: 'graph+config', folders: merged });
+    return merged;
+  }
+
   if(folders.length) {
     warnLegacyForecastFolders(folders);
     _forecastFolders = folders;
