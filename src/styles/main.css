@@ -1137,7 +1137,8 @@ svg [data-tooltip]:hover{opacity:.85;filter:drop-shadow(0 6px 14px rgba(45,79,21
   font-size:11px;color:var(--text3);line-height:1.45;
 }
 .director-table-filter{
-  min-width:180px;max-width:220px;
+  display:flex;align-items:center;justify-content:flex-end;gap:10px;
+  min-width:0;max-width:none;flex-shrink:0;
 }
 
 .detail-shell{display:flex;flex-direction:column;gap:16px}
