@@ -509,6 +509,8 @@
     const context = tickets || [];
     const selected = status || state.status;
     if(selected === 'all') return context;
+    if(selected === 'active') return context.filter(ticket => isActiveStatus(ticket.statusKey));
+    if(selected === 'critical') return context.filter(ticket => isActiveStatus(ticket.statusKey) && (ticket.daysOpen || 0) > 15);
     return context.filter(ticket => ticket.statusKey === selected);
   }
 
@@ -519,12 +521,22 @@
   function getStatusLabel(key){
     return ({
       all:'Todos los estados',
+      active:'Tickets activos',
+      critical:'🔥 Casos Críticos (>15d)',
       new:'Nuevo',
       in_progress:'En curso (asignada)',
       waiting:'En espera',
       resolved:'Resueltas',
       closed:'Cerrado'
     })[key] || 'Sin estado';
+  }
+
+  function toggleStatus(value){
+    const valid = ['all','active','critical','new','in_progress','waiting','resolved','closed'];
+    const selected = valid.includes(value) ? value : 'all';
+    state.status = selected !== 'all' && state.status === selected ? 'all' : selected;
+    resetPaging();
+    renderAll();
   }
 
   function getStatusClass(key){
@@ -705,28 +717,29 @@
     }
 
     if(statsEl) {
+      const activeStatus = state.status;
       statsEl.innerHTML = `
-        <div class="glpi-stat-pill glpi-stat-success">
+        <button type="button" class="glpi-stat-pill glpi-stat-success${activeStatus === 'resolved' || activeStatus === 'closed' ? ' active' : ''}" onclick="GlpiModule.toggleStatus('resolved')" aria-pressed="${activeStatus === 'resolved'}">
           <span class="glpi-stat-dot"></span>
           <span class="glpi-stat-text">Resueltos / Cerrados: <strong>${resolvedTotal.toLocaleString('es-CO')}</strong> (${pctResolved}%)</span>
-        </div>
-        <div class="glpi-stat-pill glpi-stat-warning">
+        </button>
+        <button type="button" class="glpi-stat-pill glpi-stat-warning${activeStatus === 'in_progress' ? ' active' : ''}" onclick="GlpiModule.toggleStatus('in_progress')" aria-pressed="${activeStatus === 'in_progress'}">
           <span class="glpi-stat-dot"></span>
           <span class="glpi-stat-text">En Curso (Asignada): <strong>${inProgress.toLocaleString('es-CO')}</strong></span>
-        </div>
-        <div class="glpi-stat-pill glpi-stat-info">
+        </button>
+        <button type="button" class="glpi-stat-pill glpi-stat-info${activeStatus === 'new' ? ' active' : ''}" onclick="GlpiModule.toggleStatus('new')" aria-pressed="${activeStatus === 'new'}">
           <span class="glpi-stat-dot"></span>
           <span class="glpi-stat-text">Nuevos: <strong>${newCount.toLocaleString('es-CO')}</strong></span>
-        </div>
-        <div class="glpi-stat-pill glpi-stat-purple">
+        </button>
+        <button type="button" class="glpi-stat-pill glpi-stat-purple${activeStatus === 'waiting' ? ' active' : ''}" onclick="GlpiModule.toggleStatus('waiting')" aria-pressed="${activeStatus === 'waiting'}">
           <span class="glpi-stat-dot"></span>
           <span class="glpi-stat-text">En Espera: <strong>${waiting.toLocaleString('es-CO')}</strong></span>
-        </div>
+        </button>
         ${criticalCount > 0 ? `
-        <div class="glpi-stat-pill glpi-stat-danger">
+        <button type="button" class="glpi-stat-pill glpi-stat-danger${activeStatus === 'critical' ? ' active' : ''}" onclick="GlpiModule.toggleStatus('critical')" aria-pressed="${activeStatus === 'critical'}">
           <span class="glpi-stat-dot"></span>
           <span class="glpi-stat-text">🔥 Críticos (&gt;15 días): <strong>${criticalCount.toLocaleString('es-CO')}</strong></span>
-        </div>` : ''}
+        </button>` : ''}
       `;
     }
 
@@ -783,8 +796,8 @@
 
     host.innerHTML = [
       kpiCard('total', 'Tickets del contexto', metrics.context.length.toLocaleString('es-CO'), formatMonth(state.period), 'all'),
-      kpiCard('active', 'Tickets activos', metrics.activeTickets.length.toLocaleString('es-CO'), activeDetail),
-      kpiCard('critical', '🔥 Casos Críticos (>15d)', criticalTickets.length.toLocaleString('es-CO'), criticalDetail),
+      kpiCard('active', 'Tickets activos', metrics.activeTickets.length.toLocaleString('es-CO'), activeDetail, 'active'),
+      kpiCard('critical', '🔥 Casos Críticos (>15d)', criticalTickets.length.toLocaleString('es-CO'), criticalDetail, 'critical'),
       kpiCard('new', 'Nuevo', metrics.newTickets.length.toLocaleString('es-CO'), formatStatusTimeDetail(metrics.statusMetrics.new, 'abiertos'), 'new'),
       kpiCard('in-progress', 'En curso (asignada)', metrics.inProgressTickets.length.toLocaleString('es-CO'), formatStatusTimeDetail(metrics.statusMetrics.in_progress, 'abiertos'), 'in_progress'),
       kpiCard('waiting', 'En espera', metrics.waitingTickets.length.toLocaleString('es-CO'), formatStatusTimeDetail(metrics.statusMetrics.waiting, 'abiertos'), 'waiting'),
