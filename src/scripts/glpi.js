@@ -6,6 +6,7 @@
   const GLPI_SHEET_NAME = '2026';
   const PAGE_SIZE = 60;
   let commercialPeopleCache = null;
+  let statusChartInstance = null;
 
   const state = {
     loading: false,
@@ -362,13 +363,14 @@
 
   function ensureDefaultPeriod(){
     const periods = getPeriods();
-    if(state.period && periods.includes(state.period)) return;
+    if(state.period && (state.period === 'all' || periods.includes(state.period))) return;
     state.period = getCurrentPeriod();
   }
 
   function formatMonth(period){
-    if(!period) return 'Sin mes';
+    if(!period || period === 'all') return 'Todos los meses (Visión Global)';
     const [year, month] = period.split('-').map(Number);
+    if(!year || !month) return String(period);
     const date = new Date(Date.UTC(year, month - 1, 1));
     return new Intl.DateTimeFormat('es-CO', { month:'long', year:'numeric', timeZone:'UTC' }).format(date);
   }
@@ -428,7 +430,7 @@
   }
 
   function getMonthTickets(){
-    return state.tickets.filter(ticket => !state.period || ticket.period === state.period);
+    return state.tickets.filter(ticket => !state.period || state.period === 'all' || ticket.period === state.period);
   }
 
   function matchesSearch(ticket){
@@ -567,9 +569,12 @@
   function renderPeriodOptions(){
     const select = document.getElementById('glpi-period');
     if(!select) return;
-    select.innerHTML = getPeriods()
-      .map(period => `<option value="${escapeAttr(period)}"${period === state.period ? ' selected' : ''}>${escapeHtml(formatMonth(period))}</option>`)
-      .join('');
+    const periods = getPeriods();
+    const options = [
+      `<option value="all"${state.period === 'all' || !state.period ? ' selected' : ''}>Todos los meses (Visión Global)</option>`,
+      ...periods.map(period => `<option value="${escapeAttr(period)}"${period === state.period ? ' selected' : ''}>${escapeHtml(formatMonth(period))}</option>`)
+    ];
+    select.innerHTML = options.join('');
   }
 
   function renderFilterOptions(){
@@ -611,7 +616,7 @@
     }
     if(statusSelect) {
       statusSelect.innerHTML = [
-        ['all','Todos'],
+        ['all','Todos los estados'],
         ['new','Nuevo'],
         ['in_progress','En curso (asignada)'],
         ['waiting','En espera'],
@@ -671,6 +676,101 @@
     return `Prom. ${formatDaysWithUnit(metrics.averageDays)} ${action} · máximo ${formatDaysWithUnit(metrics.maxDays)}`;
   }
 
+  function renderStatusDonutChart(metrics){
+    const canvas = document.getElementById('glpi-status-donut-chart');
+    const centerEl = document.getElementById('glpi-donut-center');
+    const statsEl = document.getElementById('glpi-donut-stats');
+    if(!canvas) return;
+
+    if(statusChartInstance) {
+      statusChartInstance.destroy();
+      statusChartInstance = null;
+    }
+
+    const total = metrics.context.length || 0;
+    const resolved = metrics.resolvedTickets.length;
+    const closed = metrics.closedTickets.length;
+    const resolvedTotal = resolved + closed;
+    const inProgress = metrics.inProgressTickets.length;
+    const newCount = metrics.newTickets.length;
+    const waiting = metrics.waitingTickets.length;
+    const criticalCount = metrics.activeTickets.filter(t => (t.daysOpen || 0) > 15).length;
+    const pctResolved = total ? (resolvedTotal / total * 100).toFixed(1) : '0';
+
+    if(centerEl) {
+      centerEl.innerHTML = `
+        <span class="glpi-center-val">${pctResolved}%</span>
+        <span class="glpi-center-lbl">Resueltos</span>
+      `;
+    }
+
+    if(statsEl) {
+      statsEl.innerHTML = `
+        <div class="glpi-stat-pill glpi-stat-success">
+          <span class="glpi-stat-dot"></span>
+          <span class="glpi-stat-text">Resueltos / Cerrados: <strong>${resolvedTotal.toLocaleString('es-CO')}</strong> (${pctResolved}%)</span>
+        </div>
+        <div class="glpi-stat-pill glpi-stat-warning">
+          <span class="glpi-stat-dot"></span>
+          <span class="glpi-stat-text">En Curso (Asignada): <strong>${inProgress.toLocaleString('es-CO')}</strong></span>
+        </div>
+        <div class="glpi-stat-pill glpi-stat-info">
+          <span class="glpi-stat-dot"></span>
+          <span class="glpi-stat-text">Nuevos: <strong>${newCount.toLocaleString('es-CO')}</strong></span>
+        </div>
+        <div class="glpi-stat-pill glpi-stat-purple">
+          <span class="glpi-stat-dot"></span>
+          <span class="glpi-stat-text">En Espera: <strong>${waiting.toLocaleString('es-CO')}</strong></span>
+        </div>
+        ${criticalCount > 0 ? `
+        <div class="glpi-stat-pill glpi-stat-danger">
+          <span class="glpi-stat-dot"></span>
+          <span class="glpi-stat-text">🔥 Críticos (&gt;15 días): <strong>${criticalCount.toLocaleString('es-CO')}</strong></span>
+        </div>` : ''}
+      `;
+    }
+
+    if(typeof Chart === 'undefined') return;
+
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+
+    statusChartInstance = new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: ['Resueltos / Cerrados', 'En curso', 'Nuevos', 'En espera'],
+        datasets: [{
+          data: [resolvedTotal, inProgress, newCount, waiting],
+          backgroundColor: [
+            '#0DBF82',
+            '#F0A020',
+            '#2ABFDF',
+            '#A77BDD'
+          ],
+          borderWidth: 3,
+          borderColor: isLight ? '#FFFFFF' : '#111731',
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '72%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const val = context.raw || 0;
+                const pct = total ? (val / total * 100).toFixed(1) : 0;
+                return ` ${context.label}: ${val} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
   function renderKpis(){
     const host = document.getElementById('glpi-kpis');
     if(!host) return;
@@ -678,9 +778,13 @@
     const activeDetail = metrics.averageOpenDays === null
       ? 'Sin antigüedad calculable'
       : `Prom. ${formatDaysWithUnit(metrics.averageOpenDays)} abiertos · máximo ${formatDaysWithUnit(metrics.maxOpenDays)}`;
+    const criticalTickets = metrics.activeTickets.filter(t => (t.daysOpen || 0) > 15);
+    const criticalDetail = criticalTickets.length ? `${criticalTickets.length} con >15 días sin solución` : 'Sin casos críticos de alta antigüedad';
+
     host.innerHTML = [
       kpiCard('total', 'Tickets del contexto', metrics.context.length.toLocaleString('es-CO'), formatMonth(state.period), 'all'),
       kpiCard('active', 'Tickets activos', metrics.activeTickets.length.toLocaleString('es-CO'), activeDetail),
+      kpiCard('critical', '🔥 Casos Críticos (>15d)', criticalTickets.length.toLocaleString('es-CO'), criticalDetail),
       kpiCard('new', 'Nuevo', metrics.newTickets.length.toLocaleString('es-CO'), formatStatusTimeDetail(metrics.statusMetrics.new, 'abiertos'), 'new'),
       kpiCard('in-progress', 'En curso (asignada)', metrics.inProgressTickets.length.toLocaleString('es-CO'), formatStatusTimeDetail(metrics.statusMetrics.in_progress, 'abiertos'), 'in_progress'),
       kpiCard('waiting', 'En espera', metrics.waitingTickets.length.toLocaleString('es-CO'), formatStatusTimeDetail(metrics.statusMetrics.waiting, 'abiertos'), 'waiting'),
@@ -949,6 +1053,7 @@
     renderSourceNote();
     renderContextSummary();
     renderKpis();
+    renderStatusDonutChart(getContextMetrics());
     renderGroups();
     renderTable();
   }

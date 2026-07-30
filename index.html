@@ -596,6 +596,16 @@
     <section id="glpi-kpis" class="glpi-kpi-grid" aria-live="polite"></section>
 
     <section class="glpi-analysis-grid">
+      <article class="chart-card glpi-analysis-card glpi-donut-card">
+        <div class="chart-hd">Distribución de Estado <span>Resueltos vs. Activos & Críticos</span></div>
+        <div class="glpi-donut-body">
+          <div class="glpi-donut-chart-wrap">
+            <canvas id="glpi-status-donut-chart"></canvas>
+            <div id="glpi-donut-center" class="glpi-donut-center"></div>
+          </div>
+          <div id="glpi-donut-stats" class="glpi-donut-stats"></div>
+        </div>
+      </article>
       <article class="chart-card glpi-analysis-card">
         <div class="chart-hd">Grupos de directores <span>pendientes y tiempo de cierre</span></div>
         <div id="glpi-category-groups" class="glpi-ranked-list"></div>
