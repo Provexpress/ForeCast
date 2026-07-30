@@ -2729,8 +2729,17 @@ function togglePreventaEstadoFilter(value){
 }
 
 function isOscarMarcasGlobalScope(){
-  if(!CURRENT_USER || CURRENT_USER.role !== 'director') return false;
-  return Number(CURRENT_USER.group) === 3;
+  if(!CURRENT_USER) return false;
+  const email = normalizeAppEmail(CURRENT_USER.email || '');
+  if(email === 'oscar.beltran@provexpress.com.co') return true;
+  if((CURRENT_USER.role === 'director' || CURRENT_USER.role === 'gerencia_director') && Number(CURRENT_USER.group) === 3) return true;
+  return false;
+}
+
+function isHpBrand(brandName){
+  if(!brandName) return false;
+  const normalized = normalizeBrandName(brandName);
+  return normalized === 'HP' || normalizeCategoryValue(brandName) === 'hp';
 }
 
 function getVisibleMarcasData(){
@@ -3039,7 +3048,17 @@ function getMarcaLineaDetailRowValue(row, type){
 function getMarcaLineaDetailRows(state){
   if(!state || !state.value) return [];
   const target = normalizeCategoryValue(state.value);
-  return getVisibleMarcasData().filter(row => normalizeCategoryValue(getMarcaLineaDetailRowValue(row, state.type)) === target);
+  let baseData = getVisibleMarcasData();
+  if(isOscarMarcasGlobalScope() && state.type === 'marca' && isHpBrand(state.value)){
+    baseData = ALL_DATA;
+  }
+  return baseData.filter(row => {
+    const rowValue = getMarcaLineaDetailRowValue(row, state.type);
+    if(state.type === 'marca' && isHpBrand(state.value)){
+      return isHpBrand(rowValue);
+    }
+    return normalizeCategoryValue(rowValue) === target;
+  });
 }
 
 function openMarcaLineaDetail(type, value, sourcePage){
@@ -3282,19 +3301,25 @@ function renderMarcaLineaDetail(){
   });
   const topEstado = estados.slice().sort((a,b)=>b.total-a.total)[0] || { estado:'SIN DATOS', total:0, count:0 };
 
+  const isOscarHpDetail = isOscarMarcasGlobalScope() && state.type === 'marca' && isHpBrand(state.value);
+  const heroText = isOscarHpDetail
+    ? '<b>[Excepción Especial Óscar Beltrán]</b> Vista consolidada con TODO el inventario y negocios de HP de TODOS los equipos, directores y ejecutivos.'
+    : 'Vista consolidada de los negocios relacionados con esta ' + escHtml(typeLabel.toLowerCase()) + '. Puedes revisar el comportamiento por estado y abrir cualquier negocio para ver su ficha completa.';
+
   host.innerHTML = `
     <div class="detail-shell">
       <div class="detail-topbar">
         <button type="button" class="btn-clear detail-back-btn" onclick="closeMarcaLineaDetail()">Volver</button>
-        <span class="section-tag">Detalle de ${escHtml(typeLabel)}</span>
+        <span class="section-tag">${isOscarHpDetail ? 'Detalle Especial HP (Todos los Equipos)' : ('Detalle de ' + escHtml(typeLabel))}</span>
       </div>
 
       <div class="detail-hero">
         <div>
           <div class="detail-overline">${escHtml(typeLabel)} seleccionada</div>
           <h2>${escHtml(state.value)}</h2>
-          <p>Vista consolidada de los negocios relacionados con esta ${escHtml(typeLabel.toLowerCase())}. Puedes revisar el comportamiento por estado y abrir cualquier negocio para ver su ficha completa.</p>
+          <p>${heroText}</p>
           <div class="detail-chip-row">
+            ${isOscarHpDetail ? '<span class="detail-chip" style="background:rgba(0,180,216,0.2);color:var(--corp-cyan);font-weight:700">Scope: Todo HP (Todos los Equipos)</span>' : ''}
             <span class="detail-chip">Negocios: ${fmtNum(totalNegocios)}</span>
             <span class="detail-chip">Filtro actual: ${escHtml(estadoFilter || 'Todos')}</span>
             <span class="detail-chip">Estado lider: ${escHtml(topEstado.estado)}</span>
@@ -4731,13 +4756,16 @@ function getRowUtilidadCopValue(row){
 
 function getMarcasLineasExportData(){
   const filters = getVisualCrossfilters('marcas');
-  let rows = getVisibleMarcasData().slice();
-  if(filters.marca) rows = rows.filter(row => getRowBrandName(row) === filters.marca);
+  let baseData = getVisibleMarcasData();
+  const isOscarHp = isOscarMarcasGlobalScope() && filters.marca && isHpBrand(filters.marca);
+  if(isOscarHp) baseData = ALL_DATA;
+  let rows = baseData.slice();
+  if(filters.marca) rows = rows.filter(row => isHpBrand(filters.marca) ? isHpBrand(getRowBrandName(row)) : getRowBrandName(row) === filters.marca);
   if(filters.linea) rows = rows.filter(row => getRowLineName(row) === filters.linea);
 
   const directorSelect = document.getElementById('sel-marca-director');
   const selectedDirector = directorSelect ? directorSelect.value || '' : '';
-  if(selectedDirector) rows = rows.filter(row => cleanDisplayText(row['DIRECTOR'], '') === selectedDirector);
+  if(selectedDirector && !isOscarHp) rows = rows.filter(row => cleanDisplayText(row['DIRECTOR'], '') === selectedDirector);
 
   return rows.sort((a,b) => toCOP(b) - toCOP(a));
 }
@@ -6529,11 +6557,19 @@ function renderDivisas(){
 function renderMarcas(){
   const BASE_DATA = getVisibleMarcasData();
   const marcaFilters = getVisualCrossfilters('marcas');
-  let ALL_DATA = BASE_DATA.slice();
-  if(marcaFilters.marca) ALL_DATA = ALL_DATA.filter(r => getRowBrandName(r) === marcaFilters.marca);
+  const isOscarHpFilter = isOscarMarcasGlobalScope() && marcaFilters.marca && isHpBrand(marcaFilters.marca);
+
+  let ALL_DATA = (isOscarHpFilter ? window.ALL_DATA : BASE_DATA).slice();
+  if(marcaFilters.marca) {
+    ALL_DATA = ALL_DATA.filter(r => isHpBrand(marcaFilters.marca) ? isHpBrand(getRowBrandName(r)) : getRowBrandName(r) === marcaFilters.marca);
+  }
   if(marcaFilters.linea) ALL_DATA = ALL_DATA.filter(r => getRowLineName(r) === marcaFilters.linea);
   const pageTag = document.querySelector('#page-marcas .section-tag');
-  if(pageTag) pageTag.textContent = isOscarMarcasGlobalScope() ? 'TODOS LOS USUARIOS' : 'TOP POR CATEGORIA';
+  if(pageTag) {
+    pageTag.textContent = isOscarHpFilter
+      ? 'ALCANCE HP: TODOS LOS EQUIPOS'
+      : (isOscarMarcasGlobalScope() ? 'TODOS LOS USUARIOS' : 'TOP POR CATEGORIA');
+  }
   const marcasCrossfilters = document.getElementById('marcas-crossfilters');
   if(marcasCrossfilters) {
     marcasCrossfilters.innerHTML = buildVisualCrossfilterBar('marcas', BASE_DATA.length, ALL_DATA.length, [['marca','Marca'],['linea','Linea']]);
