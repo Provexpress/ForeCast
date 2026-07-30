@@ -2743,7 +2743,17 @@ function isHpBrand(brandName){
 }
 
 function getVisibleMarcasData(){
-  if(isOscarMarcasGlobalScope()) return ALL_DATA;
+  if(!CURRENT_USER) return ALL_DATA;
+  const { role, directorGroup, group } = CURRENT_USER;
+  if(role === 'director' || role === 'gerencia_director') {
+    const structure = getForecastStructure();
+    const userGroup = group || (structure.getGroupByEmail ? structure.getGroupByEmail(CURRENT_USER.email) : null);
+    const directorName = (userGroup && structure.getDirectorNameByGroup ? structure.getDirectorNameByGroup(userGroup) : null) || directorGroup;
+    if(directorName) {
+      const targetDirector = normalizePersonName(directorName);
+      return ALL_DATA.filter(r => normalizePersonName(r['DIRECTOR']) === targetDirector);
+    }
+  }
   return getVisibleData();
 }
 
