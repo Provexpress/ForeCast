@@ -3092,6 +3092,153 @@ function setMarcaLineaDetailEstado(value){
   renderMarcaLineaDetail();
 }
 
+function setMarcaLineaDetailExportButtonBusy(isBusy){
+  const btn = document.getElementById('btn-export-marca-linea-detail');
+  if(!btn) return;
+  btn.disabled = Boolean(isBusy);
+  btn.innerHTML = isBusy
+    ? '<span class="export-excel-icon" aria-hidden="true">...</span><span>Generando</span>'
+    : '<span class="export-excel-icon" aria-hidden="true">↓</span><span>Excel</span>';
+}
+
+async function downloadMarcaLineaDetailExcel(){
+  const state = MARCA_LINEA_DETAIL_STATE;
+  if(!state || !state.value) return;
+
+  const typeLabel = getMarcaLineaDetailTypeLabel(state.type);
+  const rows = getMarcaLineaDetailRows(state).sort((a,b)=>toCOP(b)-toCOP(a));
+  const estadoFilter = state.estadoFilter || '';
+  const filteredRows = estadoFilter ? rows.filter(r => cleanDisplayText(r['ESTADO'], '').toUpperCase() === estadoFilter) : rows;
+
+  if(!filteredRows.length){
+    alert('No hay registros disponibles para exportar con los filtros actuales.');
+    return;
+  }
+
+  setMarcaLineaDetailExportButtonBusy(true);
+  try {
+    await loadExcelJsForExport();
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Forecast 2026 Provexpress';
+    workbook.created = new Date();
+    workbook.modified = new Date();
+    workbook.company = 'Provexpress';
+    workbook.subject = `Detalle ${typeLabel} - ${state.value}`;
+    workbook.title = `Forecast 2026 - ${typeLabel} ${state.value}`;
+    workbook.calcProperties = { fullCalcOnLoad: true };
+
+    // Hoja 1: Partes y Clientes asociados (Tabla agrupada resumida)
+    const wsGrouped = workbook.addWorksheet(excelUniqueSheetName(workbook, 'Partes y Clientes'));
+    const groupedCols = [
+      { header: 'Producto / Nro Parte', key: 'producto', width: 42 },
+      { header: 'Cliente', key: 'cliente', width: 35 },
+      { header: 'Cantidad', key: 'cantidad', width: 14 },
+      { header: 'Estado Principal', key: 'estado', width: 20 },
+      { header: 'Valor Total COP', key: 'totalCOP', width: 25 }
+    ];
+
+    setupExcelWorksheet(wsGrouped, groupedCols, 6);
+    const isOscarHp = isOscarMarcasGlobalScope() && state.type === 'marca' && isHpBrand(state.value);
+    const filterDesc = [
+      `${typeLabel}: ${state.value}`,
+      `Estado: ${estadoFilter || 'Todos'}`,
+      isOscarHp ? 'Alcance: Todo HP (Todos los Equipos)' : 'Alcance: Vista actual'
+    ].join(' | ');
+
+    styleExcelTitle(
+      wsGrouped,
+      `Detalle de ${typeLabel}: ${state.value}`,
+      `Partes y Clientes Asociados | Total Negocios: ${filteredRows.length}`,
+      filterDesc,
+      groupedCols.length
+    );
+
+    styleExcelKpis(wsGrouped, filteredRows);
+
+    const groupedMap = new Map();
+    filteredRows.forEach(row => {
+      const partNumber = cleanDisplayText(getRowPartNumber(row), '');
+      const productName = cleanDisplayText(getRowProductName(row), '');
+      const productKey = normalizeCategoryValue(partNumber || productName || 'sin numero de parte');
+      const productLabel = partNumber || productName || 'Sin numero de parte';
+      const clientLabel = cleanDisplayText(getRowClientName(row), 'Sin cliente');
+      const clientKey = normalizeCategoryValue(clientLabel);
+      const estado = cleanDisplayText(row['ESTADO'], 'Sin estado').toUpperCase();
+      const key = [productKey, clientKey].join('||');
+      const current = groupedMap.get(key) || {
+        producto: productLabel,
+        cliente: clientLabel,
+        cantidad: 0,
+        totalCOP: 0,
+        estados: {}
+      };
+      current.cantidad += getRowQuantityValue(row, 1);
+      current.totalCOP += toCOP(row);
+      current.estados[estado] = (current.estados[estado] || 0) + 1;
+      groupedMap.set(key, current);
+    });
+
+    const groupedItems = Array.from(groupedMap.values()).sort((a,b) => b.totalCOP - a.totalCOP);
+
+    const tableRows = groupedItems.map(item => {
+      const mainEstado = Object.entries(item.estados || {}).sort((a,b)=>b[1]-a[1])[0] || ['SIN ESTADO'];
+      return [
+        item.producto,
+        item.cliente,
+        item.cantidad,
+        mainEstado[0],
+        item.totalCOP
+      ];
+    });
+
+    wsGrouped.addTable({
+      name: 'TablaPartesClientesDetail',
+      ref: 'A8',
+      headerRow: true,
+      totalsRow: true,
+      style: { theme: 'TableStyleMedium4', showRowStripes: true },
+      columns: [
+        { name: 'Producto / Nro Parte', totalsRowLabel: 'Total General' },
+        { name: 'Cliente' },
+        { name: 'Cantidad', totalsRowFunction: 'sum' },
+        { name: 'Estado Principal' },
+        { name: 'Valor Total COP', totalsRowFunction: 'sum' }
+      ],
+      rows: tableRows
+    });
+
+    styleExcelTable(wsGrouped, 8, tableRows.length, groupedCols.length, {
+      rightColumns: [3, 5]
+    });
+
+    for(let r = 9; r <= 9 + tableRows.length; r++){
+      wsGrouped.getCell(r, 3).numFmt = '#,##0';
+      wsGrouped.getCell(r, 5).numFmt = excelMoneyFormat('COP', false);
+    }
+
+    // Hoja 2: Detalle Completo de Negocios
+    const wsDetail = workbook.addWorksheet(excelUniqueSheetName(workbook, 'Detalle Negocios'));
+    setupExcelWorksheet(wsDetail, GERENCIA_EXCEL_DETAIL_COLS, 6);
+    styleExcelTitle(
+      wsDetail,
+      `Negocios Detallados - ${typeLabel} ${state.value}`,
+      `Registros Individuales | Total: ${filteredRows.length}`,
+      filterDesc,
+      GERENCIA_EXCEL_DETAIL_COLS.length
+    );
+    addDetailExcelTable(wsDetail, filteredRows, 'TablaNegociosDetalle', 6);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const fileSlug = normalizeCategoryValue(state.value).replace(/\s+/g, '_') || 'detalle';
+    downloadWorkbookBuffer(buffer, `Forecast_Detalle_${fileSlug}_${getBogotaTimestampForFile()}.xlsx`);
+  } catch(error) {
+    console.error('[EXPORT MARCA LINEA DETAIL]', error);
+    alert('No se pudo generar el Excel del detalle. Intenta nuevamente.');
+  } finally {
+    setMarcaLineaDetailExportButtonBusy(false);
+  }
+}
+
 function closeMarcaLineaDetail(){
   const backPage = (MARCA_LINEA_DETAIL_STATE && MARCA_LINEA_DETAIL_STATE.backPage) || 'marcas';
   const backScroll = MARCA_LINEA_DETAIL_STATE && MARCA_LINEA_DETAIL_STATE.backScroll;
@@ -3368,7 +3515,11 @@ function renderMarcaLineaDetail(){
             <div class="chart-hd">Partes y clientes asociados</div>
             <div style="font-size:11px;color:var(--text2)">Agrupado por producto o numero de parte y cliente. La cantidad muestra cuantos registros tiene ese producto o cliente dentro de la seleccion y el valor se consolida en COP.</div>
           </div>
-          <div class="director-table-filter">
+          <div class="director-table-filter" style="display:flex;align-items:center;gap:10px">
+            <button id="btn-export-marca-linea-detail" class="export-excel-btn" type="button" onclick="downloadMarcaLineaDetailExcel()" title="Descargar esta tabla de negocios en Excel bonito">
+              <span class="export-excel-icon" aria-hidden="true">↓</span>
+              <span>Excel</span>
+            </button>
             <label class="filter-label" for="sel-marca-linea-estado">Estado</label>
             <select id="sel-marca-linea-estado" onchange="setMarcaLineaDetailEstado(this.value)">
               <option value="">Todos</option>
@@ -7978,6 +8129,7 @@ window.setGerenciaMonthFilter = setGerenciaMonthFilter;
 window.setDivisaEstadoFilter = setDivisaEstadoFilter;
 window.showMoreDivisaRows = showMoreDivisaRows;
 window.showMoreMarcasBars = showMoreMarcasBars;
+window.downloadMarcaLineaDetailExcel = downloadMarcaLineaDetailExcel;
 window.renderDirector = renderDirector;
 window.renderEjecutivo = renderEjecutivo;
 window.renderSales = renderSales;
