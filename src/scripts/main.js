@@ -6578,7 +6578,7 @@ function renderMarcas(){
   if(pageTag) {
     pageTag.textContent = isOscarHpFilter
       ? 'ALCANCE HP: TODOS LOS EQUIPOS'
-      : (isOscarMarcasGlobalScope() ? 'TODOS LOS USUARIOS' : 'TOP POR CATEGORIA');
+      : (isOscarMarcasGlobalScope() ? 'GRUPO 3 (ÓSCAR BELTRÁN)' : 'TOP POR CATEGORIA');
   }
   const marcasCrossfilters = document.getElementById('marcas-crossfilters');
   if(marcasCrossfilters) {
