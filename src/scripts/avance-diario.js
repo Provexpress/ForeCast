@@ -588,4 +588,220 @@
     window.URL.revokeObjectURL(url);
   };
 
+  // 7. Cálculo de Escala de Bonos por Utilidad
+  window.calculateExecutiveBonus = function (utilidad) {
+    const val = Number(utilidad) || 0;
+    if (val >= 96000000) {
+      return { bono: 1000000, nivel: 'Global (Top Tier)', badgeBg: 'FFD1FAE5', badgeFg: 'FF065F46' };
+    } else if (val >= 48000000) {
+      return { bono: 600000, nivel: 'Enterprise', badgeBg: 'FFE0E7FF', badgeFg: 'FF3730A3' };
+    } else if (val >= 28000000) {
+      return { bono: 500000, nivel: 'Master', badgeBg: 'FFFEF3C7', badgeFg: 'FF92400E' };
+    } else if (val >= 18000000) {
+      return { bono: 400000, nivel: 'Junior', badgeBg: 'FFDBEAFE', badgeFg: 'FF1E40AF' };
+    } else {
+      return { bono: 0, nivel: 'Sin Bono (<18M)', badgeBg: 'FFF3F4F6', badgeFg: 'FF6B7280' };
+    }
+  };
+
+  // 8. Exportar Informe Profesional Excel Consolidado para Gerencia (Todos los grupos + Bonos)
+  window.exportGerenciaReportToExcel = async function () {
+    if (typeof ExcelJS === 'undefined') {
+      alert('Cargando librería de Excel, por favor intenta de nuevo en un momento.');
+      return;
+    }
+
+    const mesSelect = document.getElementById('sel-gerencia-mes');
+    const mesKey = mesSelect ? mesSelect.value : '2026-08';
+    const mesText = mesSelect && mesSelect.options[mesSelect.selectedIndex] ? mesSelect.options[mesSelect.selectedIndex].text : mesKey;
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Consolidado Gerencia');
+
+    sheet.views = [{ showGridLines: true }];
+
+    // Encabezado Corporativo
+    sheet.mergeCells('A1:I2');
+    const titleCell = sheet.getCell('A1');
+    titleCell.value = `PROVEXPRESS S.A.S. — INFORME CONSOLIDADO DE GERENCIA (API POWER BI & COSTO DE BONOS)\nPeriodo: ${mesText} | Todos los Grupos Comerciales`;
+    titleCell.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A2B6B' } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+
+    sheet.addRow([]); // Fila vacia
+
+    // Encabezados de Tabla
+    const headerRow = sheet.addRow([
+      'Director / Grupo',
+      'Ejecutivo Comercial',
+      'Cuota Mensual ($)',
+      'Utilidad Lograda API ($)',
+      'Ventas Totales ($)',
+      'Faltante Meta ($)',
+      '% Cumplimiento',
+      'Nivel Alcanzado',
+      'Bono Ganado ($)'
+    ]);
+
+    headerRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.height = 26;
+
+    headerRow.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F7891' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFD4DDED' } },
+        bottom: { style: 'medium', color: { argb: 'FF1A2B6B' } },
+        left: { style: 'thin', color: { argb: 'FFD4DDED' } },
+        right: { style: 'thin', color: { argb: 'FFD4DDED' } }
+      };
+    });
+
+    const directores = [
+      'Rafael Novoa',
+      'Angélica Caballero',
+      'Óscar Beltrán',
+      'Miller Romero'
+    ];
+
+    let totalCuota = 0;
+    let totalUtilidad = 0;
+    let totalVentas = 0;
+    let totalBonos = 0;
+
+    directores.forEach(dirName => {
+      const execs = (typeof window.getDirectorExecs === 'function') ? window.getDirectorExecs(dirName) : [];
+      execs.forEach(e => {
+        const eCuota = (typeof getExecutiveCuota === 'function') ? getExecutiveCuota(e) : 18000000;
+        const eApiData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(e, mesKey) : null;
+        const eUtilidad = eApiData ? eApiData.utilidad : 0;
+        const eVentas = eApiData ? eApiData.mercancia : 0;
+        const ePct = eCuota > 0 ? (eUtilidad / eCuota) : 0;
+        const eFaltante = Math.max(0, eCuota - eUtilidad);
+        const bonusInfo = window.calculateExecutiveBonus(eUtilidad);
+
+        totalCuota += eCuota;
+        totalUtilidad += eUtilidad;
+        totalVentas += eVentas;
+        totalBonos += bonusInfo.bono;
+
+        const row = sheet.addRow([
+          dirName,
+          e,
+          eCuota,
+          eUtilidad,
+          eVentas,
+          eFaltante,
+          ePct,
+          bonusInfo.nivel,
+          bonusInfo.bono
+        ]);
+
+        row.height = 22;
+
+        row.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+        row.getCell(1).font = { name: 'Arial', size: 10, bold: true };
+
+        row.getCell(2).alignment = { vertical: 'middle', horizontal: 'left' };
+        row.getCell(2).font = { name: 'Arial', size: 10, bold: true };
+
+        row.getCell(3).numberFormat = '$ #,##0';
+        row.getCell(3).alignment = { vertical: 'middle', horizontal: 'right' };
+
+        row.getCell(4).numberFormat = '$ #,##0';
+        row.getCell(4).alignment = { vertical: 'middle', horizontal: 'right' };
+        row.getCell(4).font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF047857' } };
+
+        row.getCell(5).numberFormat = '$ #,##0';
+        row.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
+
+        row.getCell(6).numberFormat = '$ #,##0';
+        row.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
+
+        row.getCell(7).numberFormat = '0.0%';
+        row.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
+        row.getCell(7).font = { name: 'Arial', size: 10, bold: true };
+
+        const nivelCell = row.getCell(8);
+        nivelCell.alignment = { vertical: 'middle', horizontal: 'center' };
+        nivelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bonusInfo.badgeBg } };
+        nivelCell.font = { name: 'Arial', size: 9, bold: true, color: { argb: bonusInfo.badgeFg } };
+
+        const bonusCell = row.getCell(9);
+        bonusCell.numberFormat = '$ #,##0';
+        bonusCell.alignment = { vertical: 'middle', horizontal: 'right' };
+        bonusCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: bonusInfo.bono > 0 ? 'FF047857' : 'FF6B7280' } };
+
+        row.eachCell((c) => {
+          c.border = {
+            top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+            right: { style: 'thin', color: { argb: 'FFE5E7EB' } }
+          };
+        });
+      });
+    });
+
+    // Fila de Totales
+    const totalPct = totalCuota > 0 ? (totalUtilidad / totalCuota) : 0;
+    const totalFaltante = Math.max(0, totalCuota - totalUtilidad);
+
+    const totalRow = sheet.addRow([
+      'TOTAL CONSOLIDADO',
+      'GERENCIA GENERAL',
+      totalCuota,
+      totalUtilidad,
+      totalVentas,
+      totalFaltante,
+      totalPct,
+      'COSTO BONOS',
+      totalBonos
+    ]);
+
+    totalRow.height = 26;
+    totalRow.eachCell((c, colNum) => {
+      c.font = { name: 'Arial', size: 10, bold: true };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+      c.border = {
+        top: { style: 'medium', color: { argb: 'FF1A2B6B' } },
+        bottom: { style: 'double', color: { argb: 'FF1A2B6B' } },
+        left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+        right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
+      };
+      if ((colNum >= 3 && colNum <= 6) || colNum === 9) {
+        c.numberFormat = '$ #,##0';
+        c.alignment = { vertical: 'middle', horizontal: 'right' };
+      } else if (colNum === 7) {
+        c.numberFormat = '0.0%';
+        c.alignment = { vertical: 'middle', horizontal: 'right' };
+      } else if (colNum === 8) {
+        c.alignment = { vertical: 'middle', horizontal: 'center' };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+        c.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF065F46' } };
+      }
+    });
+
+    sheet.columns = [
+      { width: 24 },
+      { width: 32 },
+      { width: 22 },
+      { width: 24 },
+      { width: 22 },
+      { width: 22 },
+      { width: 18 },
+      { width: 22 },
+      { width: 22 }
+    ];
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Reporte_Consolidado_Gerencia_Bonos_${mesKey}.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
 })();
