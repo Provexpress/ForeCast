@@ -3900,7 +3900,9 @@ function renderGerenciaCumplimientoTable() {
   if(!container) return;
 
   const mesSelect = document.getElementById('sel-gerencia-mes');
-  const mesKey = mesSelect ? mesSelect.value : '2026-08';
+  const mesKey = (typeof GERENCIA_CROSSFILTERS !== 'undefined' && GERENCIA_CROSSFILTERS.mes !== undefined) 
+    ? GERENCIA_CROSSFILTERS.mes 
+    : (mesSelect ? mesSelect.value : '');
 
   const directores = [
     { name: 'Rafael Novoa', key: 'Grupo Rafael Novoa' },

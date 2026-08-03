@@ -167,22 +167,8 @@
       .trim();
   }
 
-  // 2. Extraer Utilidad de la API para un Ejecutivo Comercial según el mes seleccionado
-  window.getApiUtilidadForEjecutivo = function (ejName, selectedMonthKey) {
-    let list = [];
-    
-    if (selectedMonthKey) {
-      if (window.API_UTILIDAD_MESES && window.API_UTILIDAD_MESES[selectedMonthKey]) {
-        list = window.API_UTILIDAD_MESES[selectedMonthKey].vendedores || [];
-      } else {
-        return null;
-      }
-    } else if (Array.isArray(window.API_UTILIDAD_DATA) && window.API_UTILIDAD_DATA.length) {
-      list = window.API_UTILIDAD_DATA;
-    }
-
-    if (!list.length) return null;
-
+  function findExecutiveInList(ejName, list) {
+    if (!list || !list.length) return null;
     const normInput = normalizeName(ejName);
     const aliasTarget = API_NAME_ALIASES[normInput] ? normalizeName(API_NAME_ALIASES[normInput]) : null;
 
@@ -221,14 +207,67 @@
       if (maxScore >= 2) found = bestMatch;
     }
 
-    if (!found) return null;
+    return found;
+  }
 
-    return {
-      utilidad: Number(found.Valor_Utilidad) || 0,
-      mercancia: Number(found.Valor_Mercancia) || 0,
-      costo: Number(found.Valor_Costo) || 0,
-      porcentaje: Number(found.Porcentaje_Utilidad) || 0
-    };
+  // 2. Extraer Utilidad de la API para un Ejecutivo Comercial según el mes seleccionado
+  window.getApiUtilidadForEjecutivo = function (ejName, selectedMonthKey) {
+    if (selectedMonthKey) {
+      if (window.API_UTILIDAD_MESES && window.API_UTILIDAD_MESES[selectedMonthKey]) {
+        const list = window.API_UTILIDAD_MESES[selectedMonthKey].vendedores || [];
+        const found = findExecutiveInList(ejName, list);
+        if (!found) return null;
+        return {
+          utilidad: Number(found.Valor_Utilidad) || 0,
+          mercancia: Number(found.Valor_Mercancia) || 0,
+          costo: Number(found.Valor_Costo) || 0,
+          porcentaje: Number(found.Porcentaje_Utilidad) || 0
+        };
+      } else {
+        return null;
+      }
+    }
+
+    // Si no se especificó un mes (Todos los meses), sumar la utilidad de todos los meses de la API
+    if (window.API_UTILIDAD_MESES && Object.keys(window.API_UTILIDAD_MESES).length) {
+      let sumUtilidad = 0;
+      let sumMercancia = 0;
+      let sumCosto = 0;
+      let matchedAny = false;
+
+      Object.values(window.API_UTILIDAD_MESES).forEach(mObj => {
+        const found = findExecutiveInList(ejName, mObj.vendedores || []);
+        if (found) {
+          sumUtilidad += Number(found.Valor_Utilidad) || 0;
+          sumMercancia += Number(found.Valor_Mercancia) || 0;
+          sumCosto += Number(found.Valor_Costo) || 0;
+          matchedAny = true;
+        }
+      });
+
+      if (matchedAny) {
+        return {
+          utilidad: sumUtilidad,
+          mercancia: sumMercancia,
+          costo: sumCosto,
+          porcentaje: sumMercancia > 0 ? (sumUtilidad / sumMercancia) * 100 : 0
+        };
+      }
+    }
+
+    // Fallback a API_UTILIDAD_DATA si está disponible
+    if (Array.isArray(window.API_UTILIDAD_DATA) && window.API_UTILIDAD_DATA.length) {
+      const found = findExecutiveInList(ejName, window.API_UTILIDAD_DATA);
+      if (!found) return null;
+      return {
+        utilidad: Number(found.Valor_Utilidad) || 0,
+        mercancia: Number(found.Valor_Mercancia) || 0,
+        costo: Number(found.Valor_Costo) || 0,
+        porcentaje: Number(found.Porcentaje_Utilidad) || 0
+      };
+    }
+
+    return null;
   };
 
   // 3. Extraer Utilidad de la API para un Director según el mes seleccionado
@@ -619,11 +658,21 @@
       return;
     }
 
+    const activePage = (typeof document !== 'undefined' && document.querySelector('.page.active')) ? document.querySelector('.page.active').id : '';
     const gerenciaMesSelect = document.getElementById('sel-gerencia-mes');
     const dirMesSelect = document.getElementById('sel-dir-mes');
-    const activeMesSelect = (gerenciaMesSelect && gerenciaMesSelect.value) ? gerenciaMesSelect : ((dirMesSelect && dirMesSelect.value) ? dirMesSelect : null);
-    const mesKey = activeMesSelect ? activeMesSelect.value : '2026-08';
-    const mesText = activeMesSelect && activeMesSelect.options && activeMesSelect.options[activeMesSelect.selectedIndex] ? activeMesSelect.options[activeMesSelect.selectedIndex].text : mesKey;
+
+    let activeMesSelect = gerenciaMesSelect;
+    if (activePage === 'page-director' && dirMesSelect && dirMesSelect.value !== undefined) {
+      activeMesSelect = dirMesSelect;
+    } else if (gerenciaMesSelect && gerenciaMesSelect.value !== undefined) {
+      activeMesSelect = gerenciaMesSelect;
+    } else {
+      activeMesSelect = dirMesSelect || gerenciaMesSelect;
+    }
+
+    const mesKey = activeMesSelect ? activeMesSelect.value : '';
+    const mesText = activeMesSelect && activeMesSelect.options && activeMesSelect.options[activeMesSelect.selectedIndex] ? activeMesSelect.options[activeMesSelect.selectedIndex].text : (mesKey || 'Todos los meses');
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Consolidado Gerencia');
