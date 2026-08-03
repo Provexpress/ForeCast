@@ -171,8 +171,12 @@
   window.getApiUtilidadForEjecutivo = function (ejName, selectedMonthKey) {
     let list = [];
     
-    if (selectedMonthKey && window.API_UTILIDAD_MESES && window.API_UTILIDAD_MESES[selectedMonthKey]) {
-      list = window.API_UTILIDAD_MESES[selectedMonthKey].vendedores || [];
+    if (selectedMonthKey) {
+      if (window.API_UTILIDAD_MESES && window.API_UTILIDAD_MESES[selectedMonthKey]) {
+        list = window.API_UTILIDAD_MESES[selectedMonthKey].vendedores || [];
+      } else {
+        return null;
+      }
     } else if (Array.isArray(window.API_UTILIDAD_DATA) && window.API_UTILIDAD_DATA.length) {
       list = window.API_UTILIDAD_DATA;
     }
