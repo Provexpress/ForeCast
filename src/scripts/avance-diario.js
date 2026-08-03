@@ -731,6 +731,11 @@
 
     directores.forEach(dirName => {
       const execs = (typeof window.getDirectorExecs === 'function') ? window.getDirectorExecs(dirName) : [];
+      let subCuota = 0;
+      let subUtilidad = 0;
+      let subVentas = 0;
+      let subBonos = 0;
+
       execs.forEach(e => {
         const eCategoria = (typeof window.getExecutiveCategory === 'function') ? window.getExecutiveCategory(e) : 'Junior';
         const eCuota = (typeof getExecutiveCuota === 'function') ? getExecutiveCuota(e) : 18000000;
@@ -740,6 +745,11 @@
         const ePct = eCuota > 0 ? (eUtilidad / eCuota) : 0;
         const eFaltante = Math.max(0, eCuota - eUtilidad);
         const bonusInfo = window.calculateExecutiveBonus(eUtilidad);
+
+        subCuota += eCuota;
+        subUtilidad += eUtilidad;
+        subVentas += eVentas;
+        subBonos += bonusInfo.bono;
 
         totalCuota += eCuota;
         totalUtilidad += eUtilidad;
@@ -806,6 +816,48 @@
           };
         });
       });
+
+      // Fila Subtotal por Grupo Comercial
+      const subPct = subCuota > 0 ? (subUtilidad / subCuota) : 0;
+      const subFaltante = Math.max(0, subCuota - subUtilidad);
+
+      const subRow = sheet.addRow([
+        'SUBTOTAL GRUPO',
+        `Grupo ${dirName} (${execs.length} Comerciales)`,
+        '—',
+        subCuota,
+        subUtilidad,
+        subVentas,
+        subFaltante,
+        subPct,
+        'BONOS GRUPO',
+        subBonos
+      ]);
+
+      subRow.height = 24;
+      subRow.eachCell((c, colNum) => {
+        c.font = { name: 'Arial', size: 9, bold: true };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
+        c.border = {
+          top: { style: 'thin', color: { argb: 'FF93C5FD' } },
+          bottom: { style: 'medium', color: { argb: 'FF1D4ED8' } },
+          left: { style: 'thin', color: { argb: 'FF93C5FD' } },
+          right: { style: 'thin', color: { argb: 'FF93C5FD' } }
+        };
+        if ((colNum >= 4 && colNum <= 7) || colNum === 10) {
+          c.numberFormat = '$ #,##0';
+          c.alignment = { vertical: 'middle', horizontal: 'right' };
+        } else if (colNum === 8) {
+          c.numberFormat = '0.0%';
+          c.alignment = { vertical: 'middle', horizontal: 'right' };
+        } else if (colNum === 9) {
+          c.alignment = { vertical: 'middle', horizontal: 'center' };
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+          c.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF065F46' } };
+        }
+      });
+
+      sheet.addRow([]); // Fila vacia de separacion
     });
 
     // Fila de Totales

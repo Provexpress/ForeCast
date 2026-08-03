@@ -3945,11 +3945,16 @@ function renderGerenciaCumplimientoTable() {
   let totalUtilidad = 0;
   let totalVentas = 0;
   let totalBonos = 0;
-  let allExecRows = [];
+  let totalExecCount = 0;
 
-  directores.forEach(dirObj => {
+  const groupsBodyHtml = directores.map(dirObj => {
     const execs = (typeof window.getDirectorExecs === 'function') ? window.getDirectorExecs(dirObj.name) : [];
-    execs.forEach(e => {
+    let subCuota = 0;
+    let subUtilidad = 0;
+    let subVentas = 0;
+    let subBonos = 0;
+
+    const execRowsHtml = execs.map((e, idx) => {
       const eCategoria = (typeof getExecutiveCategory === 'function') ? getExecutiveCategory(e) : 'Junior';
       const eCuota = (typeof getExecutiveCuota === 'function') ? getExecutiveCuota(e) : 18000000;
       const eApiData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(e, mesKey) : null;
@@ -3961,10 +3966,16 @@ function renderGerenciaCumplimientoTable() {
         ? window.calculateExecutiveBonus(eUtilidad) 
         : { bono: 0, nivel: 'Sin Bono', badgeBg: 'FFF3F4F6', badgeFg: 'FF6B7280' };
 
+      subCuota += eCuota;
+      subUtilidad += eUtilidad;
+      subVentas += eVentas;
+      subBonos += bonusInfo.bono;
+
       totalCuota += eCuota;
       totalUtilidad += eUtilidad;
       totalVentas += eVentas;
       totalBonos += bonusInfo.bono;
+      totalExecCount++;
 
       let badgeClass = 'quota-team-badge--alert';
       let badgeLabel = '⚠️ En Riesgo';
@@ -3976,36 +3987,71 @@ function renderGerenciaCumplimientoTable() {
         badgeLabel = '📈 En Camino';
       }
 
-      allExecRows.push({
-        director: dirObj.name,
-        ejecutivo: e,
-        categoria: eCategoria,
-        cuota: eCuota,
-        utilidad: eUtilidad,
-        ventas: eVentas,
-        faltante: eFaltante,
-        pct: ePct,
-        nivel: bonusInfo.nivel,
-        bono: bonusInfo.bono,
-        badgeClass,
-        badgeLabel
-      });
-    });
-  });
+      const c = COLORS[idx % COLORS.length];
+      let bonoStyle = bonusInfo.bono > 0 ? 'color: var(--corp-green); font-weight: 800;' : 'color: var(--text3); font-weight: 500;';
+
+      return `<tr>
+        <td style="font-size: 11px; font-weight: 700; color: var(--text2);">${escHtml(dirObj.name)}</td>
+        <td style="font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px;">
+          <div style="width: 26px; height: 26px; border-radius: 50%; background: ${c}25; border: 1.5px solid ${c}60; color: ${c}; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800;">
+            ${escHtml(initials(e))}
+          </div>
+          <span>${escHtml(e)}</span>
+        </td>
+        <td style="text-align: center;"><span style="font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 10px; background: rgba(15,120,145,0.1); color: var(--corp-blue2);">${escHtml(eCategoria)}</span></td>
+        <td style="text-align: right; color: var(--text2); font-weight: 600;">${fmtCOP(eCuota)}</td>
+        <td style="text-align: right; color: var(--corp-green); font-weight: 800;">${fmtCOP(eUtilidad)}</td>
+        <td style="text-align: right; color: var(--corp-blue2); font-weight: 600;">${fmtCOP(eVentas)}</td>
+        <td style="text-align: right; color: ${eFaltante > 0 ? 'var(--corp-amber)' : 'var(--text3)'}; font-weight: 600;">${fmtCOP(eFaltante)}</td>
+        <td style="text-align: center;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="flex: 1; background: var(--border); height: 7px; border-radius: 4px; overflow: hidden;">
+              <div style="background: linear-gradient(90deg, ${c}, var(--corp-green)); height: 100%; width: ${Math.min(Math.max(ePct, 0), 100)}%;"></div>
+            </div>
+            <span style="font-size: 11px; font-weight: 800; color: var(--text); min-width: 36px; text-align: right;">${ePct.toFixed(1)}%</span>
+          </div>
+        </td>
+        <td style="text-align: center;">
+          <span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; background: var(--border); color: var(--text);">${escHtml(bonusInfo.nivel)}</span>
+        </td>
+        <td style="text-align: right; ${bonoStyle}">${fmtCOP(bonusInfo.bono)}</td>
+        <td style="text-align: center;">
+          <span class="quota-team-badge ${badgeClass}">${badgeLabel}</span>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const subPct = subCuota > 0 ? (subUtilidad / subCuota) * 100 : 0;
+    const subFaltante = Math.max(0, subCuota - subUtilidad);
+
+    const subRowHtml = `<tr style="background: rgba(15,120,145,0.08); font-weight: 800; border-top: 1.5px solid var(--border); border-bottom: 2px solid var(--corp-blue2);">
+      <td colspan="3" style="text-align: left; font-weight: 800; color: var(--corp-blue2); font-size: 11px;">📌 SUBTOTAL GRUPO ${escHtml(dirObj.name).toUpperCase()} (${execs.length} Comerciales)</td>
+      <td style="text-align: right; color: var(--text); font-weight: 800;">${fmtCOP(subCuota)}</td>
+      <td style="text-align: right; color: var(--corp-green); font-weight: 900;">${fmtCOP(subUtilidad)}</td>
+      <td style="text-align: right; color: var(--corp-blue2); font-weight: 800;">${fmtCOP(subVentas)}</td>
+      <td style="text-align: right; color: var(--corp-amber); font-weight: 800;">${fmtCOP(subFaltante)}</td>
+      <td style="text-align: center; color: var(--text); font-weight: 800;">${subPct.toFixed(1)}%</td>
+      <td style="text-align: center; color: var(--corp-green); font-weight: 900; background: rgba(13,191,130,0.14); border-radius: 6px;">BONOS GRUPO</td>
+      <td style="text-align: right; color: var(--corp-green); font-weight: 900; font-size: 12px;">${fmtCOP(subBonos)}</td>
+      <td style="text-align: center;">—</td>
+    </tr>`;
+
+    return execRowsHtml + subRowHtml;
+  }).join('');
 
   const totalPct = totalCuota > 0 ? (totalUtilidad / totalCuota) * 100 : 0;
   const totalFaltante = Math.max(0, totalCuota - totalUtilidad);
 
   container.innerHTML = `
     <section class="quota-team-breakdown" style="background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
-      <div class="quota-team-breakdown__header" style="display: flex; justify-space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+      <div class="quota-team-breakdown__header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
         <div>
           <div class="quota-team-breakdown__eyebrow" style="font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--corp-blue2); text-transform: uppercase; margin-bottom: 4px;">DESGLOSE DE CUMPLIMIENTO CONSOLIDADO DE GERENCIA • API POWER BI</div>
-          <div class="quota-team-breakdown__subtitle" style="font-size: 13px; color: var(--text2);">Detalle individual de categoría, cuota, utilidad API, ventas y escala de bonos de los ${allExecRows.length} comerciales de todos los grupos</div>
+          <div class="quota-team-breakdown__subtitle" style="font-size: 13px; color: var(--text2);">Detalle individual y subtotales por grupo comercial de los ${totalExecCount} comerciales de todos los grupos</div>
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
           <button class="btn-excel-export" onclick="exportGerenciaReportToExcel()" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: linear-gradient(135deg, #0f7891, #1a2b6b); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">📊 Exportar Excel Consolidado</button>
-          <span class="section-tag" style="background: var(--status-success-bg); color: var(--status-success-fg); border-color: rgba(13,191,130,0.3); font-weight: 700; padding: 6px 12px; border-radius: 20px; font-size: 11px;">🟢 ${allExecRows.length} Comerciales Evaluados</span>
+          <span class="section-tag" style="background: var(--status-success-bg); color: var(--status-success-fg); border-color: rgba(13,191,130,0.3); font-weight: 700; padding: 6px 12px; border-radius: 20px; font-size: 11px;">🟢 ${totalExecCount} Comerciales Evaluados</span>
         </div>
       </div>
 
@@ -4051,50 +4097,17 @@ function renderGerenciaCumplimientoTable() {
             </tr>
           </thead>
           <tbody>
-            ${allExecRows.map((r, idx) => {
-              const c = COLORS[idx % COLORS.length];
-              let bonoStyle = r.bono > 0 ? 'color: var(--corp-green); font-weight: 800;' : 'color: var(--text3); font-weight: 500;';
-              
-              return `<tr>
-                <td style="font-size: 11px; font-weight: 700; color: var(--text2);">${escHtml(r.director)}</td>
-                <td style="font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px;">
-                  <div style="width: 26px; height: 26px; border-radius: 50%; background: ${c}25; border: 1.5px solid ${c}60; color: ${c}; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800;">
-                    ${escHtml(initials(r.ejecutivo))}
-                  </div>
-                  <span>${escHtml(r.ejecutivo)}</span>
-                </td>
-                <td style="text-align: center;"><span style="font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 10px; background: rgba(15,120,145,0.1); color: var(--corp-blue2);">${escHtml(r.categoria)}</span></td>
-                <td style="text-align: right; color: var(--text2); font-weight: 600;">${fmtCOP(r.cuota)}</td>
-                <td style="text-align: right; color: var(--corp-green); font-weight: 800;">${fmtCOP(r.utilidad)}</td>
-                <td style="text-align: right; color: var(--corp-blue2); font-weight: 600;">${fmtCOP(r.ventas)}</td>
-                <td style="text-align: right; color: ${r.faltante > 0 ? 'var(--corp-amber)' : 'var(--text3)'}; font-weight: 600;">${fmtCOP(r.faltante)}</td>
-                <td style="text-align: center;">
-                  <div style="display: flex; align-items: center; gap: 6px;">
-                    <div style="flex: 1; background: var(--border); height: 7px; border-radius: 4px; overflow: hidden;">
-                      <div style="background: linear-gradient(90deg, ${c}, var(--corp-green)); height: 100%; width: ${Math.min(Math.max(r.pct, 0), 100)}%;"></div>
-                    </div>
-                    <span style="font-size: 11px; font-weight: 800; color: var(--text); min-width: 36px; text-align: right;">${r.pct.toFixed(1)}%</span>
-                  </div>
-                </td>
-                <td style="text-align: center;">
-                  <span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; background: var(--border); color: var(--text);">${escHtml(r.nivel)}</span>
-                </td>
-                <td style="text-align: right; ${bonoStyle}">${fmtCOP(r.bono)}</td>
-                <td style="text-align: center;">
-                  <span class="quota-team-badge ${r.badgeClass}">${r.badgeLabel}</span>
-                </td>
-              </tr>`;
-            }).join('')}
+            ${groupsBodyHtml}
           </tbody>
           <tfoot>
             <tr style="background: var(--bg); font-weight: 800; border-top: 2px solid var(--border);">
-              <td colspan="3" style="text-align: left; font-weight: 800; color: var(--text);">TOTAL CONSOLIDADO GERENCIA</td>
+              <td colspan="3" style="text-align: left; font-weight: 800; color: var(--text);">TOTAL CONSOLIDADO GERENCIA GENERAL</td>
               <td style="text-align: right; color: var(--text);">${fmtCOP(totalCuota)}</td>
               <td style="text-align: right; color: var(--corp-green);">${fmtCOP(totalUtilidad)}</td>
               <td style="text-align: right; color: var(--corp-blue2);">${fmtCOP(totalVentas)}</td>
               <td style="text-align: right; color: var(--corp-amber);">${fmtCOP(totalFaltante)}</td>
               <td style="text-align: center; color: var(--text);">${totalPct.toFixed(1)}%</td>
-              <td style="text-align: center; color: var(--corp-green); font-weight: 900;">COSTO BONOS</td>
+              <td style="text-align: center; color: var(--corp-green); font-weight: 900;">COSTO TOTAL BONOS</td>
               <td style="text-align: right; color: var(--corp-green); font-weight: 900; font-size: 13px;">${fmtCOP(totalBonos)}</td>
               <td style="text-align: center;">—</td>
             </tr>
