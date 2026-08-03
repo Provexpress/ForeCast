@@ -111,7 +111,7 @@ const EXECUTIVE_MONTHLY_QUOTAS = [
   { name:'Dafne Lizeth Ruiz Bernal', category:'Enterprise', value:48000000 },
   { name:'Juan David Martínez Pedraza', category:'Junior', value:14000000 },
   { name:'Jenny Alexandra Gonzalez Buitrago', category:'Junior', value:18000000 },
-  { name:'Freddy Andres Peña Sanchez', category:'Enterprise', value:28000000 },
+  { name:'Freddy Andres Peña Sanchez', category:'Master', value:28000000 },
   { name:'Jair Yovanny Herrea', category:'Junior', value:18000000 }
 ];
 
