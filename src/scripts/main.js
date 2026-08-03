@@ -77,20 +77,42 @@ const FORECAST_CONNECTIONS_LIST_NAME = 'ForecastConexiones';
 const PREVENTA_FOLDER_NAME = 'Grupo preventa';
 const FORECAST_BASE_FALLBACK = 'COMERCIAL/FORECAST 2026';
 const EXECUTIVE_MONTHLY_QUOTAS = [
-  { name:'Rafael Francisco Novoa', value:48000000 },
-  { name:'María Paola Briceño', value:48000000 },
-  { name:'Jhonatan Camilo Hernández', value:48000000 },
-  { name:'Yeison Alonso Urrego', value:48000000 },
-  { name:'Jhonatan Steven Acevedo', value:48000000 },
-  { name:'Jasbleidy Johana Mojica', value:48000000 },
-  { name:'Diana Catalina Castro', value:48000000 },
-  { name:'Dafne Lizeth Ruiz Beltrán', value:48000000 },
-  { name:'María Angélica Caballero', value:48000000 },
-  { name:'Óscar Alejandro Beltrán', value:48000000 },
-  { name:'César Augusto Céspedes', value:28000000 },
-  { name:'Freddy Andrés Peña Sánchez', value:28000000 },
-  { name:'Daniel Galindo Girón', value:28000000 },
-  { name:'Juan David Martínez', value:14000000 }
+  { name:'Lington Linares Linares', category:'Master', value:28000000 },
+  { name:'María Paola Briceño Muñoz', category:'Enterprise', value:48000000 },
+  { name:'Claudia Patricia Triana Olaya', category:'Master', value:28000000 },
+  { name:'Dayana Marcela Chala Rodríguez', category:'Junior', value:18000000 },
+  { name:'Daniel Galindo Girón', category:'Master', value:28000000 },
+  { name:'Yeison Alonso Urrego Cortes', category:'Enterprise', value:48000000 },
+  { name:'Jhonatan Camilo Hernandez Martinez', category:'Enterprise', value:48000000 },
+  { name:'Maria Angelica Alvarez Morales', category:'Junior', value:18000000 },
+  { name:'Maria Alejandra Velásquez Espinosa', category:'Master', value:28000000 },
+  { name:'Wilson Fernando Sanchez Monroy', category:'Master', value:28000000 },
+  { name:'Gina Paola Garcia Quito', category:'Master', value:28000000 },
+  { name:'Angela Rocio Torres Matallana', category:'Junior', value:18000000 },
+  { name:'Fernando Alberto Quiñonez', category:'Master', value:28000000 },
+  { name:'Jhonatan Steven Acevedo Fonseca', category:'Enterprise', value:48000000 },
+  { name:'Julieth Milena Galindo Fino', category:'Junior', value:18000000 },
+  { name:'Jasbleidy Johana Mojica', category:'Master', value:28000000 },
+  { name:'Karent Carrillo Marin', category:'Master', value:28000000 },
+  { name:'Angie Tatiana Parra Durán', category:'Junior', value:18000000 },
+  { name:'Johanna Jaime Murcia', category:'Master', value:28000000 },
+  { name:'Rosmira Rojas Puentes', category:'Master', value:28000000 },
+  { name:'Jessica Lorena Valencia Isaza', category:'Enterprise', value:48000000 },
+  { name:'Dilma Constanza Cuesta Rubiano', category:'Junior', value:18000000 },
+  { name:'Mario Reyes Gutierrez', category:'Master', value:28000000 },
+  { name:'Mariela Ramírez Castro', category:'Junior', value:18000000 },
+  { name:'Leidy Astrid Jimenez Ossa', category:'Enterprise', value:48000000 },
+  { name:'Javier Antonio Cortes Murcia', category:'Master', value:28000000 },
+  { name:'Maria Eugenia Cruz Herrera', category:'Master', value:28000000 },
+  { name:'Rosa Maria Mendoza Mendoza', category:'Master', value:28000000 },
+  { name:'Diana Catalina Castro Castro', category:'Enterprise', value:48000000 },
+  { name:'Cesar Augusto Cespedes Sabroso', category:'Master', value:28000000 },
+  { name:'Yurany Andrea Vargas Soler', category:'Master', value:28000000 },
+  { name:'Dafne Lizeth Ruiz Bernal', category:'Enterprise', value:48000000 },
+  { name:'Juan David Martínez Pedraza', category:'Junior', value:14000000 },
+  { name:'Jenny Alexandra Gonzalez Buitrago', category:'Junior', value:18000000 },
+  { name:'Freddy Andres Peña Sanchez', category:'Enterprise', value:28000000 },
+  { name:'Jair Yovanny Herrea', category:'Junior', value:18000000 }
 ];
 
 function getForecastStructure(){
@@ -1848,6 +1870,14 @@ function getExecutiveCuota(executiveName){
   const match = EXECUTIVE_MONTHLY_QUOTAS.find(item => namesMatch(executiveName, item.name));
   return match ? match.value : 18000000;
 }
+
+function getExecutiveCategory(executiveName){
+  const match = EXECUTIVE_MONTHLY_QUOTAS.find(item => namesMatch(executiveName, item.name));
+  return match ? (match.category || 'Junior') : 'Junior';
+}
+
+window.getExecutiveCuota = getExecutiveCuota;
+window.getExecutiveCategory = getExecutiveCategory;
 
 function getSalesSupportAliasMap(){
   return window.SALES_SUPPORT_NAME_ALIASES || {};
@@ -3920,6 +3950,7 @@ function renderGerenciaCumplimientoTable() {
   directores.forEach(dirObj => {
     const execs = (typeof window.getDirectorExecs === 'function') ? window.getDirectorExecs(dirObj.name) : [];
     execs.forEach(e => {
+      const eCategoria = (typeof getExecutiveCategory === 'function') ? getExecutiveCategory(e) : 'Junior';
       const eCuota = (typeof getExecutiveCuota === 'function') ? getExecutiveCuota(e) : 18000000;
       const eApiData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(e, mesKey) : null;
       const eUtilidad = eApiData ? eApiData.utilidad : 0;
@@ -3948,6 +3979,7 @@ function renderGerenciaCumplimientoTable() {
       allExecRows.push({
         director: dirObj.name,
         ejecutivo: e,
+        categoria: eCategoria,
         cuota: eCuota,
         utilidad: eUtilidad,
         ventas: eVentas,
@@ -3966,10 +3998,10 @@ function renderGerenciaCumplimientoTable() {
 
   container.innerHTML = `
     <section class="quota-team-breakdown" style="background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
-      <div class="quota-team-breakdown__header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+      <div class="quota-team-breakdown__header" style="display: flex; justify-space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
         <div>
           <div class="quota-team-breakdown__eyebrow" style="font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--corp-blue2); text-transform: uppercase; margin-bottom: 4px;">DESGLOSE DE CUMPLIMIENTO CONSOLIDADO DE GERENCIA • API POWER BI</div>
-          <div class="quota-team-breakdown__subtitle" style="font-size: 13px; color: var(--text2);">Detalle individual de cuota, utilidad API, ventas y escala de bonos de los ${allExecRows.length} comerciales de todos los grupos</div>
+          <div class="quota-team-breakdown__subtitle" style="font-size: 13px; color: var(--text2);">Detalle individual de categoría, cuota, utilidad API, ventas y escala de bonos de los ${allExecRows.length} comerciales de todos los grupos</div>
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
           <button class="btn-excel-export" onclick="exportGerenciaReportToExcel()" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: linear-gradient(135deg, #0f7891, #1a2b6b); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">📊 Exportar Excel Consolidado</button>
@@ -4007,6 +4039,7 @@ function renderGerenciaCumplimientoTable() {
             <tr>
               <th style="text-align: left;">Director / Grupo</th>
               <th style="text-align: left;">Ejecutivo Comercial</th>
+              <th style="text-align: center;">Categoría</th>
               <th style="text-align: right;">Cuota Mensual</th>
               <th style="text-align: right;">Utilidad API</th>
               <th style="text-align: right;">Ventas Totales</th>
@@ -4030,6 +4063,7 @@ function renderGerenciaCumplimientoTable() {
                   </div>
                   <span>${escHtml(r.ejecutivo)}</span>
                 </td>
+                <td style="text-align: center;"><span style="font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 10px; background: rgba(15,120,145,0.1); color: var(--corp-blue2);">${escHtml(r.categoria)}</span></td>
                 <td style="text-align: right; color: var(--text2); font-weight: 600;">${fmtCOP(r.cuota)}</td>
                 <td style="text-align: right; color: var(--corp-green); font-weight: 800;">${fmtCOP(r.utilidad)}</td>
                 <td style="text-align: right; color: var(--corp-blue2); font-weight: 600;">${fmtCOP(r.ventas)}</td>
@@ -4054,7 +4088,7 @@ function renderGerenciaCumplimientoTable() {
           </tbody>
           <tfoot>
             <tr style="background: var(--bg); font-weight: 800; border-top: 2px solid var(--border);">
-              <td colspan="2" style="text-align: left; font-weight: 800; color: var(--text);">TOTAL CONSOLIDADO GERENCIA</td>
+              <td colspan="3" style="text-align: left; font-weight: 800; color: var(--text);">TOTAL CONSOLIDADO GERENCIA</td>
               <td style="text-align: right; color: var(--text);">${fmtCOP(totalCuota)}</td>
               <td style="text-align: right; color: var(--corp-green);">${fmtCOP(totalUtilidad)}</td>
               <td style="text-align: right; color: var(--corp-blue2);">${fmtCOP(totalVentas)}</td>

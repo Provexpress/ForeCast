@@ -680,7 +680,7 @@
     sheet.views = [{ showGridLines: true }];
 
     // Encabezado Corporativo
-    sheet.mergeCells('A1:I2');
+    sheet.mergeCells('A1:J2');
     const titleCell = sheet.getCell('A1');
     titleCell.value = `PROVEXPRESS S.A.S. — INFORME CONSOLIDADO DE GERENCIA (API POWER BI & COSTO DE BONOS)\nPeriodo: ${mesText} | Todos los Grupos Comerciales`;
     titleCell.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -693,6 +693,7 @@
     const headerRow = sheet.addRow([
       'Director / Grupo',
       'Ejecutivo Comercial',
+      'Categoría',
       'Cuota Mensual ($)',
       'Utilidad Lograda API ($)',
       'Ventas Totales ($)',
@@ -731,6 +732,7 @@
     directores.forEach(dirName => {
       const execs = (typeof window.getDirectorExecs === 'function') ? window.getDirectorExecs(dirName) : [];
       execs.forEach(e => {
+        const eCategoria = (typeof window.getExecutiveCategory === 'function') ? window.getExecutiveCategory(e) : 'Junior';
         const eCuota = (typeof getExecutiveCuota === 'function') ? getExecutiveCuota(e) : 18000000;
         const eApiData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(e, mesKey) : null;
         const eUtilidad = eApiData ? eApiData.utilidad : 0;
@@ -747,6 +749,7 @@
         const row = sheet.addRow([
           dirName,
           e,
+          eCategoria,
           eCuota,
           eUtilidad,
           eVentas,
@@ -764,29 +767,32 @@
         row.getCell(2).alignment = { vertical: 'middle', horizontal: 'left' };
         row.getCell(2).font = { name: 'Arial', size: 10, bold: true };
 
-        row.getCell(3).numberFormat = '$ #,##0';
-        row.getCell(3).alignment = { vertical: 'middle', horizontal: 'right' };
+        row.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell(3).font = { name: 'Arial', size: 9, bold: true };
 
         row.getCell(4).numberFormat = '$ #,##0';
         row.getCell(4).alignment = { vertical: 'middle', horizontal: 'right' };
-        row.getCell(4).font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF047857' } };
 
         row.getCell(5).numberFormat = '$ #,##0';
         row.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
+        row.getCell(5).font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF047857' } };
 
         row.getCell(6).numberFormat = '$ #,##0';
         row.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
 
-        row.getCell(7).numberFormat = '0.0%';
+        row.getCell(7).numberFormat = '$ #,##0';
         row.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
-        row.getCell(7).font = { name: 'Arial', size: 10, bold: true };
 
-        const nivelCell = row.getCell(8);
+        row.getCell(8).numberFormat = '0.0%';
+        row.getCell(8).alignment = { vertical: 'middle', horizontal: 'right' };
+        row.getCell(8).font = { name: 'Arial', size: 10, bold: true };
+
+        const nivelCell = row.getCell(9);
         nivelCell.alignment = { vertical: 'middle', horizontal: 'center' };
         nivelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bonusInfo.badgeBg } };
         nivelCell.font = { name: 'Arial', size: 9, bold: true, color: { argb: bonusInfo.badgeFg } };
 
-        const bonusCell = row.getCell(9);
+        const bonusCell = row.getCell(10);
         bonusCell.numberFormat = '$ #,##0';
         bonusCell.alignment = { vertical: 'middle', horizontal: 'right' };
         bonusCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: bonusInfo.bono > 0 ? 'FF047857' : 'FF6B7280' } };
@@ -809,6 +815,7 @@
     const totalRow = sheet.addRow([
       'TOTAL CONSOLIDADO',
       'GERENCIA GENERAL',
+      '—',
       totalCuota,
       totalUtilidad,
       totalVentas,
@@ -828,13 +835,13 @@
         left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
         right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
       };
-      if ((colNum >= 3 && colNum <= 6) || colNum === 9) {
+      if ((colNum >= 4 && colNum <= 7) || colNum === 10) {
         c.numberFormat = '$ #,##0';
         c.alignment = { vertical: 'middle', horizontal: 'right' };
-      } else if (colNum === 7) {
+      } else if (colNum === 8) {
         c.numberFormat = '0.0%';
         c.alignment = { vertical: 'middle', horizontal: 'right' };
-      } else if (colNum === 8) {
+      } else if (colNum === 9) {
         c.alignment = { vertical: 'middle', horizontal: 'center' };
         c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
         c.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF065F46' } };
@@ -844,6 +851,7 @@
     sheet.columns = [
       { width: 24 },
       { width: 32 },
+      { width: 14 },
       { width: 22 },
       { width: 24 },
       { width: 22 },
