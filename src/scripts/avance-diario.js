@@ -304,6 +304,14 @@
   };
 
   window.exportDirectorReportToExcel = async function () {
+    const isGerenciaUser = (typeof CURRENT_USER !== 'undefined' && CURRENT_USER && (CURRENT_USER.role === 'gerencia' || CURRENT_USER.role === 'gerencia_director'));
+    const activePage = (typeof document !== 'undefined' && document.querySelector('.page.active')) ? document.querySelector('.page.active').id : '';
+    
+    // Si el usuario es de Gerencia o está en la vista de Gerencia, descargar el informe consolidado de todos los grupos
+    if (isGerenciaUser || activePage === 'page-gerencia') {
+      return window.exportGerenciaReportToExcel();
+    }
+
     if (typeof ExcelJS === 'undefined') {
       alert('Cargando librería de Excel, por favor intenta de nuevo en un momento.');
       return;
@@ -312,7 +320,7 @@
     const dirSelect = document.getElementById('sel-director');
     const dirName = dirSelect ? dirSelect.value : 'Director';
     const mesSelect = document.getElementById('sel-dir-mes');
-    const mesKey = mesSelect ? mesSelect.value : '2026-07';
+    const mesKey = mesSelect ? mesSelect.value : '2026-08';
     const mesText = mesSelect && mesSelect.options[mesSelect.selectedIndex] ? mesSelect.options[mesSelect.selectedIndex].text : mesKey;
 
     const workbook = new ExcelJS.Workbook();
@@ -611,9 +619,11 @@
       return;
     }
 
-    const mesSelect = document.getElementById('sel-gerencia-mes');
-    const mesKey = mesSelect ? mesSelect.value : '2026-08';
-    const mesText = mesSelect && mesSelect.options[mesSelect.selectedIndex] ? mesSelect.options[mesSelect.selectedIndex].text : mesKey;
+    const gerenciaMesSelect = document.getElementById('sel-gerencia-mes');
+    const dirMesSelect = document.getElementById('sel-dir-mes');
+    const activeMesSelect = (gerenciaMesSelect && gerenciaMesSelect.value) ? gerenciaMesSelect : ((dirMesSelect && dirMesSelect.value) ? dirMesSelect : null);
+    const mesKey = activeMesSelect ? activeMesSelect.value : '2026-08';
+    const mesText = activeMesSelect && activeMesSelect.options && activeMesSelect.options[activeMesSelect.selectedIndex] ? activeMesSelect.options[activeMesSelect.selectedIndex].text : mesKey;
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Consolidado Gerencia');
