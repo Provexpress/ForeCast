@@ -3963,7 +3963,7 @@ function renderGerenciaCumplimientoTable() {
       const ePct = eCuota > 0 ? (eUtilidad / eCuota) * 100 : 0;
       const eFaltante = Math.max(0, eCuota - eUtilidad);
       const bonusInfo = typeof window.calculateExecutiveBonus === 'function' 
-        ? window.calculateExecutiveBonus(eUtilidad) 
+        ? window.calculateExecutiveBonus(eUtilidad, e) 
         : { bono: 0, nivel: 'Sin Bono', badgeBg: 'FFF3F4F6', badgeFg: 'FF6B7280' };
 
       subCuota += eCuota;

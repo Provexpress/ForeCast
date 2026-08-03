@@ -636,8 +636,37 @@
   };
 
   // 7. Cálculo de Escala de Bonos por Utilidad
-  window.calculateExecutiveBonus = function (utilidad) {
+  window.calculateExecutiveBonus = function (utilidad, ejName) {
     const val = Number(utilidad) || 0;
+    const category = (typeof window.getExecutiveCategory === 'function' && ejName) 
+      ? window.getExecutiveCategory(ejName) 
+      : 'Junior';
+    const cuota = (typeof window.getExecutiveCuota === 'function' && ejName)
+      ? window.getExecutiveCuota(ejName)
+      : 18000000;
+
+    // Umbral mínimo requerido según la categoría asignada
+    let minThreshold = 18000000;
+    if (category === 'Enterprise') {
+      minThreshold = cuota < 48000000 ? cuota : 48000000;
+    } else if (category === 'Master') {
+      minThreshold = 28000000;
+    } else if (category === 'Junior') {
+      minThreshold = cuota < 18000000 ? cuota : 18000000;
+    }
+
+    // Si no alcanzó el umbral mínimo de su propia categoría, NO gana bono inferior
+    if (val < minThreshold) {
+      const labelMin = minThreshold >= 1000000 ? `${(minThreshold / 1000000).toFixed(0)}M` : `${minThreshold}`;
+      return { 
+        bono: 0, 
+        nivel: `Sin Bono (<${labelMin})`, 
+        badgeBg: 'FFF3F4F6', 
+        badgeFg: 'FF6B7280' 
+      };
+    }
+
+    // Si alcanzó o superó el umbral de su categoría, evalúa la escala (pudiendo subir de categoría)
     if (val >= 96000000) {
       return { bono: 1000000, nivel: 'Global (Top Tier)', badgeBg: 'FFD1FAE5', badgeFg: 'FF065F46' };
     } else if (val >= 48000000) {
@@ -647,7 +676,7 @@
     } else if (val >= 18000000) {
       return { bono: 400000, nivel: 'Junior', badgeBg: 'FFDBEAFE', badgeFg: 'FF1E40AF' };
     } else {
-      return { bono: 0, nivel: 'Sin Bono (<18M)', badgeBg: 'FFF3F4F6', badgeFg: 'FF6B7280' };
+      return { bono: 400000, nivel: 'Junior', badgeBg: 'FFDBEAFE', badgeFg: 'FF1E40AF' };
     }
   };
 
@@ -744,7 +773,7 @@
         const eVentas = eApiData ? eApiData.mercancia : 0;
         const ePct = eCuota > 0 ? (eUtilidad / eCuota) : 0;
         const eFaltante = Math.max(0, eCuota - eUtilidad);
-        const bonusInfo = window.calculateExecutiveBonus(eUtilidad);
+        const bonusInfo = window.calculateExecutiveBonus(eUtilidad, e);
 
         subCuota += eCuota;
         subUtilidad += eUtilidad;
