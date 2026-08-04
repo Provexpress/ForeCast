@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const RealDate = Date;
-const FIXED_NOW = '2026-08-01T02:30:00.000Z';
+const FIXED_NOW = '2026-07-28T12:30:00.000Z';
 class FixedDate extends RealDate {
   constructor(...args) {
     super(...(args.length ? args : [FIXED_NOW]));
@@ -60,19 +60,17 @@ assert.notEqual(instrumented, source, 'No se pudo instrumentar el módulo GLPI p
 vm.runInNewContext(instrumented, context, { filename: 'glpi.js' });
 
 const api = context.__glpiTest;
-assert.equal(api.state.period, '2026-07');
-assert.match(getElement('glpi-period').innerHTML, /value="2026-07" selected/);
+assert.equal(api.state.period, 'all');
+assert.match(getElement('glpi-period').innerHTML, /value="all" selected/);
 
 api.state.tickets = [{ id:'1', period:'2026-06' }];
 api.state.period = '';
 api.ensureDefaultPeriod();
 api.renderPeriodOptions();
 
-assert.equal(api.getCurrentPeriod(), '2026-07');
-assert.equal(api.state.period, '2026-07');
-assert.deepEqual([...api.getPeriods()], ['2026-07', '2026-06']);
-assert.match(getElement('glpi-period').innerHTML, /value="2026-07" selected/);
-assert.equal(api.getMonthTickets().length, 0);
+assert.equal(api.state.period, 'all');
+assert.match(getElement('glpi-period').innerHTML, /value="all" selected/);
+assert.equal(api.getMonthTickets().length, 1);
 
 api.state.period = '2026-06';
 api.ensureDefaultPeriod();

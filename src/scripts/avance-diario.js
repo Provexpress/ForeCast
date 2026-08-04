@@ -9,21 +9,28 @@
 
   
   
-  // Función para realizar consulta EN VIVO a través del Proxy local sin CORS (Idéntico a Postman)
+  // Función para realizar consulta EN VIVO a través del Proxy local o Vercel Serverless sin CORS/Mixed Content
   async function fetchLiveUtilidadFromApi(fechaInicial, fechaFinal) {
-    try {
-      // 1. Intentar Proxy local (http://localhost:5001/api/utilidad)
-      const proxyUrl = `http://localhost:5001/api/utilidad?fechaInicial=${fechaInicial}&fechaFinal=${fechaFinal}`;
-      const proxyResp = await fetch(proxyUrl, { method: "GET" });
-      if (proxyResp.ok) {
-        const proxyData = await proxyResp.json();
-        if (proxyData && proxyData.response && proxyData.response.length) {
-          console.log("⚡ [PROXY EN VIVO] Petición en tiempo real exitosa:", proxyData.response.length, "vendedores");
-          return proxyData.response;
+    const endpoints = [
+      `http://localhost:5001/api/utilidad?fechaInicial=${fechaInicial}&fechaFinal=${fechaFinal}`,
+      `/api/utilidad?fechaInicial=${fechaInicial}&fechaFinal=${fechaFinal}`,
+      `https://tableros-area-financiera.vercel.app/api/utilidad?fechaInicial=${fechaInicial}&fechaFinal=${fechaFinal}`
+    ];
+
+    for (const ep of endpoints) {
+      try {
+        const resp = await fetch(ep, { cache: "no-store" });
+        if (resp.ok) {
+          const data = await resp.json().catch(() => null);
+          if (data && (data.response || data.ok)) {
+            const rows = data.response || [];
+            if (rows.length > 0) {
+              console.log(`⚡ [API UTILIDAD EN VIVO via ${ep}] Exitosa:`, rows.length, "vendedores");
+              return rows;
+            }
+          }
         }
-      }
-    } catch (e) {
-      console.log("ℹ️ Proxy local no activo o no alcanzable, intentando petición directa.");
+      } catch (e) {}
     }
 
     try {
