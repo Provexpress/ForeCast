@@ -1220,32 +1220,46 @@
     const sourceNote = document.getElementById('glpi-source-note');
     if(sourceNote) sourceNote.textContent = 'Conectando con la API de GLPI…';
 
-    // Intento 1: Servidor Proxy Serverless /api/glpi-tickets (Sin bloqueos de CORS en navegador)
-    try {
-      const serverlessRes = await fetch('/api/glpi-tickets', { cache: 'no-store' });
-      if(serverlessRes.ok) {
-        const sJson = await serverlessRes.json();
-        if(sJson && sJson.ok && Array.isArray(sJson.rawTickets) && sJson.rawTickets.length > 0) {
-          console.log('⚡ [GLPI Proxy] Sincronización exitosa vía API Serverless:', sJson.rawTickets.length, 'tickets');
-          const normalizedTickets = deduplicateApiTickets(sJson.rawTickets, sJson.userMap || {});
-          state.tickets = normalizedTickets;
-          state.sourceRows = sJson.rawTickets.length;
-          state.duplicateRows = Math.max(0, sJson.rawTickets.length - normalizedTickets.length);
-          state.sourceModifiedAt = sJson.updatedAt || new Date().toISOString();
-          state.sourceType = 'API REST GLPI (Servidor Proxy Vercel)';
-          state.loaded = true;
-          state.limit = PAGE_SIZE;
-          ensureDefaultPeriod();
-          state.loading = false;
-          renderAll();
-          return true;
+    // Intento 1: Servidor Proxy Serverless (Vercel) sin bloqueos de CORS/Mixed Content
+    const proxyEndpoints = [
+      '/api/glpi-tickets',
+      'https://tableros-area-financiera.vercel.app/api/glpi-tickets'
+    ];
+
+    for(const proxyUrl of proxyEndpoints) {
+      try {
+        const serverlessRes = await fetch(proxyUrl, { cache: 'no-store' });
+        if(serverlessRes.ok) {
+          const sJson = await serverlessRes.json().catch(() => null);
+          if(sJson && sJson.ok && Array.isArray(sJson.rawTickets) && sJson.rawTickets.length > 0) {
+            console.log('⚡ [GLPI Proxy] Sincronización exitosa vía API Serverless:', sJson.rawTickets.length, 'tickets');
+            const normalizedTickets = deduplicateApiTickets(sJson.rawTickets, sJson.userMap || {});
+            state.tickets = normalizedTickets;
+            state.sourceRows = sJson.rawTickets.length;
+            state.duplicateRows = Math.max(0, sJson.rawTickets.length - normalizedTickets.length);
+            state.sourceModifiedAt = sJson.updatedAt || new Date().toISOString();
+            state.sourceType = 'API REST GLPI (Proxy Serverless Vercel)';
+            state.loaded = true;
+            state.limit = PAGE_SIZE;
+            ensureDefaultPeriod();
+            state.loading = false;
+            renderAll();
+            return true;
+          }
         }
+      } catch(proxyErr) {
+        console.warn(`[GLPI Proxy ${proxyUrl}]`, proxyErr.message);
       }
-    } catch(proxyErr) {
-      console.warn('[GLPI Proxy Local]', proxyErr.message);
     }
 
     // Intento 2: Conexión directa cliente-servidor GLPI
+    const isHttpsPage = typeof window !== 'undefined' && window.location && window.location.protocol === 'https:';
+    const isHttpServer = baseUrl.startsWith('http:');
+
+    if(isHttpsPage && isHttpServer) {
+      console.warn('[GLPI Mixed Content Warning] La página corre en HTTPS (GitHub Pages) pero el servidor GLPI es HTTP.');
+    }
+
     let sessionToken = null;
     try {
       if(sourceNote) sourceNote.textContent = `Iniciando sesión en la API de GLPI (${baseUrl})…`;
@@ -1331,7 +1345,11 @@
       return true;
     } catch(error) {
       console.error('[GLPI API Error]', error);
-      state.error = error instanceof Error ? error.message : 'No fue posible conectar con la API de GLPI.';
+      if(isHttpsPage && isHttpServer) {
+        state.error = 'El navegador bloqueó la conexión a GLPI porque la página web corre en HTTPS (GitHub Pages) y el servidor GLPI es HTTP sin SSL (http://152.200.168.131:50010). Para solucionarlo, despliega el proyecto en Vercel o abre la app en un servidor/IP local.';
+      } else {
+        state.error = error instanceof Error ? error.message : 'No fue posible conectar con la API de GLPI.';
+      }
       return false;
     } finally {
       if(sessionToken) {
