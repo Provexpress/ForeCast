@@ -448,7 +448,7 @@
   function ensureDefaultPeriod(){
     const periods = getPeriods();
     if(state.period && (state.period === 'all' || periods.includes(state.period))) return;
-    state.period = getCurrentPeriod();
+    state.period = 'all';
   }
 
   function formatMonth(period){
