@@ -1,12 +1,32 @@
 (function(){
   'use strict';
 
+  // ============================================================================
+  // CREDENCIALES Y CONFIGURACIÓN DE LA API REST GLPI (COLOCAR TOKENS AQUÍ)
+  // ============================================================================
+  const GLPI_API_CONFIG = {
+    baseUrl: 'http://152.200.168.131:50010/glpi/apirest.php',
+    appToken: 'JmXIjj4ngfJ2NLM81Z36h8JCQLF6aUVh6bS1pC2f',   // Reemplaza por tu App-Token del cliente API (ej: Forecast_Provexpress)
+    userToken: 't6Fjn3XoEJB6FKLFo1KUdY2VIUZnmDZKhcjuxmB1'  // Reemplaza por tu User-Token (Ficha API del usuario)
+  };
+  // ============================================================================
+
+  const DEFAULT_GLPI_API_URL = GLPI_API_CONFIG.baseUrl;
   const GLPI_FOLDER_NAME = 'GLPI';
   const GLPI_FILE_NAME = 'TICKETS-GLPI.xlsx';
   const GLPI_SHEET_NAME = '2026';
   const PAGE_SIZE = 60;
   let commercialPeopleCache = null;
   let statusChartInstance = null;
+
+  const GLPI_STATUS_MAP = {
+    1: { status: 'Nuevo', statusKey: 'new' },
+    2: { status: 'En curso (asignada)', statusKey: 'in_progress' },
+    3: { status: 'En curso (planificada)', statusKey: 'in_progress' },
+    4: { status: 'En espera', statusKey: 'waiting' },
+    5: { status: 'Resuelto', statusKey: 'resolved' },
+    6: { status: 'Cerrado', statusKey: 'closed' }
+  };
 
   const state = {
     loading: false,
@@ -16,6 +36,7 @@
     sourceRows: 0,
     duplicateRows: 0,
     sourceModifiedAt: '',
+    sourceType: '',
     period: '',
     status: 'all',
     group: '',
@@ -341,6 +362,69 @@
     const byId = new Map();
     rows.forEach((row, index) => {
       const ticket = normalizeTicketRow(row, index);
+      if(!ticket.openDate && !ticket.title && !ticket.id) return;
+      if(byId.has(ticket.id)) byId.set(ticket.id, mergeTickets(byId.get(ticket.id), ticket));
+      else byId.set(ticket.id, ticket);
+    });
+    return [...byId.values()].sort((a, b) =>
+      String(b.openDate).localeCompare(String(a.openDate)) || String(b.id).localeCompare(String(a.id), undefined, { numeric:true })
+    );
+  }
+
+  function normalizeApiTicket(raw, index){
+    const id = normalizeTicketId(raw['2'] || raw.id);
+    const openDate = dateToIso(raw['15'] || raw.date);
+    const solutionDate = dateToIso(raw['17'] || raw.solvedate);
+    const closeDate = dateToIso(raw['16'] || raw.closedate);
+    const statusCode = Number(raw['12'] || raw.status) || 1;
+    const statusInfo = GLPI_STATUS_MAP[statusCode] || { status: 'Nuevo', statusKey: 'new' };
+    const status = statusInfo.status;
+    const statusKey = statusInfo.statusKey;
+
+    const requester = cleanPersonName(raw['4'] || raw.users_id_recipient) || 'Sin solicitante';
+    const category = cleanPlainText(raw['7'] || raw.itilcategories_id) || 'Sin categoría';
+    const directorGroup = resolveDirectorGroup(requester);
+
+    const rawTech = raw['5'] || raw.users_id_assign;
+    const technicians = Array.isArray(rawTech)
+      ? rawTech.map(cleanPersonName).filter(Boolean)
+      : rawTech ? [cleanPersonName(rawTech)].filter(Boolean) : [];
+
+    const daysSolution = solutionDate ? diffDays(openDate, solutionDate) : null;
+    const daysClosed = closeDate ? diffDays(openDate, closeDate) : daysSolution;
+    const calculatedDaysOpen = diffDays(openDate);
+    const daysOpen = isTerminalStatus(statusKey)
+      ? null
+      : (calculatedDaysOpen === null ? 0 : calculatedDaysOpen);
+
+    return {
+      id: id || `ticket-api-${index + 1}`,
+      title: cleanPlainText(raw['1'] || raw.name) || 'Ticket sin título',
+      status,
+      statusKey,
+      statusCode,
+      openDate,
+      solutionDate,
+      closeDate,
+      period: openDate ? openDate.slice(0, 7) : getBogotaDateKey().slice(0, 7),
+      technicians,
+      category,
+      categoryGroup: getCategoryGroup(category),
+      directorGroup: directorGroup.directorGroup,
+      directorName: directorGroup.directorName,
+      matchedCommercialPerson: directorGroup.matchedPerson,
+      description: cleanPlainText(raw.content || raw['1'] || ''),
+      requester,
+      daysSolution,
+      daysClosed,
+      daysOpen
+    };
+  }
+
+  function deduplicateApiTickets(rawRows){
+    const byId = new Map();
+    (rawRows || []).forEach((raw, index) => {
+      const ticket = normalizeApiTicket(raw, index);
       if(!ticket.openDate && !ticket.title && !ticket.id) return;
       if(byId.has(ticket.id)) byId.set(ticket.id, mergeTickets(byId.get(ticket.id), ticket));
       else byId.set(ticket.id, ticket);
@@ -1047,7 +1131,9 @@
   function renderSourceNote(){
     const host = document.getElementById('glpi-source-note');
     if(!host) return;
-    host.textContent = `Fuente: ${GLPI_FILE_NAME} · hoja ${GLPI_SHEET_NAME} · actualizado ${formatSourceDate(state.sourceModifiedAt)} · ${state.tickets.length.toLocaleString('es-CO')} tickets únicos · ${state.duplicateRows.toLocaleString('es-CO')} filas duplicadas consolidadas.`;
+    const sourceType = state.sourceType || (state.tickets.length ? 'API REST Directa GLPI' : `Excel ${GLPI_FILE_NAME}`);
+    const infoExtra = state.duplicateRows > 0 ? ` · ${state.duplicateRows.toLocaleString('es-CO')} registros duplicados consolidados` : '';
+    host.textContent = `Fuente: ${sourceType} · actualizado ${formatSourceDate(state.sourceModifiedAt)} · ${state.tickets.length.toLocaleString('es-CO')} tickets 2026 procesados${infoExtra}.`;
   }
 
   function renderAll(){
@@ -1081,6 +1167,128 @@
     const payload = await response.json().catch(() => ({}));
     if(!response.ok) throw new Error((payload.error && payload.error.message) || 'No se pudo descargar el archivo GLPI.');
     return payload['@microsoft.graph.downloadUrl'] || '';
+  }
+
+  async function loadFromGlpiApi(){
+    if(state.loading) return false;
+    state.loading = true;
+    state.error = '';
+    renderAll();
+
+    const isPlaceholder = token => !token || String(token).includes('PON_AQUI');
+    const baseUrl = localStorage.getItem('forecast_glpi_api_url') || (window.GLPI_CONFIG && window.GLPI_CONFIG.baseUrl) || GLPI_API_CONFIG.baseUrl;
+    const appToken = localStorage.getItem('forecast_glpi_app_token') || (window.GLPI_CONFIG && window.GLPI_CONFIG.appToken) || GLPI_API_CONFIG.appToken;
+    const userToken = localStorage.getItem('forecast_glpi_user_token') || (window.GLPI_CONFIG && window.GLPI_CONFIG.userToken) || GLPI_API_CONFIG.userToken;
+
+    if(isPlaceholder(appToken) || isPlaceholder(userToken)) {
+      state.loading = false;
+      state.error = 'Debes ingresar el App-Token y User-Token de GLPI en src/scripts/glpi.js o hacer clic en "⚙ Config API" para ingresarlos.';
+      renderAll();
+      return false;
+    }
+
+    let sessionToken = null;
+    try {
+      const sourceNote = document.getElementById('glpi-source-note');
+      if(sourceNote) sourceNote.textContent = `Iniciando sesión en la API de GLPI (${baseUrl})…`;
+
+      // 1. initSession
+      const initRes = await fetch(`${baseUrl}/initSession`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `user_token ${userToken}`,
+          'App-Token': appToken
+        }
+      });
+
+      if(!initRes.ok) {
+        const errorText = await initRes.text().catch(() => '');
+        throw new Error(`Error en initSession (HTTP ${initRes.status}): ${errorText || initRes.statusText}`);
+      }
+
+      const initData = await initRes.json();
+      sessionToken = initData.session_token;
+      if(!sessionToken) throw new Error('GLPI no retornó un session_token válido.');
+
+      if(sourceNote) sourceNote.textContent = 'Consultando tickets 2026 desde la API de GLPI…';
+
+      // 2. Fetch Tickets Paged
+      const FIELDS = { id:2, titulo:1, estado:12, fecha_apertura:15, fecha_solucion:17, fecha_cierre:16, categoria:7, solicitante:4, tecnico:5, grupo_tecnico:8 };
+      const PAGE_SIZE_FETCH = 500;
+      let allRawTickets = [];
+      let start = 0;
+      let totalCount = null;
+
+      do {
+        const params = new URLSearchParams();
+        params.set('criteria[0][field]', FIELDS.fecha_apertura);
+        params.set('criteria[0][searchtype]', 'morethan');
+        params.set('criteria[0][value]', '2026-01-01');
+        params.set('expand_dropdowns', 'true');
+        params.set('range', `${start}-${start + PAGE_SIZE_FETCH - 1}`);
+
+        Object.values(FIELDS).forEach((fieldId, idx) => {
+          params.set(`forcedisplay[${idx}]`, fieldId);
+        });
+
+        const searchUrl = `${baseUrl}/search/Ticket?${params.toString()}`;
+        const searchRes = await fetch(searchUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Session-Token': sessionToken,
+            'App-Token': appToken
+          }
+        });
+
+        if(!searchRes.ok) {
+          const errTxt = await searchRes.text().catch(() => '');
+          throw new Error(`Error al consultar tickets en rango ${start} (HTTP ${searchRes.status}): ${errTxt}`);
+        }
+
+        const json = await searchRes.json();
+        totalCount = typeof json.totalcount === 'number' ? json.totalcount : null;
+        const batch = json.data || [];
+        allRawTickets = allRawTickets.concat(batch);
+
+        if(sourceNote) sourceNote.textContent = `Descargados ${allRawTickets.length} de ${totalCount || 'varios'} tickets desde GLPI API…`;
+
+        start += PAGE_SIZE_FETCH;
+      } while(totalCount !== null && start < totalCount);
+
+      // 3. Normalize & Deduplicate
+      const normalizedTickets = deduplicateApiTickets(allRawTickets);
+      state.tickets = normalizedTickets;
+      state.sourceRows = allRawTickets.length;
+      state.duplicateRows = Math.max(0, allRawTickets.length - normalizedTickets.length);
+      state.sourceModifiedAt = new Date().toISOString();
+      state.sourceType = 'API REST Directa GLPI (152.200.168.131)';
+      state.loaded = true;
+      state.limit = PAGE_SIZE;
+      ensureDefaultPeriod();
+      return true;
+    } catch(error) {
+      console.error('[GLPI API Error]', error);
+      state.error = error instanceof Error ? error.message : 'No fue posible conectar con la API de GLPI.';
+      return false;
+    } finally {
+      if(sessionToken) {
+        try {
+          await fetch(`${baseUrl}/killSession`, {
+            method: 'GET',
+            headers: {
+              'Session-Token': sessionToken,
+              'App-Token': appToken
+            }
+          });
+        } catch(killErr) {
+          console.warn('[GLPI] Error al cerrar sesión:', killErr);
+        }
+      }
+      state.loading = false;
+      renderAll();
+    }
   }
 
   async function loadFromSharePoint(){
@@ -1117,11 +1325,12 @@
       state.sourceRows = rows.length;
       state.duplicateRows = Math.max(0, rows.length - tickets.length);
       state.sourceModifiedAt = item.lastModifiedDateTime || '';
+      state.sourceType = `Excel SharePoint (${GLPI_FILE_NAME})`;
       state.loaded = true;
       state.limit = PAGE_SIZE;
       ensureDefaultPeriod();
     } catch(error) {
-      console.error('[GLPI]', error);
+      console.error('[GLPI SharePoint Fallback Error]', error);
       state.error = error instanceof Error ? error.message : 'No fue posible cargar TICKETS-GLPI.';
     } finally {
       state.loading = false;
@@ -1129,9 +1338,24 @@
     }
   }
 
+  async function loadData(){
+    const isPlaceholder = token => !token || String(token).includes('PON_AQUI');
+    const appToken = localStorage.getItem('forecast_glpi_app_token') || (window.GLPI_CONFIG && window.GLPI_CONFIG.appToken) || GLPI_API_CONFIG.appToken;
+    const userToken = localStorage.getItem('forecast_glpi_user_token') || (window.GLPI_CONFIG && window.GLPI_CONFIG.userToken) || GLPI_API_CONFIG.userToken;
+
+    const hasTokens = !isPlaceholder(appToken) && !isPlaceholder(userToken);
+
+    if(hasTokens) {
+      const ok = await loadFromGlpiApi();
+      if(ok) return;
+    }
+
+    await loadFromSharePoint();
+  }
+
   function render(){
     if(!state.loaded && !state.loading && !state.error) {
-      loadFromSharePoint();
+      loadData();
       return;
     }
     renderAll();
@@ -1238,17 +1462,104 @@
     state.loaded = false;
     state.error = '';
     state.tickets = [];
-    await loadFromSharePoint();
+    await loadData();
+  }
+
+  function ensureConfigModalDOM(){
+    let modal = document.getElementById('glpi-config-modal');
+    if(modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'glpi-config-modal';
+    modal.className = 'glpi-config-modal-backdrop';
+    modal.innerHTML = `
+      <div class="glpi-config-modal-panel">
+        <div class="glpi-config-modal-header">
+          <h3>⚙ Credenciales API REST GLPI</h3>
+          <button type="button" class="glpi-detail-close" onclick="GlpiModule.closeConfigModal()">×</button>
+        </div>
+        <p style="font-size:12px; color:var(--text2); margin-bottom:15px; line-height:1.5;">
+          Ingresa los tokens para conectar directamente con la API REST de tu servidor GLPI (<code>http://152.200.168.131:50010</code>). Las credenciales se almacenan en tu navegador.
+        </p>
+        <form onsubmit="GlpiModule.saveConfigModal(event)" style="display:flex; flex-direction:column; gap:12px;">
+          <label class="glpi-field">
+            <span>URL Base API GLPI</span>
+            <input id="glpi-config-url" type="url" required placeholder="http://152.200.168.131:50010/glpi/apirest.php">
+          </label>
+          <label class="glpi-field">
+            <span>App-Token (Cliente API Forecast_Provexpress)</span>
+            <input id="glpi-config-app-token" type="text" required placeholder="Ej: app_token_123456">
+          </label>
+          <label class="glpi-field">
+            <span>User-Token (Ficha API Usuario)</span>
+            <input id="glpi-config-user-token" type="password" required placeholder="Ej: user_token_7890">
+          </label>
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px;">
+            <button type="button" class="glpi-clear-btn" onclick="GlpiModule.closeConfigModal()">Cancelar</button>
+            <button type="submit" class="glpi-refresh-btn" style="background:var(--corp-cyan); color:#000; font-weight:700; border:none; padding:8px 16px; border-radius:6px; cursor:pointer;">Guardar y Conectar API</button>
+          </div>
+        </form>
+      </div>`;
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function openConfigModal(){
+    const modal = ensureConfigModalDOM();
+    const urlInput = document.getElementById('glpi-config-url');
+    const appInput = document.getElementById('glpi-config-app-token');
+    const userInput = document.getElementById('glpi-config-user-token');
+
+    if(urlInput) urlInput.value = localStorage.getItem('forecast_glpi_api_url') || (window.GLPI_CONFIG && window.GLPI_CONFIG.baseUrl) || DEFAULT_GLPI_API_URL;
+    if(appInput) appInput.value = localStorage.getItem('forecast_glpi_app_token') || (window.GLPI_CONFIG && window.GLPI_CONFIG.appToken) || '';
+    if(userInput) userInput.value = localStorage.getItem('forecast_glpi_user_token') || (window.GLPI_CONFIG && window.GLPI_CONFIG.userToken) || '';
+
+    modal.classList.add('open');
+  }
+
+  function closeConfigModal(){
+    const modal = document.getElementById('glpi-config-modal');
+    if(modal) modal.classList.remove('open');
+  }
+
+  async function saveConfigModal(event){
+    if(event && typeof event.preventDefault === 'function') event.preventDefault();
+    const urlInput = document.getElementById('glpi-config-url');
+    const appInput = document.getElementById('glpi-config-app-token');
+    const userInput = document.getElementById('glpi-config-user-token');
+
+    const url = (urlInput ? urlInput.value : '').trim() || DEFAULT_GLPI_API_URL;
+    const appToken = (appInput ? appInput.value : '').trim();
+    const userToken = (userInput ? userInput.value : '').trim();
+
+    localStorage.setItem('forecast_glpi_api_url', url);
+    localStorage.setItem('forecast_glpi_app_token', appToken);
+    localStorage.setItem('forecast_glpi_user_token', userToken);
+
+    closeConfigModal();
+
+    state.loaded = false;
+    state.error = '';
+    state.tickets = [];
+    await loadFromGlpiApi();
   }
 
   document.addEventListener('keydown', event => {
-    if(event.key === 'Escape' && state.selectedId) closeDetail();
+    if(event.key === 'Escape') {
+      if(state.selectedId) closeDetail();
+      closeConfigModal();
+    }
   });
 
   window.GlpiModule = {
     render,
     reload,
+    loadData,
+    loadFromGlpiApi,
     loadFromSharePoint,
+    openConfigModal,
+    closeConfigModal,
+    saveConfigModal,
     setPeriod,
     setStatus,
     toggleStatus,
