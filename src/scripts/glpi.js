@@ -371,7 +371,36 @@
     );
   }
 
-  function normalizeApiTicket(raw, index){
+  async function fetchGlpiUserMap(baseUrl, appToken, sessionToken){
+    try {
+      const res = await fetch(`${baseUrl}/User?range=0-1000`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Session-Token': sessionToken,
+          'App-Token': appToken
+        }
+      });
+      if(!res.ok) return {};
+      const userList = await res.json();
+      const userMap = {};
+      (userList || []).forEach(u => {
+        if(!u || u.id === undefined) return;
+        const fullName = [u.firstname, u.realname].filter(Boolean).join(' ').trim() || u.name || '';
+        if(fullName) {
+          userMap[u.id] = fullName;
+          userMap[String(u.id)] = fullName;
+        }
+      });
+      return userMap;
+    } catch(e) {
+      console.warn('[GLPI UserMap Error]', e);
+      return {};
+    }
+  }
+
+  function normalizeApiTicket(raw, index, userMap){
+    userMap = userMap || {};
     const id = normalizeTicketId(raw['2'] || raw.id);
     const openDate = dateToIso(raw['15'] || raw.date);
     const solutionDate = dateToIso(raw['17'] || raw.solvedate);
@@ -381,14 +410,15 @@
     const status = statusInfo.status;
     const statusKey = statusInfo.statusKey;
 
-    const requester = cleanPersonName(raw['4'] || raw.users_id_recipient) || 'Sin solicitante';
+    const rawReq = raw['4'] || raw.users_id_recipient;
+    const resolvedReqName = userMap[rawReq] || userMap[String(rawReq)] || rawReq;
+    const requester = cleanPersonName(resolvedReqName) || 'Sin solicitante';
     const category = cleanPlainText(raw['7'] || raw.itilcategories_id) || 'Sin categoría';
     const directorGroup = resolveDirectorGroup(requester);
 
     const rawTech = raw['5'] || raw.users_id_assign;
-    const technicians = Array.isArray(rawTech)
-      ? rawTech.map(cleanPersonName).filter(Boolean)
-      : rawTech ? [cleanPersonName(rawTech)].filter(Boolean) : [];
+    const techArray = Array.isArray(rawTech) ? rawTech : (rawTech ? [rawTech] : []);
+    const technicians = techArray.map(tId => cleanPersonName(userMap[tId] || userMap[String(tId)] || tId)).filter(Boolean);
 
     const daysSolution = solutionDate ? diffDays(openDate, solutionDate) : null;
     const daysClosed = closeDate ? diffDays(openDate, closeDate) : daysSolution;
@@ -421,10 +451,10 @@
     };
   }
 
-  function deduplicateApiTickets(rawRows){
+  function deduplicateApiTickets(rawRows, userMap){
     const byId = new Map();
     (rawRows || []).forEach((raw, index) => {
-      const ticket = normalizeApiTicket(raw, index);
+      const ticket = normalizeApiTicket(raw, index, userMap);
       if(!ticket.openDate && !ticket.title && !ticket.id) return;
       if(byId.has(ticket.id)) byId.set(ticket.id, mergeTickets(byId.get(ticket.id), ticket));
       else byId.set(ticket.id, ticket);
@@ -1211,6 +1241,9 @@
       sessionToken = initData.session_token;
       if(!sessionToken) throw new Error('GLPI no retornó un session_token válido.');
 
+      if(sourceNote) sourceNote.textContent = 'Obteniendo directorio de usuarios GLPI…';
+      const userMap = await fetchGlpiUserMap(baseUrl, appToken, sessionToken);
+
       if(sourceNote) sourceNote.textContent = 'Consultando tickets 2026 desde la API de GLPI…';
 
       // 2. Fetch Tickets Paged
@@ -1258,7 +1291,7 @@
       } while(totalCount !== null && start < totalCount);
 
       // 3. Normalize & Deduplicate
-      const normalizedTickets = deduplicateApiTickets(allRawTickets);
+      const normalizedTickets = deduplicateApiTickets(allRawTickets, userMap);
       state.tickets = normalizedTickets;
       state.sourceRows = allRawTickets.length;
       state.duplicateRows = Math.max(0, allRawTickets.length - normalizedTickets.length);
