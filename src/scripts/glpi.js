@@ -1217,9 +1217,37 @@
       return false;
     }
 
+    const sourceNote = document.getElementById('glpi-source-note');
+    if(sourceNote) sourceNote.textContent = 'Conectando con la API de GLPI…';
+
+    // Intento 1: Servidor Proxy Serverless /api/glpi-tickets (Sin bloqueos de CORS en navegador)
+    try {
+      const serverlessRes = await fetch('/api/glpi-tickets', { cache: 'no-store' });
+      if(serverlessRes.ok) {
+        const sJson = await serverlessRes.json();
+        if(sJson && sJson.ok && Array.isArray(sJson.rawTickets) && sJson.rawTickets.length > 0) {
+          console.log('⚡ [GLPI Proxy] Sincronización exitosa vía API Serverless:', sJson.rawTickets.length, 'tickets');
+          const normalizedTickets = deduplicateApiTickets(sJson.rawTickets, sJson.userMap || {});
+          state.tickets = normalizedTickets;
+          state.sourceRows = sJson.rawTickets.length;
+          state.duplicateRows = Math.max(0, sJson.rawTickets.length - normalizedTickets.length);
+          state.sourceModifiedAt = sJson.updatedAt || new Date().toISOString();
+          state.sourceType = 'API REST GLPI (Servidor Proxy Vercel)';
+          state.loaded = true;
+          state.limit = PAGE_SIZE;
+          ensureDefaultPeriod();
+          state.loading = false;
+          renderAll();
+          return true;
+        }
+      }
+    } catch(proxyErr) {
+      console.warn('[GLPI Proxy Local]', proxyErr.message);
+    }
+
+    // Intento 2: Conexión directa cliente-servidor GLPI
     let sessionToken = null;
     try {
-      const sourceNote = document.getElementById('glpi-source-note');
       if(sourceNote) sourceNote.textContent = `Iniciando sesión en la API de GLPI (${baseUrl})…`;
 
       // 1. initSession
