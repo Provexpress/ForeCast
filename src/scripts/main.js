@@ -1,3 +1,31 @@
+
+window.CURRENT_DIRECTOR_TAB = window.CURRENT_DIRECTOR_TAB || 'all';
+
+window.setDirectorViewTab = function(mode) {
+  window.CURRENT_DIRECTOR_TAB = mode;
+  window.applyDirectorViewTab();
+};
+
+window.applyDirectorViewTab = function() {
+  const mode = window.CURRENT_DIRECTOR_TAB || 'all';
+  const btnAll = document.getElementById('tab-btn-dir-all');
+  const btnAvance = document.getElementById('tab-btn-dir-avance');
+  const btnForecast = document.getElementById('tab-btn-dir-forecast');
+
+  const secAvance = document.getElementById('dir-section-avance');
+  const secForecast = document.getElementById('dir-section-forecast');
+
+  [btnAll, btnAvance, btnForecast].forEach(b => { if (b) b.classList.remove('active'); });
+
+  if (mode === 'avance' && btnAvance) btnAvance.classList.add('active');
+  else if (mode === 'forecast' && btnForecast) btnForecast.classList.add('active');
+  else if (btnAll) btnAll.classList.add('active');
+
+  if (secAvance) secAvance.style.display = (mode === 'all' || mode === 'avance') ? 'block' : 'none';
+  if (secForecast) secForecast.style.display = (mode === 'all' || mode === 'forecast') ? 'block' : 'none';
+};
+
+
 /* ══════════════════════════════════════
    DATA & STATE
 ══════════════════════════════════════ */
@@ -5590,7 +5618,7 @@ function renderDirector(){
       const x=cx-bW/2;
       const y=padT+gH-bh;
       const monthClick = jsCall('toggleDirectorMonthFilter', m);
-      s+=`<rect class="evo-month-bar ${mes===m?'chart-selected':''}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${bh.toFixed(1)}" rx="3" fill="url(#bg-dir)" role="button" tabindex="0" onclick="${escAttr(monthClick)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${monthClick}}`)}" data-tooltip="${escAttr('Filtrar mes '+getMonthShortLabel(m)+': '+abr(v))}"></rect>`;
+      s+=`<rect class="evo-month-bar ${mes===m?'chart-selected':''}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${bh.toFixed(1)}" rx="3" fill="url(#bg-dir)" role="button" tabindex="0" onclick="${escAttr(monthClick)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){${monthClick}}`)}" data-tooltip="${escAttr('Filtrar mes '+getMonthShortLabel(m)+': '+abr(v))}"></rect>`;
       s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--text3)" font-family="IBM Plex Sans,sans-serif" font-weight="400">${getMonthShortLabel(m)}</text>`;
     });
     s+='</svg>';
@@ -5599,52 +5627,45 @@ function renderDirector(){
   
   // Equipo execs
   const ejCards=execs.map((e,i)=>{
-    const ejData=data.filter(r=>(r['COMERCIAL']||'').trim()===e);
-    const ejCOP=ejData.reduce((s,r)=>s+toCOP(r),0);
-    const ejGan=ejData.filter(r=>r['ESTADO']==='GANADA').length;
-    const hasD=ejData.length>0;
+    const ed=data.filter(r=>(r['COMERCIAL']||'').trim()===e);
+    const cop=ed.reduce((s,r)=>s+toCOP(r),0);
+    const gan=ed.filter(r=>r['ESTADO']==='GANADA').length;
+    const pen=ed.filter(r=>r['ESTADO']==='PENDIENTE').length;
     const c=COLORS[i%COLORS.length];
-    const ini=e.split(' ').slice(0,2).map(w=>w[0]).join('');
-    const isSelected=(SELECTED_EXEC_BY_DIR[dir]||'')===e;
-    const selectAction=jsCall('selectDirectorExec', e);
-    return `<div class="kpi exec-card ${isSelected?'selected':''} ${hasD?'':'no-data'}" style="--ac:${c};min-width:160px" role="button" tabindex="0" onclick="${escAttr(selectAction)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){event.preventDefault();${selectAction}}`)}">
-      <div class="kpi-accent"></div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <div class="team-avatar" style="--avatar-accent:${c}">${escHtml(ini)}</div>
-        <div>
-          <div style="font-size:11px;font-family:var(--font-display);font-weight:700;color:var(--text)">${escHtml(e.split(' ')[0])}</div>
-          <div style="font-size:9px;color:var(--text3)">${hasD?ejData.length+' negocios':'Sin datos aún'}</div>
-        </div>
-      </div>
+    const isSelected = SELECTED_EXEC_BY_DIR[dir] === e;
+    const hasData = ed.length > 0;
+    const cardAction = isSelected ? jsCall('clearDirectorExec') : jsCall('selectDirectorExec', e);
+    return `<div class="persona-card ${isSelected?'selected':''} ${hasData?'':'no-data'}" role="button" tabindex="0" onclick="${escAttr(cardAction)}" onkeydown="${escAttr(`if(event.key==='Enter'||event.key===' '){${cardAction}}`)}">
+      <div class="persona-avatar" style="--avatar-accent:${c}">${escHtml(initials(e))}</div>
+      <div class="persona-name" style="color:${hasData?'var(--text)':'var(--text2)'}">${escHtml(e)}</div>
       ${renderLastConnection(e)}
-      <div class="kpi-val">${hasD?abr(ejCOP):'—'}</div>
-      <div class="kpi-sub">${hasD?ejGan+' ganadas':'Pendiente'}</div>
+      ${hasData
+        ?`<div class="persona-stats">
+        <div class="p-stat"><div class="p-stat-label">Total</div><div class="p-stat-val" style="font-size:11px">${abr(cop)}</div></div>
+        <div class="p-stat"><div class="p-stat-label">Negoc.</div><div class="p-stat-val">${ed.length}</div></div>
+        <div class="p-stat"><div class="p-stat-label">Ganadas</div><div class="p-stat-val" style="color:var(--corp-green)">${gan}</div></div>
+      </div>`
+        :`<div class="persona-empty-note">Sin registros aún</div>`}
     </div>`;
   }).join('');
-
-  const selectedExec = SELECTED_EXEC_BY_DIR[dir] || '';
+  
+  const selectedExec = SELECTED_EXEC_BY_DIR[dir] || null;
   const execData = selectedExec ? data.filter(r=>(r['COMERCIAL']||'').trim()===selectedExec) : [];
-  const execTotalCOP = execData.reduce((s,r)=>s+toCOP(r),0);
-  const execTotalUSD = execData.filter(r=>getRowCurrency(r)==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
-  const execUtilidadCOP = sumUtilidad(execData, 'COP');
-  const execUtilidadUSD = sumUtilidad(execData, 'USD');
-  const execGanadas = execData.filter(r=>r['ESTADO']==='GANADA');
+  const execUtilidadCOP = selectedExec ? sumUtilidad(execData, 'COP') : 0;
+  const execUtilidadUSD = selectedExec ? sumUtilidad(execData, 'USD') : 0;
+  const execGanadas = selectedExec ? execData.filter(r=>r['ESTADO']==='GANADA') : [];
+  
   const execKPIs = selectedExec ? `
-    <div class="section-hd" style="margin-top:14px">
-      <h2>${escHtml(selectedExec)}</h2>
-      <span class="section-tag">EJECUTIVO</span>
-      <button class="btn-clear" onclick="clearDirectorExec()">Ver todo el equipo</button>
-    </div>
     <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
       <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
         <div class="kpi-label">Total COP</div>
-        <div class="kpi-val">${abr(execTotalCOP)}</div>
-        <div class="kpi-sub">${fmtCOP(execTotalCOP)}</div>
+        <div class="kpi-val">${abr(execData.reduce((s,r)=>s+toCOP(r),0))}</div>
+        <div class="kpi-sub">${fmtCOP(execData.reduce((s,r)=>s+toCOP(r),0))}</div>
       </div>
       <div class="kpi" style="--ac:var(--usd-color)"><div class="kpi-accent"></div>
         <div class="kpi-label">Total USD</div>
-        ${kpiUSD(execTotalUSD)}
-        <div class="kpi-sub">Liq: ${abr(execTotalUSD*trm)}</div>
+        ${kpiUSD(execData.filter(r=>getRowCurrency(r)==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0))}
+        <div class="kpi-sub">Liq: ${abr(execData.filter(r=>getRowCurrency(r)==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0)*trm)}</div>
       </div>
       <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
         <div class="kpi-label">Utilidad COP</div>
@@ -5687,170 +5708,176 @@ function renderDirector(){
   const faltanteGrupo = Math.max(0, totalCuotaGrupo - utilidadGrupoTotal);
 
   document.getElementById('director-content').innerHTML=`
-    <section class="quota-summary quota-summary--director" aria-label="Avance de cuota y utilidad de ${escAttr(dir)}">
-      <div class="quota-summary__header">
-        <div>
-          <div class="quota-summary__eyebrow"><span class="quota-summary__signal" aria-hidden="true"></span>Avance diario de cuota y utilidad</div>
-          <div class="quota-summary__title">${escHtml(dir)}</div>
-          <div class="quota-summary__subtitle">Seguimiento acumulado del grupo · ${execs.length} comerciales asignados</div>
+    <!-- BLOQUE 1: AVANCE DIARIO DE CUOTA Y UTILIDAD (API POWER BI) -->
+    <div id="dir-section-avance" class="dir-section-block">
+      <section class="quota-summary quota-summary--director" aria-label="Avance de cuota y utilidad de ${escAttr(dir)}">
+        <div class="quota-summary__header">
+          <div>
+            <div class="quota-summary__eyebrow"><span class="quota-summary__signal" aria-hidden="true"></span>Avance diario de cuota y utilidad</div>
+            <div class="quota-summary__title">${escHtml(dir)}</div>
+            <div class="quota-summary__subtitle">Seguimiento acumulado del grupo · ${execs.length} comerciales asignados</div>
+          </div>
+          <div class="quota-summary__status">
+            <strong>${pctAvanceGrupo.toFixed(1)}%</strong>
+            <span>Cumplimiento</span>
+          </div>
         </div>
-        <div class="quota-summary__status">
+        <div class="quota-summary__metrics">
+          <article class="quota-metric quota-metric--quota">
+            <span class="quota-metric__icon" aria-hidden="true">◎</span>
+            <div><span>Cuota mensual grupo</span><strong>${fmtCOP(totalCuotaGrupo)}</strong><small>${execs.length} comerciales asignados</small></div>
+          </article>
+          <article class="quota-metric quota-metric--profit">
+            <span class="quota-metric__icon" aria-hidden="true">↗</span>
+            <div><span>Utilidad lograda</span><strong>${fmtCOP(utilidadGrupoTotal)}</strong><small>Margen acumulado en el mes</small></div>
+          </article>
+          <article class="quota-metric quota-metric--remaining">
+            <span class="quota-metric__icon" aria-hidden="true">△</span>
+            <div><span>Faltante para la meta</span><strong>${fmtCOP(faltanteGrupo)}</strong><small>Diferencia sobre cuota</small></div>
+          </article>
+        </div>
+        <div class="quota-summary__progress-row">
+          <div class="quota-summary__progress" role="progressbar" aria-label="Cumplimiento de cuota" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(Math.max(pctAvanceGrupo,0),100).toFixed(1)}">
+            <span style="--progress:${Math.min(Math.max(pctAvanceGrupo,0),100)}%"></span>
+          </div>
           <strong>${pctAvanceGrupo.toFixed(1)}%</strong>
-          <span>Cumplimiento</span>
         </div>
-      </div>
-      <div class="quota-summary__metrics">
-        <article class="quota-metric quota-metric--quota">
-          <span class="quota-metric__icon" aria-hidden="true">◎</span>
-          <div><span>Cuota mensual grupo</span><strong>${fmtCOP(totalCuotaGrupo)}</strong><small>${execs.length} comerciales asignados</small></div>
-        </article>
-        <article class="quota-metric quota-metric--profit">
-          <span class="quota-metric__icon" aria-hidden="true">↗</span>
-          <div><span>Utilidad lograda</span><strong>${fmtCOP(utilidadGrupoTotal)}</strong><small>Margen acumulado en el mes</small></div>
-        </article>
-        <article class="quota-metric quota-metric--remaining">
-          <span class="quota-metric__icon" aria-hidden="true">△</span>
-          <div><span>Faltante para la meta</span><strong>${fmtCOP(faltanteGrupo)}</strong><small>Diferencia sobre cuota</small></div>
-        </article>
-      </div>
-      <div class="quota-summary__progress-row">
-        <div class="quota-summary__progress" role="progressbar" aria-label="Cumplimiento de cuota" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(Math.max(pctAvanceGrupo,0),100).toFixed(1)}">
-          <span style="--progress:${Math.min(Math.max(pctAvanceGrupo,0),100)}%"></span>
-        </div>
-        <strong>${pctAvanceGrupo.toFixed(1)}%</strong>
-      </div>
-    </section>
+      </section>
 
-    <!-- DESGLOSE DE CUMPLIMIENTO POR EJECUTIVO COMERCIAL -->
-    <section class="quota-team-breakdown">
-      <div class="quota-team-breakdown__header">
-        <div>
-          <div class="quota-team-breakdown__eyebrow">DESGLOSE DE CUMPLIMIENTO POR EJECUTIVO • API POWER BI</div>
-          <div class="quota-team-breakdown__subtitle">Detalle individual de cuota, ventas y margen logrado de los ${execs.length} comerciales del equipo</div>
+      <!-- DESGLOSE DE CUMPLIMIENTO POR EJECUTIVO COMERCIAL -->
+      <section class="quota-team-breakdown">
+        <div class="quota-team-breakdown__header">
+          <div>
+            <div class="quota-team-breakdown__eyebrow">DESGLOSE DE CUMPLIMIENTO POR EJECUTIVO • API POWER BI</div>
+            <div class="quota-team-breakdown__subtitle">Detalle individual de cuota, ventas y margen logrado de los ${execs.length} comerciales del equipo</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="btn-excel-export" onclick="exportDirectorReportToExcel()">📊 Exportar Excel</button>
+            <span class="section-tag" style="background: var(--status-success-bg); color: var(--status-success-fg); border-color: rgba(13,191,130,0.3); font-weight: 700;">🟢 ${execs.length} Comerciales Evaluados</span>
+          </div>
         </div>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <button class="btn-excel-export" onclick="exportDirectorReportToExcel()">📊 Exportar Excel</button>
-          <span class="section-tag" style="background: var(--status-success-bg); color: var(--status-success-fg); border-color: rgba(13,191,130,0.3); font-weight: 700;">🟢 ${execs.length} Comerciales Evaluados</span>
-        </div>
-      </div>
 
-      <div style="overflow-x: auto;">
-        <table class="quota-team-table">
-          <thead>
-            <tr>
-              <th style="text-align: left;">Ejecutivo Comercial</th>
-              <th style="text-align: right;">Cuota Mensual</th>
-              <th style="text-align: right;">Utilidad API (Avance)</th>
-              <th style="text-align: right;">Ventas Totales</th>
-              <th style="text-align: right;">Faltante Meta</th>
-              <th style="text-align: center; width: 170px;">% Cumplimiento</th>
-              <th style="text-align: center;">Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${execs.map((e, idx) => {
-              const eCuota = getExecutiveCuota(e);
-              const eApiData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(e, mes) : null;
-              const eData = data.filter(r => (r['COMERCIAL']||'').trim() === e);
-              const eUtilidad = eApiData ? eApiData.utilidad : (sumUtilidad(eData, 'COP') + (sumUtilidad(eData, 'USD') * trm));
-              const eVentas = eApiData ? eApiData.mercancia : eData.reduce((s,r) => s + toCOP(r), 0);
-              const ePct = eCuota > 0 ? (eUtilidad / eCuota) * 100 : 0;
-              const eFaltante = Math.max(0, eCuota - eUtilidad);
-              const c = COLORS[idx % COLORS.length];
-              
-              let badgeClass = 'quota-team-badge--alert';
-              let badgeLabel = '⚠️ En Riesgo';
-              if (ePct >= 100) {
-                badgeClass = 'quota-team-badge--completed';
-                badgeLabel = '🏆 Meta Alcanzada';
-              } else if (ePct >= 50) {
-                badgeClass = 'quota-team-badge--progress';
-                badgeLabel = '📈 En Camino';
-              }
+        <div style="overflow-x: auto;">
+          <table class="quota-team-table">
+            <thead>
+              <tr>
+                <th style="text-align: left;">Ejecutivo Comercial</th>
+                <th style="text-align: right;">Cuota Mensual</th>
+                <th style="text-align: right;">Utilidad API (Avance)</th>
+                <th style="text-align: right;">Ventas Totales</th>
+                <th style="text-align: right;">Faltante Meta</th>
+                <th style="text-align: center; width: 170px;">% Cumplimiento</th>
+                <th style="text-align: center;">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${execs.map((e, idx) => {
+                const eCuota = getExecutiveCuota(e);
+                const eApiData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(e, mes) : null;
+                const eData = data.filter(r => (r['COMERCIAL']||'').trim() === e);
+                const eUtilidad = eApiData ? eApiData.utilidad : (sumUtilidad(eData, 'COP') + (sumUtilidad(eData, 'USD') * trm));
+                const eVentas = eApiData ? eApiData.mercancia : eData.reduce((s,r) => s + toCOP(r), 0);
+                const ePct = eCuota > 0 ? (eUtilidad / eCuota) * 100 : 0;
+                const eFaltante = Math.max(0, eCuota - eUtilidad);
+                const c = COLORS[idx % COLORS.length];
+                
+                let badgeClass = 'quota-team-badge--alert';
+                let badgeLabel = '⚠️ En Riesgo';
+                if (ePct >= 100) {
+                  badgeClass = 'quota-team-badge--completed';
+                  badgeLabel = '🏆 Meta Alcanzada';
+                } else if (ePct >= 50) {
+                  badgeClass = 'quota-team-badge--progress';
+                  badgeLabel = '📈 En Camino';
+                }
 
-              return `<tr style="cursor: pointer;" onclick="${escAttr(jsCall('selectDirectorExec', e))}">
-                <td style="font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 10px;">
-                  <div style="width: 28px; height: 28px; border-radius: 50%; background: ${c}25; border: 1.5px solid ${c}60; color: ${c}; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800;">
-                    ${escHtml(initials(e))}
-                  </div>
-                  <span>${escHtml(e)}</span>
-                </td>
-                <td style="text-align: right; color: var(--text2); font-weight: 600;">${fmtCOP(eCuota)}</td>
-                <td style="text-align: right; color: var(--corp-green); font-weight: 800;">${fmtCOP(eUtilidad)}</td>
-                <td style="text-align: right; color: var(--corp-blue2); font-weight: 600;">${fmtCOP(eVentas)}</td>
-                <td style="text-align: right; color: ${eFaltante > 0 ? 'var(--corp-amber)' : 'var(--text3)'}; font-weight: 600;">${fmtCOP(eFaltante)}</td>
-                <td style="text-align: center;">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <div style="flex: 1; background: var(--border); height: 8px; border-radius: 4px; overflow: hidden;">
-                      <div style="background: linear-gradient(90deg, ${c}, var(--corp-green)); height: 100%; width: ${Math.min(Math.max(ePct, 0), 100)}%;"></div>
+                return `<tr style="cursor: pointer;" onclick="${escAttr(jsCall('selectDirectorExec', e))}">
+                  <td style="font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 28px; height: 28px; border-radius: 50%; background: ${c}25; border: 1.5px solid ${c}60; color: ${c}; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800;">
+                      ${escHtml(initials(e))}
                     </div>
-                    <span style="font-size: 11px; font-weight: 800; color: var(--text); min-width: 40px; text-align: right;">${ePct.toFixed(1)}%</span>
-                  </div>
-                </td>
-                <td style="text-align: center;">
-                  <span class="quota-team-badge ${badgeClass}">${badgeLabel}</span>
-                </td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <div class="section-hd"><h2>${escHtml(dir)}</h2><span class="section-tag">DIRECTOR</span></div>
-    
-    <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
-      <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
-        <div class="kpi-label">Total COP</div>
-        <div class="kpi-val">${abr(totalCOP)}</div>
-        <div class="kpi-sub">${fmtCOP(totalCOP)}</div>
-      </div>
-      <div class="kpi" style="--ac:var(--usd-color)"><div class="kpi-accent"></div>
-        <div class="kpi-label">Total USD</div>
-        ${kpiUSD(totalUSD)}
-        <div class="kpi-sub">Liq: ${abr(totalUSD*trm)}</div>
-      </div>
-      <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
-        <div class="kpi-label">Utilidad COP</div>
-        <div class="kpi-val">${abr(utilidadCOP)}</div>
-        <div class="kpi-sub">${fmtCOP(utilidadCOP)}</div>
-      </div>
-      <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
-        <div class="kpi-label">Utilidad USD</div>
-        ${kpiUSD(utilidadUSD)}
-        <div class="kpi-sub">Liq: ${abr(utilidadUSD*trm)}</div>
-      </div>
-      <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
-        <div class="kpi-label">Ganadas</div>
-        <div class="kpi-val">${ganadas.length}</div>
-        <div class="kpi-sub">${abr(ganadas.reduce((s,r)=>s+toCOP(r),0))}</div>
-      </div>
-      <div class="kpi" style="--ac:var(--corp-amber)"><div class="kpi-accent"></div>
-        <div class="kpi-label">Ejecutivos</div>
-        <div class="kpi-val">${execs.length}</div>
-        <div class="kpi-sub">${data.length} negocios · ${execsWithDataDir.length} activos</div>
-      </div>
+                    <span>${escHtml(e)}</span>
+                  </td>
+                  <td style="text-align: right; color: var(--text2); font-weight: 600;">${fmtCOP(eCuota)}</td>
+                  <td style="text-align: right; color: var(--corp-green); font-weight: 800;">${fmtCOP(eUtilidad)}</td>
+                  <td style="text-align: right; color: var(--corp-blue2); font-weight: 600;">${fmtCOP(eVentas)}</td>
+                  <td style="text-align: right; color: ${eFaltante > 0 ? 'var(--corp-amber)' : 'var(--text3)'}; font-weight: 600;">${fmtCOP(eFaltante)}</td>
+                  <td style="text-align: center;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <div style="flex: 1; background: var(--border); height: 8px; border-radius: 4px; overflow: hidden;">
+                        <div style="background: linear-gradient(90deg, ${c}, var(--corp-green)); height: 100%; width: ${Math.min(Math.max(ePct, 0), 100)}%;"></div>
+                      </div>
+                      <span style="font-size: 11px; font-weight: 800; color: var(--text); min-width: 40px; text-align: right;">${ePct.toFixed(1)}%</span>
+                    </div>
+                  </td>
+                  <td style="text-align: center;">
+                    <span class="quota-team-badge ${badgeClass}">${badgeLabel}</span>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
 
-    <div class="g2b">
-      <div class="chart-card">
-        <div class="chart-hd">Evolución Mensual — ${escHtml(dir.split(' ')[0])}</div>
-        ${evoSVG()}
-      </div>
-      <div class="chart-card">
-        <div class="chart-hd">Estado Pipeline</div>
-        <div class="donut-wrap">
-          <svg id="donut-dir-est" viewBox="0 0 100 100" style="width:130px;height:130px;flex-shrink:0"></svg>
-          <div class="donut-leg" id="leg-dir-est"></div>
+    <!-- BLOQUE 2: PIPELINE Y FORECAST DE NEGOCIOS (EXCEL) -->
+    <div id="dir-section-forecast" class="dir-section-block">
+      <div class="section-hd"><h2>${escHtml(dir)}</h2><span class="section-tag">DIRECTOR</span></div>
+      
+      <div class="kpi-grid kpi-grid-6" style="margin-bottom:16px">
+        <div class="kpi" style="--ac:var(--corp-blue2)"><div class="kpi-accent"></div>
+          <div class="kpi-label">Total COP</div>
+          <div class="kpi-val">${abr(totalCOP)}</div>
+          <div class="kpi-sub">${fmtCOP(totalCOP)}</div>
+        </div>
+        <div class="kpi" style="--ac:var(--usd-color)"><div class="kpi-accent"></div>
+          <div class="kpi-label">Total USD</div>
+          ${kpiUSD(totalUSD)}
+          <div class="kpi-sub">Liq: ${abr(totalUSD*trm)}</div>
+        </div>
+        <div class="kpi" style="--ac:var(--corp-purple2)"><div class="kpi-accent"></div>
+          <div class="kpi-label">Utilidad COP</div>
+          <div class="kpi-val">${abr(utilidadCOP)}</div>
+          <div class="kpi-sub">${fmtCOP(utilidadCOP)}</div>
+        </div>
+        <div class="kpi" style="--ac:var(--corp-cyan)"><div class="kpi-accent"></div>
+          <div class="kpi-label">Utilidad USD</div>
+          ${kpiUSD(utilidadUSD)}
+          <div class="kpi-sub">Liq: ${abr(utilidadUSD*trm)}</div>
+        </div>
+        <div class="kpi" style="--ac:var(--corp-green)"><div class="kpi-accent"></div>
+          <div class="kpi-label">Ganadas</div>
+          <div class="kpi-val">${ganadas.length}</div>
+          <div class="kpi-sub">${abr(ganadas.reduce((s,r)=>s+toCOP(r),0))}</div>
+        </div>
+        <div class="kpi" style="--ac:var(--corp-amber)"><div class="kpi-accent"></div>
+          <div class="kpi-label">Ejecutivos</div>
+          <div class="kpi-val">${execs.length}</div>
+          <div class="kpi-sub">${data.length} negocios · ${execsWithDataDir.length} activos</div>
         </div>
       </div>
-    </div>
 
-    <div class="section-hd"><h2>Equipo</h2><span class="section-tag">${execs.length} EJECUTIVOS</span>${buildExcelConnectionExportButton('director', 'Excel')}</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:18px">
-      ${ejCards}
+      <div class="g2b">
+        <div class="chart-card">
+          <div class="chart-hd">Evolución Mensual — ${escHtml(dir.split(' ')[0])}</div>
+          ${evoSVG()}
+        </div>
+        <div class="chart-card">
+          <div class="chart-hd">Estado Pipeline</div>
+          <div class="donut-wrap">
+            <svg id="donut-dir-est" viewBox="0 0 100 100" style="width:130px;height:130px;flex-shrink:0"></svg>
+            <div class="donut-leg" id="leg-dir-est"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-hd"><h2>Equipo</h2><span class="section-tag">${execs.length} EJECUTIVOS</span>${buildExcelConnectionExportButton('director', 'Excel')}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:18px">
+        ${ejCards}
+      </div>
+      ${execKPIs}
     </div>
-    ${execKPIs}
   `;
   attachChartTooltips(document.getElementById('director-content'));
   
@@ -5864,6 +5891,10 @@ function renderDirector(){
     clickTitle: 'Filtrar por estado',
     tooltipPrefix: 'Filtrar estado: '
   });
+
+  if (typeof window.applyDirectorViewTab === 'function') {
+    window.applyDirectorViewTab();
+  }
 }
 
 function selectDirectorExec(name){

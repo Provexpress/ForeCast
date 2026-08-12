@@ -233,6 +233,21 @@
   </div>
 
   <div id="director-avance-panel"></div>
+    <!-- SEPARADOR DE VISTAS (AVANCE DIARIO VS FORECAST) -->
+  <div class="view-tab-bar">
+    <div class="view-tab-switcher">
+      <button type="button" id="tab-btn-dir-all" class="view-tab-btn active" onclick="setDirectorViewTab('all')">
+        <span class="view-tab-icon">🌐</span> <span>Vista Completa (Todo)</span>
+      </button>
+      <button type="button" id="tab-btn-dir-avance" class="view-tab-btn" onclick="setDirectorViewTab('avance')">
+        <span class="view-tab-icon">📊</span> <span>Avance Diario de Cuota y Utilidad (API)</span>
+      </button>
+      <button type="button" id="tab-btn-dir-forecast" class="view-tab-btn" onclick="setDirectorViewTab('forecast')">
+        <span class="view-tab-icon">📈</span> <span>Pipeline y Forecast de Negocios (Excel)</span>
+      </button>
+    </div>
+  </div>
+
   <div id="director-content"></div>
 </div>
 
@@ -690,7 +705,7 @@
 
 <script src="src/scripts/programa-puntos-canal.js?v=20260727-visual-refresh1"></script>
 <script src="src/scripts/glpi.js?v=20260804-glpi-cors-fix1"></script>
-<script src="src/scripts/main.js?v=20260812-estructura-comercial1"></script>
+<script src="src/scripts/main.js?v=20260812-tab-switcher1"></script>
 
 
 <!-- Sin datos precargados — cargar carpeta FORECAST 2026 -->

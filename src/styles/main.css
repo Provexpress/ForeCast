@@ -3090,3 +3090,73 @@ tr:hover td,.table-row-action:hover td{background:var(--surface-hover);color:var
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
 }
+
+
+/* ════════════════════════════════════════════════════════════════
+   TAB SWITCHER SEPARADOR (AVANCE DIARIO API VS FORECAST PIPELINE)
+   ════════════════════════════════════════════════════════════════ */
+.view-tab-bar {
+  margin: 12px 0 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.view-tab-switcher {
+  display: inline-flex;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.view-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.view-tab-btn:hover {
+  color: var(--text);
+  background: var(--surface-hover, rgba(255, 255, 255, 0.08));
+}
+
+.view-tab-btn.active {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #1A2B6B 0%, #2D7BF7 100%) !important;
+  box-shadow: 0 2px 8px rgba(45, 123, 247, 0.3);
+}
+
+[data-theme="light"] .view-tab-btn.active {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #0F7891 0%, #1A2B6B 100%) !important;
+}
+
+.view-tab-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+@media (max-width: 768px) {
+  .view-tab-switcher {
+    width: 100%;
+    flex-direction: column;
+  }
+  .view-tab-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
