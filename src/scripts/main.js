@@ -2102,8 +2102,18 @@ if(typeof MutationObserver === 'function' && document.body) {
   keyboardActionObserver.observe(document.body, { childList:true, subtree:true });
 }
 
+function normalizeCurrencyValue(value, fallback='COP'){
+  const normalized = cleanDisplayText(value, '').trim().toUpperCase();
+  if(normalized === 'COP' || normalized === 'USD') return normalized;
+  return fallback;
+}
+
+function getRowCurrency(row, fallback='COP'){
+  return normalizeCurrencyValue(row && row['MONEDA 2'], fallback);
+}
+
 function toCOP(row){
-  const m = (row['MONEDA 2']||'COP').trim().toUpperCase();
+  const m = getRowCurrency(row);
   const val = parseMonto(row['MONTO VENTA CLIENTE']);
   const trm = getTRM();
   if(m==='USD') return val * trm;
@@ -2125,7 +2135,7 @@ function formatMarginDisplay(raw, fallback='Sin dato'){
 }
 
 function getUtilidad(row){
-  const moneda = cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase();
+  const moneda = getRowCurrency(row);
   const utilidadRaw = firstFilled(row, ['UTILIDAD']);
   if(utilidadRaw !== '' && utilidadRaw !== null && utilidadRaw !== undefined) {
     return { valor: parseMonto(utilidadRaw) || 0, moneda };
@@ -2303,7 +2313,7 @@ function decorateRecordFromFile(rec, fileName, directorHint){
   rec['MONTO VENTA CLIENTE'] = firstFilled(rec, ['MONTO VENTA CLIENTE']) || rec['MONTO VENTA CLIENTE'] || '';
   rec['UTILIDAD'] = firstFilled(rec, ['UTILIDAD']) || rec['UTILIDAD'] || '';
   rec['MARGEN'] = firstFilled(rec, ['MARGEN']) || rec['MARGEN'] || '';
-  rec['MONEDA 2'] = firstFilled(rec, ['MONEDA 2']) || rec['MONEDA 2'] || '';
+  rec['MONEDA 2'] = normalizeCurrencyValue(firstFilled(rec, ['MONEDA 2']), 'COP');
   rec['TRM REFERENCIA'] = firstFilled(rec, ['TRM REFERENCIA']) || rec['TRM REFERENCIA'] || '';
   rec['FECHA DIA/MES/AÑO'] = firstFilled(rec, ['FECHA DIA/MES/AÑO']) || rec['FECHA DIA/MES/AÑO'] || '';
   rec['DIRECTOR'] = normalizeDirectorName(directorHint || rec['DIRECTOR'] || rec['DIRECTOR '] || '');
@@ -3303,7 +3313,7 @@ function formatFieldValue(key, value, row){
   if(value === null || value === undefined || String(value).trim() === '') return 'Sin dato';
   if(mapped.startsWith('FECHA')) return escHtml(cleanDisplayText(formatDateValue(value), 'Sin fecha'));
   if(mapped === 'MONTO VENTA CLIENTE' || mapped === 'COSTO NEGOCIO' || mapped === 'COSTO' || mapped === 'UTILIDAD' || mapped === 'VALOR FACTURAS'){
-    const mon = cleanDisplayText(row['MONEDA 2'], 'COP').toUpperCase();
+    const mon = getRowCurrency(row);
     const monto = parseMonto(value);
     return mapped !== 'VALOR FACTURAS' && mon === 'USD' ? fmtUSD(monto) : fmtCOP(monto);
   }
@@ -3331,7 +3341,7 @@ function renderNegocioDetail(row){
   const soporta = cleanDisplayText(getSalesSoportaName(row), 'Sin apoyo definido');
   const director = cleanDisplayText(firstFilled(row, ['DIRECTOR']), 'Sin director');
   const ejecutivo = cleanDisplayText(firstFilled(row, ['SALES SUPPORT','COMERCIAL']), isSalesRow ? 'Sin sales support' : 'Sin ejecutivo');
-  const moneda = cleanDisplayText(firstFilled(row, ['MONEDA 2']), 'COP').toUpperCase();
+  const moneda = getRowCurrency(row);
   const valor = parseMonto(row['MONTO VENTA CLIENTE']) || 0;
   const copTotal = toCOP(row);
   const margenRaw = firstFilled(row, ['MARGEN']);
@@ -3475,7 +3485,7 @@ function renderMarcaLineaDetail(){
   const filteredRows = estadoFilter ? rows.filter(r => cleanDisplayText(r['ESTADO'], '').toUpperCase() === estadoFilter) : rows;
   const totalCOP = rows.reduce((sum, row) => sum + toCOP(row), 0);
   const totalUSD = rows
-    .filter(r => cleanDisplayText(r['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
+    .filter(r => getRowCurrency(r) === 'USD')
     .reduce((sum, row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
   const totalNegocios = rows.length;
   const estados = ['GANADA','PENDIENTE','PERDIDA','APLAZADO'].map((estado) => {
@@ -3818,8 +3828,8 @@ function renderGerencia(){
   document.getElementById('hoy-fecha').textContent=showMonthStrip
     ? `${getMonthLongLabel(activeMonth)} ${String(activeMonth).slice(0,4)}`
     : new Date().toLocaleDateString('es-CO',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  const hoyCOP=hoy.filter(r=>(r['MONEDA 2']||'').trim()==='COP').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
-  const hoyUSD=hoy.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
+  const hoyCOP=hoy.filter(r=>getRowCurrency(r)==='COP').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
+  const hoyUSD=hoy.filter(r=>getRowCurrency(r)==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   document.getElementById('hoy-cop').textContent=fmtCOP(hoyCOP);
   document.getElementById('hoy-usd').textContent=fmtCOP(hoyUSD*trm);
   document.getElementById('hoy-count').textContent=hoy.length;
@@ -3827,8 +3837,8 @@ function renderGerencia(){
   
   // Total COP (all)
   const totalCOP=ALL_DATA.reduce((s,r)=>s+toCOP(r),0);
-  const totalUSD=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
-  const totalCOPonly=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='COP').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
+  const totalUSD=ALL_DATA.filter(r=>getRowCurrency(r)==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
+  const totalCOPonly=ALL_DATA.filter(r=>getRowCurrency(r)==='COP').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   const ganadas=ALL_DATA.filter(r=>getGerenciaEstadoValue(r)==='GANADA');
   const totalGanada=ganadas.reduce((s,r)=>s+toCOP(r),0);
   
@@ -4302,7 +4312,7 @@ function getBogotaTimestampLabel(){
 }
 
 function getGerenciaExportRowValues(row){
-  const moneda = cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() || 'COP';
+  const moneda = getRowCurrency(row);
   const valorOriginal = parseMonto(row['MONTO VENTA CLIENTE']) || 0;
   const costoOriginal = parseMonto(firstFilled(row, ['COSTO NEGOCIO','COSTO'])) || 0;
   const costoCop = moneda === 'USD' ? costoOriginal * getTRM() : costoOriginal;
@@ -4342,7 +4352,7 @@ function getGerenciaEstadoSummaryRows(rows){
     const stateRows = rows.filter(row => getGerenciaEstadoValue(row) === estado);
     const totalCOP = stateRows.reduce((sum,row) => sum + toCOP(row), 0);
     const totalUSD = stateRows
-      .filter(row => cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
+      .filter(row => getRowCurrency(row) === 'USD')
       .reduce((sum,row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
     const utilidadCOP = stateRows.reduce((sum,row) => {
       const utilidad = getUtilidad(row);
@@ -4358,7 +4368,7 @@ function getGerenciaDirectorSummaryRows(rows){
     const directorRows = rows.filter(row => cleanDisplayText(row['DIRECTOR'], 'Sin director') === director);
     const totalCOP = directorRows.reduce((sum,row) => sum + toCOP(row), 0);
     const totalUSD = directorRows
-      .filter(row => cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
+      .filter(row => getRowCurrency(row) === 'USD')
       .reduce((sum,row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
     const counts = GERENCIA_ESTADOS.reduce((acc, estado) => {
       acc[estado] = directorRows.filter(row => getGerenciaEstadoValue(row) === estado).length;
@@ -4413,7 +4423,7 @@ function styleExcelSectionLabel(ws, rowNumber, text, lastCol){
 function styleExcelKpis(ws, rows){
   const totalCOP = rows.reduce((sum,row) => sum + toCOP(row), 0);
   const totalUSD = rows
-    .filter(row => cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
+    .filter(row => getRowCurrency(row) === 'USD')
     .reduce((sum,row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
   const cards = [
     ['Negocios', rows.length, '#2D4FD6', '#,##0'],
@@ -4532,7 +4542,7 @@ function formatDetailExcelColumns(ws, startRow, sourceRows){
   const totalRow = startRow + rowCount + 1;
   for(let rowNumber = startRow + 1; rowNumber <= totalRow; rowNumber++){
     const sourceRow = sourceRows[rowNumber - startRow - 1] || {};
-    const moneda = cleanDisplayText(sourceRow['MONEDA 2'], 'COP').trim().toUpperCase();
+    const moneda = getRowCurrency(sourceRow);
     ws.getCell(rowNumber, 8).numFmt = '#,##0';
     ws.getCell(rowNumber, 10).numFmt = 'yyyy-mm-dd';
     ws.getCell(rowNumber, 12).numFmt = excelMoneyFormat(moneda, false);
@@ -4789,7 +4799,7 @@ function getGerenciaExecutiveSummaryRows(rows){
     const director = getTopGroupedLabel(execRows, row => cleanDisplayText(row['DIRECTOR'], 'Sin director'), 'Sin director');
     const totalCOP = execRows.reduce((sum,row) => sum + toCOP(row), 0);
     const totalUSD = execRows
-      .filter(row => cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
+      .filter(row => getRowCurrency(row) === 'USD')
       .reduce((sum,row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
     const counts = GERENCIA_ESTADOS.reduce((acc, estado) => {
       acc[estado] = execRows.filter(row => getGerenciaEstadoValue(row) === estado).length;
@@ -5131,7 +5141,7 @@ function getRowCostOriginalValue(row){
 }
 
 function getRowCostCopValue(row){
-  const moneda = cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase();
+  const moneda = getRowCurrency(row);
   const costo = getRowCostOriginalValue(row);
   return moneda === 'USD' ? costo * getTRM() : costo;
 }
@@ -5181,7 +5191,7 @@ function getTopGroupedLabel(rows, getter, fallback){
 
 function getMarcasTotalUSD(rows){
   return (rows || [])
-    .filter(row => cleanDisplayText(row['MONEDA 2'], 'COP').trim().toUpperCase() === 'USD')
+    .filter(row => getRowCurrency(row) === 'USD')
     .reduce((sum,row) => sum + (parseMonto(row['MONTO VENTA CLIENTE']) || 0), 0);
 }
 
@@ -5546,7 +5556,7 @@ function renderDirector(){
   if(est) data=data.filter(r=>r['ESTADO']===est);
   
   const totalCOP=data.reduce((s,r)=>s+toCOP(r),0);
-  const totalUSD=data.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
+  const totalUSD=data.filter(r=>getRowCurrency(r)==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   const utilidadCOP = sumUtilidad(data, 'COP');
   const utilidadUSD = sumUtilidad(data, 'USD');
   const ganadas=data.filter(r=>r['ESTADO']==='GANADA');
@@ -5621,7 +5631,7 @@ function renderDirector(){
   const selectedExec = SELECTED_EXEC_BY_DIR[dir] || '';
   const execData = selectedExec ? data.filter(r=>(r['COMERCIAL']||'').trim()===selectedExec) : [];
   const execTotalCOP = execData.reduce((s,r)=>s+toCOP(r),0);
-  const execTotalUSD = execData.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
+  const execTotalUSD = execData.filter(r=>getRowCurrency(r)==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   const execUtilidadCOP = sumUtilidad(execData, 'COP');
   const execUtilidadUSD = sumUtilidad(execData, 'USD');
   const execGanadas = execData.filter(r=>r['ESTADO']==='GANADA');
@@ -5981,7 +5991,7 @@ function renderEjecutivo(){
   if(ejecutivoFilters.linea) data = data.filter(r => getRowLineName(r) === ejecutivoFilters.linea);
   
   const totalCOP=data.reduce((s,r)=>s+toCOP(r),0);
-  const totalUSD=data.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
+  const totalUSD=data.filter(r=>getRowCurrency(r)==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   const ganadas=data.filter(r=>r['ESTADO']==='GANADA');
   const ejColor=COLORS[execs.indexOf(ej)%COLORS.length];
   const focusBadge = focusedBrand
@@ -6158,7 +6168,7 @@ function buildSalesTable(data, opts){
   return `<table class="responsive-table">
     <thead><tr><th>Fecha</th><th>Cotizacion</th><th>Cliente</th><th>Soporta</th><th>Moneda</th><th>Costo Negocio</th><th>Valor venta</th><th>Utilidad</th><th>Margen</th><th>TRM ref</th><th>Estado</th></tr></thead>
     <tbody>${data.length ? data.map(r=>{
-      const mon = cleanDisplayText(r['MONEDA 2'], 'COP').trim().toUpperCase();
+      const mon = getRowCurrency(r);
       const fecha = cleanDisplayText(formatDateValue(getRowDateValue(r)), 'Sin fecha');
       const cotizacion = cleanDisplayText(getSalesQuoteNumber(r), 'Sin numero');
       const cliente = cleanDisplayText(getRowClientName(r), 'Sin cliente');
@@ -6498,7 +6508,7 @@ function renderSales(){
   data = data.sort((a,b)=>toCOP(b)-toCOP(a));
 
   const totalCOP = data.reduce((sum,row)=>sum+toCOP(row),0);
-  const totalUSD = data.filter(r=>cleanDisplayText(r['MONEDA 2'],'COP').trim().toUpperCase()==='USD').reduce((sum,row)=>sum+(parseMonto(row['MONTO VENTA CLIENTE'])||0),0);
+  const totalUSD = data.filter(r=>getRowCurrency(r)==='USD').reduce((sum,row)=>sum+(parseMonto(row['MONTO VENTA CLIENTE'])||0),0);
   const utilidadCOP = sumUtilidad(data,'COP');
   const utilidadUSD = sumUtilidad(data,'USD');
   const totalRecords = data.length;
@@ -6666,7 +6676,7 @@ function renderPreventa(){
   data = data.sort((a,b)=>toCOP(b)-toCOP(a));
 
   const totalCOP = data.reduce((sum,row)=>sum+toCOP(row),0);
-  const totalUSD = data.filter(r=>cleanDisplayText(r['MONEDA 2'],'COP').trim().toUpperCase()==='USD').reduce((sum,row)=>sum+(parseMonto(row['MONTO VENTA CLIENTE'])||0),0);
+  const totalUSD = data.filter(r=>getRowCurrency(r)==='USD').reduce((sum,row)=>sum+(parseMonto(row['MONTO VENTA CLIENTE'])||0),0);
   const utilidadCOP = sumUtilidad(data,'COP');
   const utilidadUSD = sumUtilidad(data,'USD');
   const ganadas = data.filter(r=>cleanDisplayText(r['ESTADO'],'').toUpperCase()==='GANADA');
@@ -6771,7 +6781,7 @@ function renderDivisas(){
   const estadoDetalleEl = document.getElementById('sel-divisa-estado');
   const estadoDetalle = estadoDetalleEl ? estadoDetalleEl.value : 'GANADA';
   
-  const getDivisaMoneda = row => cleanDisplayText(row['MONEDA 2'], '').trim().toUpperCase();
+  const getDivisaMoneda = row => getRowCurrency(row, '');
   const usdData=ALL_DATA.filter(r=>getDivisaMoneda(r)==='USD');
   const copData=ALL_DATA.filter(r=>getDivisaMoneda(r)==='COP');
   const totalDivisaData=[...copData, ...usdData];
@@ -6911,8 +6921,8 @@ function renderDivisas(){
     <thead><tr><th>Director</th><th>Negos COP</th><th>Valor COP</th><th>Negos USD</th><th>Valor USD</th><th>Liq. USD→COP</th><th>TOTAL COP</th></tr></thead>
     <tbody>${dirs.map(d=>{
       const dd=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===d);
-      const dc=dd.filter(r=>(r['MONEDA 2']||'').trim()==='COP');
-      const du=dd.filter(r=>(r['MONEDA 2']||'').trim()==='USD');
+      const dc=dd.filter(r=>getRowCurrency(r)==='COP');
+      const du=dd.filter(r=>getRowCurrency(r)==='USD');
       const vCOP=dc.reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
       const vUSD=du.reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
       const liq=vUSD*trm;
@@ -7074,8 +7084,8 @@ function renderResumen(){
   const months = getForecastMonths(ALL_DATA);
   const monthHeaderCells = months.map(month => `<th>${getMonthShortLabel(month)}</th>`).join('');
   
-  const usdData=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='USD');
-  const copData=ALL_DATA.filter(r=>(r['MONEDA 2']||'').trim()==='COP');
+  const usdData=ALL_DATA.filter(r=>getRowCurrency(r)==='USD');
+  const copData=ALL_DATA.filter(r=>getRowCurrency(r)==='COP');
   const totalUSD=usdData.reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   const totalCOP=copData.reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
   const usdLiq=totalUSD*trm;
@@ -7163,8 +7173,8 @@ function renderResumen(){
       const dejecs=[...new Set(ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===d).map(r=>r['COMERCIAL']))];
       return dejecs.map((e,ei)=>{
         const ed=ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===d&&r['COMERCIAL']===e);
-        const eCOP=ed.filter(r=>(r['MONEDA 2']||'').trim()==='COP').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
-        const eUSD=ed.filter(r=>(r['MONEDA 2']||'').trim()==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
+        const eCOP=ed.filter(r=>getRowCurrency(r)==='COP').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
+        const eUSD=ed.filter(r=>getRowCurrency(r)==='USD').reduce((s,r)=>s+(parseMonto(r['MONTO VENTA CLIENTE'])||0),0);
         const total=eCOP+eUSD*trm;
         return `<tr>
           <td style="font-family:var(--font-display);font-weight:700;color:var(--text2)" data-label="Director">${ei===0?escHtml(d):''}</td>
@@ -7195,7 +7205,7 @@ function buildTable(data, opts){
   return `<table class="responsive-table">
     <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Marca</th><th>Línea</th><th>Moneda</th><th>Valor</th><th>COP Total</th><th>Margen</th><th>Estado</th></tr></thead>
     <tbody>${data.length ? data.map(r=>{
-      const mon = cleanDisplayText(r['MONEDA 2'], 'COP').trim().toUpperCase();
+      const mon = getRowCurrency(r);
       const val = parseMonto(r['MONTO VENTA CLIENTE']) || 0;
       const cop = toCOP(r);
       const fecha = cleanDisplayText(formatDateValue(getRowDateValue(r)), 'Sin fecha');

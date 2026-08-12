@@ -136,14 +136,30 @@ const fixture = `
     document.getElementById('sel-preventa-mes').innerHTML
   ];
 
-  ALL_DATA = [{ 'FECHA DIA/MES/AÑO':'2026-06-10' }];
+  ALL_DATA = [
+    { 'FECHA DIA/MES/AÑO':'2026-06-10' },
+    {
+      'FECHA DIA/MES/AÑO':'2026-07-10',
+      'MONEDA 2': 2,
+      'MONTO VENTA CLIENTE': 1250000,
+      'DIRECTOR': 'Angélica Caballero',
+      'COMERCIAL': 'Adriana Cucaita',
+      'ESTADO': 'PENDIENTE'
+    }
+  ];
   SALES_DATA = [{ 'FECHA DIA/MES/AÑO':'2026-06-11' }];
   PREVENTA_DATA = [{ 'FECHA DIA/MES/AÑO':'2026-06-12' }];
   renderGerencia();
   window.__gerenciaCurrentMonth = {
     chart: document.getElementById('evo-dir-chart').innerHTML,
-    kpis: document.getElementById('kpi-gerencia').innerHTML
+    kpis: document.getElementById('kpi-gerencia').innerHTML,
+    normalizedCurrency: getRowCurrency(ALL_DATA[1]),
+    valueCop: toCOP(ALL_DATA[1])
   };
+  document.getElementById('sel-director').value = 'Angélica Caballero';
+  document.getElementById('sel-dir-estado').value = '';
+  renderDirector();
+  window.__angelicaDirectorKpis = document.getElementById('director-content').innerHTML;
 
   GERENCIA_CROSSFILTERS.mes = '2026-06';
   GERENCIA_MONTH_INITIALIZED = true;
@@ -192,7 +208,10 @@ context.__initialMarkup.forEach(markup => {
 });
 assert.match(context.__gerenciaCurrentMonth.chart, />Jul</);
 assert.doesNotMatch(context.__gerenciaCurrentMonth.chart, />Jun</);
-assert.match(context.__gerenciaCurrentMonth.kpis, /kpi-val">\s*\$\s*0/);
+assert.match(context.__gerenciaCurrentMonth.kpis, /kpi-val">\s*\$\s*1\.3 M/);
+assert.equal(context.__gerenciaCurrentMonth.normalizedCurrency, 'COP');
+assert.equal(context.__gerenciaCurrentMonth.valueCop, 1250000);
+assert.match(context.__angelicaDirectorKpis, /kpi-val">\s*\$\s*1\.3 M/);
 assert.deepEqual([...context.__manualValues], Array(5).fill('2026-06'));
 assert.deepEqual([...context.__allMonthsValues], Array(5).fill(''));
 assert.equal(context.__financeDefault.period, '2026-07');
