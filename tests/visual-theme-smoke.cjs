@@ -43,7 +43,8 @@ assert.match(html, /id="view-switcher-btn"[\s\S]*aria-expanded="false"[\s\S]*ari
 assert.match(html, /id="glpi-context-summary"[\s\S]*aria-live="polite"/);
 assert.doesNotMatch(html, /id="user-badge" style="[^"]*background:/);
 assert.ok((html.match(/v=20260727-visual-refresh1/g) || []).length >= 2);
-assert.match(html, /src\/scripts\/main\.js\?v=20260812-moneda-type-fix1/);
+assert.match(html, /src\/config\/estructura-comercial-2026\.js\?v=20260812-estructura-comercial1/);
+assert.match(html, /src\/scripts\/main\.js\?v=20260812-estructura-comercial1/);
 assert.match(html, /src\/scripts\/glpi\.js\?v=20260804-glpi-cors-fix1/);
 
 assert.match(main, /new CustomEvent\('forecast:themechange'/);

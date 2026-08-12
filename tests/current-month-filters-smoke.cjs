@@ -197,6 +197,37 @@ const fixture = `
   FINANCE_STATE = { isLoading:false, data:null, error:null, period:'2026-06', endDate:'' };
   setFinanceInputs();
   window.__financeManual = document.getElementById('finance-period').value;
+
+  FORECAST_STRUCTURE = {
+    getEjecutivosBySupport(email) {
+      return email === 'soporte.comercial@provexpress.com.co'
+        ? ['angela.torres@provexpress.com.co']
+        : [];
+    },
+    getExecutiveMatchNamesByEmail(email) {
+      return email === 'angela.torres@provexpress.com.co' ? ['Ángela Torres'] : [];
+    },
+    getSupportDisplayNameByEmail() { return 'Karen Cagua'; }
+  };
+  CURRENT_USER = {
+    email: 'soporte.comercial@provexpress.com.co',
+    role: 'sales_support',
+    supportScope: 'unit',
+    directorGroup: 'Angélica Caballero'
+  };
+  ALL_DATA = [
+    { COMERCIAL:'Ángela Torres' },
+    { COMERCIAL:'Gina García' }
+  ];
+  SALES_DATA = [
+    { 'SALES SUPPORT':'Karen Cagua', SOPORTA:'Ángela Torres' },
+    { 'SALES SUPPORT':'Karen Cagua', SOPORTA:'Gina García' }
+  ];
+  window.__unitSupportScope = {
+    forecast: getVisibleData().map(row => row.COMERCIAL),
+    sales: getVisibleSalesData().map(row => row.SOPORTA),
+    badge: buildSalesSupportScopeBadge()
+  };
 `;
 
 vm.runInNewContext(`${source}\n${fixture}`, context, { filename: 'main.js' });
@@ -217,5 +248,8 @@ assert.deepEqual([...context.__allMonthsValues], Array(5).fill(''));
 assert.equal(context.__financeDefault.period, '2026-07');
 assert.equal(context.__financeDefault.endDate, '2026-07-31');
 assert.equal(context.__financeManual, '2026-06');
+assert.deepEqual([...context.__unitSupportScope.forecast], ['Ángela Torres']);
+assert.deepEqual([...context.__unitSupportScope.sales], ['Ángela Torres']);
+assert.match(context.__unitSupportScope.badge, /UNIDAD ANGÉLICA CABALLERO/);
 
 console.log('Filtros mensuales: mes actual Bogotá y selecciones manuales validados.');

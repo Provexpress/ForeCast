@@ -179,6 +179,11 @@
         nombre: 'Juan Martínez',
         archivo: 'Juan Martínez.xlsx'
       },
+      'deisy.mogollon@provexpress.com.co': {
+        grupo: 3,
+        nombre: 'Deisy Mogollón',
+        archivo: 'Deisy Mogollón.xlsx'
+      },
       'astrid.jimenez@provexpress.com.co': {
         grupo: 4,
         nombre: 'Astrid Jiménez',
@@ -369,7 +374,7 @@
   function getEjecutivosBySupport(email){
     const normalized = normalizeEmail(email);
     const unit = ESTRUCTURA_COMERCIAL_2026.salesSupport[normalized];
-    if(unit && unit.apoyaUnidad) return getExecutiveEntries().map(([executiveEmail]) => executiveEmail);
+    if(unit && unit.apoyaUnidad) return getEmailsByGroup(unit.grupo);
     const commercial = ESTRUCTURA_COMERCIAL_2026.salesSupportComerciales[normalized];
     return commercial ? (commercial.soportaA || []).map(normalizeEmail).filter(Boolean) : [];
   }

@@ -2596,9 +2596,7 @@ function getVisibleData() {
   if(!CURRENT_USER) return ALL_DATA;
   const { role, directorGroup } = CURRENT_USER;
   if(role === 'sales_support') {
-    return CURRENT_USER.supportScope === 'unit'
-      ? ALL_DATA
-      : ALL_DATA.filter(row => rowMatchesSupportedExecutives(row, [r => r && r['COMERCIAL']]));
+    return ALL_DATA.filter(row => rowMatchesSupportedExecutives(row, [r => r && r['COMERCIAL']]));
   }
   if(role === 'sales_support_comercial') {
     return ALL_DATA.filter(row => rowMatchesSupportedExecutives(row, [r => r && r['COMERCIAL']]));
@@ -2814,9 +2812,7 @@ function getVisibleSalesData() {
   if(isSalesSupportRole(role)) {
     const targetName = getSalesSupportTargetName();
     let rows = SALES_DATA.filter(r => namesMatch(getSalesSupportName(r), targetName));
-    if(role === 'sales_support_comercial') {
-      rows = rows.filter(row => rowMatchesSupportedExecutives(row, [r => getSalesSoportaName(r), r => r && r['COMERCIAL']]));
-    }
+    rows = rows.filter(row => rowMatchesSupportedExecutives(row, [r => getSalesSoportaName(r), r => r && r['COMERCIAL']]));
     return rows;
   }
   if(role === 'director') {
@@ -2833,9 +2829,7 @@ function getVisibleSalesPendingData() {
   if(isSalesSupportRole(role)) {
     const targetName = getSalesSupportTargetName();
     let rows = SALES_PENDING_DATA.filter(r => namesMatch(getSalesPendingSupportName(r), targetName));
-    if(role === 'sales_support_comercial') {
-      rows = rows.filter(row => rowMatchesSupportedExecutives(row, [r => getSalesPendingCommercial(r), r => r && r['SOPORTA']]));
-    }
+    rows = rows.filter(row => rowMatchesSupportedExecutives(row, [r => getSalesPendingCommercial(r), r => r && r['SOPORTA']]));
     return rows;
   }
   if(role === 'director') {
@@ -6293,7 +6287,8 @@ function buildSalesPendingTable(data){
 function buildSalesSupportScopeBadge(){
   if(!CURRENT_USER || !isSalesSupportRole(CURRENT_USER.role)) return '';
   if(CURRENT_USER.role === 'sales_support' && CURRENT_USER.supportScope === 'unit') {
-    return '<span class="section-tag">APOYO A TODA LA UNIDAD</span>';
+    const unitName = cleanDisplayText(CURRENT_USER.directorGroup, 'UNIDAD');
+    return `<span class="section-tag">UNIDAD ${escHtml(unitName).toUpperCase()}</span>`;
   }
   if(CURRENT_USER.role === 'sales_support_comercial') {
     const names = getSupportedExecutiveMatchNames()
@@ -7951,10 +7946,8 @@ async function loadExecutiveForecastByEmail(siteId, executiveEmail, token, optio
 async function loadForecastDataForSupport(siteId, token){
   const filesToken = token || await getToken(['Files.Read.All']);
   if(CURRENT_USER && CURRENT_USER.role === 'sales_support' && CURRENT_USER.supportScope === 'unit') {
-    const folders = await getForecastFolders(siteId, filesToken);
-    await runWithConcurrencyLimit(folders, FOLDER_LOAD_CONCURRENCY, folderName =>
-      loadDirectorFolder(siteId, folderName, filesToken)
-    );
+    const folder = await getDirectorFolderName(siteId, CURRENT_USER.directorGroup, filesToken);
+    await loadDirectorFolder(siteId, folder, filesToken);
     return;
   }
 
@@ -8144,7 +8137,10 @@ async function loadSalesSupportFiles(siteId, token) {
 
   try {
     const forecastBasePath = await getForecastBasePath(siteId, filesToken);
-    const folders = await getForecastFolders(siteId, filesToken);
+    const allFolders = await getForecastFolders(siteId, filesToken);
+    const folders = CURRENT_USER && CURRENT_USER.role === 'sales_support' && CURRENT_USER.supportScope === 'unit'
+      ? [await getDirectorFolderName(siteId, CURRENT_USER.directorGroup, filesToken)]
+      : allFolders;
     for(const folder of folders) {
       const folderPath = joinGraphPath(forecastBasePath, folder);
       try {
