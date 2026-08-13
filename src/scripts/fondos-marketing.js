@@ -843,8 +843,9 @@
   }
 
   // ── Inicialización del Módulo ───────────────────────────────────────
+  let _rendered = false;
+
   function init() {
-    state.data = JSON.parse(JSON.stringify(BASELINE_DATA));
     const container = document.getElementById('page-fondos');
     if (!container) return;
 
@@ -854,24 +855,30 @@
           <div class="denied-card">
             <span class="denied-icon">🔒</span>
             <h2>Acceso Restringido</h2>
-            <p>La vista <strong>Fondos Marketing</strong> está habilitada exclusivamente para las direcciones autorizadas (Nini Beltrán, C. Estratégica, Juan Novoa y Especialista Preventa).</p>
+            <p>La vista <strong>Fondos Marketing</strong> está habilitada exclusivamente para Gerencia.</p>
           </div>
         </div>
       `;
       return;
     }
 
-    renderLayout(container);
+    // Solo renderizar el layout una vez; en visitas siguientes solo actualizar datos
+    if (!_rendered) {
+      state.data = JSON.parse(JSON.stringify(BASELINE_DATA));
+      renderLayout(container);
 
-    const exportBtn = document.getElementById('fondos-export-btn');
-    if (exportBtn) exportBtn.addEventListener('click', exportToExcel);
+      const exportBtn = document.getElementById('fondos-export-btn');
+      if (exportBtn) exportBtn.addEventListener('click', exportToExcel);
 
-    const catSelect = document.getElementById('fondos-cat-filter');
-    if (catSelect) {
-      catSelect.addEventListener('change', (e) => {
-        state.activeCategory = e.target.value;
-        updateDashboardView();
-      });
+      const catSelect = document.getElementById('fondos-cat-filter');
+      if (catSelect) {
+        catSelect.addEventListener('change', (e) => {
+          state.activeCategory = e.target.value;
+          updateDashboardView();
+        });
+      }
+
+      _rendered = true;
     }
 
     updateDashboardView();
@@ -883,10 +890,5 @@
     updateDashboardView
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-
 })();
+
