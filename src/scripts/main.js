@@ -2945,6 +2945,12 @@ function renderPage(pageId){
     if(window.GlpiModule) window.GlpiModule.render();
     return;
   }
+  if(page === 'fondos') {
+    if(window.FondosMarketingModule && window.FondosMarketingModule.canAccess()) {
+      window.FondosMarketingModule.init();
+    }
+    return;
+  }
   if(page === 'marca-linea-detail' && MARCA_LINEA_DETAIL_STATE) {
     renderMarcaLineaDetail();
     return;
@@ -2995,6 +3001,10 @@ function showPage(id,btn){
     console.warn('[PROGRAMAS] acceso denegado para la vista actual');
     return;
   }
+  if(id === 'fondos' && (!window.FondosMarketingModule || !window.FondosMarketingModule.canAccess())) {
+    console.warn('[FONDOS] acceso denegado para la vista actual');
+    return;
+  }
   const currentPage = getActivePageId();
   if(currentPage === 'negocio' && id !== 'negocio') NEGOCIO_DETAIL_STATE = null;
   if(currentPage === 'marca-linea-detail' && id !== 'marca-linea-detail' && id !== 'negocio') MARCA_LINEA_DETAIL_STATE = null;
@@ -3010,7 +3020,7 @@ function showPage(id,btn){
   }
   const hasLoadedForecastFiles = Object.values(LOADED_FILES_BY_DIR || {}).some(files => files && files.length);
   const hasLoadedData = ALL_DATA.length || SALES_DATA.length || SALES_PENDING_DATA.length || PREVENTA_DATA.length || hasLoadedForecastFiles;
-  if(hasLoadedData || id === 'finanzas' || id === 'programas' || id === 'glpi' || id === 'negocio' || id === 'marca-linea-detail') {
+  if(hasLoadedData || id === 'finanzas' || id === 'programas' || id === 'glpi' || id === 'fondos' || id === 'negocio' || id === 'marca-linea-detail') {
     setPageEmptyState(id, false);
     renderPage(id);
   } else if(id !== 'gerencia') {
@@ -8322,6 +8332,7 @@ function applyRoleTabs() {
     finanzas:  document.getElementById('tab-finanzas'),
     programas: document.getElementById('tab-programas'),
     glpi:      document.getElementById('tab-glpi'),
+    fondos:    document.getElementById('tab-fondos'),
   };
   // Reset — mostrar todas
   Object.values(tabs).forEach(t => { if(t) t.style.display = ''; });
@@ -8362,6 +8373,9 @@ function applyRoleTabs() {
 
   const canViewPrograms = role === 'gerencia' || role === 'gerencia_director';
   if(tabs.programas) tabs.programas.style.display = canViewPrograms ? '' : 'none';
+
+  const canViewFondos = window.FondosMarketingModule && window.FondosMarketingModule.canAccess();
+  if(tabs.fondos) tabs.fondos.style.display = canViewFondos ? '' : 'none';
 }
 
 // ── Auto-cargar al abrir desde SharePoint ────
