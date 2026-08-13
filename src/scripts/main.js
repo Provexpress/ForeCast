@@ -3001,10 +3001,6 @@ function showPage(id,btn){
     console.warn('[PROGRAMAS] acceso denegado para la vista actual');
     return;
   }
-  if(id === 'fondos' && (!window.FondosMarketingModule || !window.FondosMarketingModule.canAccess())) {
-    console.warn('[FONDOS] acceso denegado para la vista actual');
-    return;
-  }
   const currentPage = getActivePageId();
   if(currentPage === 'negocio' && id !== 'negocio') NEGOCIO_DETAIL_STATE = null;
   if(currentPage === 'marca-linea-detail' && id !== 'marca-linea-detail' && id !== 'negocio') MARCA_LINEA_DETAIL_STATE = null;

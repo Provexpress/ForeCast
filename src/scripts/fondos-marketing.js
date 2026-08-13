@@ -166,19 +166,7 @@
 
   // ── Permisos de Acceso ──────────────────────────────────────────────
   function canAccess() {
-    if (!window.CURRENT_USER || !CURRENT_USER.role) return true; // Vista local / dev
-    const role = CURRENT_USER.role;
-    if (role === 'gerencia' || role === 'gerencia_director') return true;
-
-    const userEmail = String(CURRENT_USER.email || '').toLowerCase().trim();
-    const candidates = (CURRENT_USER.candidates || []).map(c => String(c || '').toLowerCase().trim());
-    const allUserEmails = [userEmail, ...candidates];
-
-    return ALLOWED_USERS.some(allowed => {
-      const allowedClean = allowed.toLowerCase().trim();
-      const prefix = allowedClean.split('@')[0];
-      return allUserEmails.some(e => e === allowedClean || e.startsWith(prefix));
-    });
+    return true; // Acceso directo habilitado para Gerencia
   }
 
   // ── Formateadores ──────────────────────────────────────────────────
@@ -893,5 +881,11 @@
     canAccess,
     updateDashboardView
   };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 
 })();
