@@ -2946,9 +2946,7 @@ function renderPage(pageId){
     return;
   }
   if(page === 'fondos') {
-    if(window.FondosMarketingModule) {
-      window.FondosMarketingModule.init();
-    }
+    renderFondosMarketing();
     return;
   }
   if(page === 'marca-linea-detail' && MARCA_LINEA_DETAIL_STATE) {
@@ -2964,6 +2962,82 @@ function renderPage(pageId){
 function renderVisiblePage(){
   refreshForecastMonthFilters();
   renderPage(getActivePageId());
+}
+
+let fondosMarketingLoadPromise = null;
+
+function escapeFondosErrorHtml(value){
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function showFondosMarketingError(error){
+  const container = document.getElementById('page-fondos');
+  if(!container) return;
+  const detail = error && error.message ? error.message : 'No fue posible cargar el módulo.';
+  container.innerHTML = `
+    <div class="fondos-access-denied">
+      <div class="denied-card">
+        <span class="denied-icon">⚠️</span>
+        <h2>No se pudo abrir Fondos Marketing</h2>
+        <p>${escapeFondosErrorHtml(detail)}</p>
+        <button class="fondos-btn fondos-btn-secondary" type="button" onclick="renderFondosMarketing()">Reintentar</button>
+      </div>
+    </div>
+  `;
+}
+
+function loadFondosMarketingModule(){
+  if(window.FondosMarketingModule) return Promise.resolve(window.FondosMarketingModule);
+  if(fondosMarketingLoadPromise) return fondosMarketingLoadPromise;
+
+  fondosMarketingLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = `src/scripts/fondos-marketing.js?v=20260813-fondos5-retry-${Date.now()}`;
+    script.async = true;
+    script.onload = () => {
+      if(window.FondosMarketingModule) resolve(window.FondosMarketingModule);
+      else reject(new Error('El archivo cargó, pero no registró FondosMarketingModule.'));
+    };
+    script.onerror = () => reject(new Error('El navegador no pudo descargar fondos-marketing.js.'));
+    document.head.appendChild(script);
+  }).catch(error => {
+    fondosMarketingLoadPromise = null;
+    throw error;
+  });
+
+  return fondosMarketingLoadPromise;
+}
+
+function renderFondosMarketing(){
+  const container = document.getElementById('page-fondos');
+  if(!container) return;
+
+  if(window.FondosMarketingModule) {
+    try {
+      window.FondosMarketingModule.init();
+      console.info('[FONDOS] vista inicializada');
+    } catch(error) {
+      console.error('[FONDOS] error inicializando la vista', error);
+      showFondosMarketingError(error);
+    }
+    return;
+  }
+
+  container.innerHTML = '<div class="fondos-module-loading">Cargando Fondos Marketing…</div>';
+  loadFondosMarketingModule()
+    .then(module => {
+      module.init();
+      console.info('[FONDOS] módulo recuperado e inicializado');
+    })
+    .catch(error => {
+      console.error('[FONDOS] error cargando el módulo', error);
+      showFondosMarketingError(error);
+    });
 }
 
 /* ══════════════════════════════════════
@@ -8391,6 +8465,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // Exponer handlers usados por atributos inline (onclick/onchange) en index.html
 window.loadFolderFromSharePoint = loadFolderFromSharePoint;
 window.showPage = showPage;
+window.renderFondosMarketing = renderFondosMarketing;
 window.toggleAppTheme = toggleAppTheme;
 window.renderDivisas = renderDivisas;
 window.renderFinanzas = renderFinanzas;

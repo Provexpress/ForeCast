@@ -3168,6 +3168,15 @@ tr:hover td,.table-row-action:hover td{background:var(--surface-hover);color:var
   padding: 24px;
 }
 
+.fondos-module-loading {
+  min-height: 45vh;
+  display: grid;
+  place-items: center;
+  color: var(--text2, #94a3b8);
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
 .fondos-app-wrapper {
   display: flex;
   flex-direction: column;
@@ -3913,5 +3922,4 @@ tr:hover td,.table-row-action:hover td{background:var(--surface-hover);color:var
 [data-theme="light"] .obs-tag {
   color: #475569 !important;
 }
-
 
