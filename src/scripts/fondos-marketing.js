@@ -166,7 +166,8 @@
 
   // ── Permisos de Acceso ──────────────────────────────────────────────
   function canAccess() {
-    return true; // Acceso directo habilitado para Gerencia
+    if (!window.CURRENT_USER || !CURRENT_USER.role) return true; // Vista local / preview
+    return CURRENT_USER.role === 'gerencia'; // Exclusivo para Gerencia (Directores excluidos)
   }
 
   // ── Formateadores ──────────────────────────────────────────────────

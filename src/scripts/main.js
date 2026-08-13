@@ -8370,7 +8370,7 @@ function applyRoleTabs() {
   const canViewPrograms = role === 'gerencia' || role === 'gerencia_director';
   if(tabs.programas) tabs.programas.style.display = canViewPrograms ? '' : 'none';
 
-  const canViewFondos = window.FondosMarketingModule && window.FondosMarketingModule.canAccess();
+  const canViewFondos = role === 'gerencia';
   if(tabs.fondos) tabs.fondos.style.display = canViewFondos ? '' : 'none';
 }
 
