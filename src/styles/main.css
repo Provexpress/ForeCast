@@ -3200,6 +3200,11 @@ tr:hover td,.table-row-action:hover td{background:var(--surface-hover);color:var
 .fondos-header {
   display: flex;
   flex-direction: column;
+  position: relative;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  align-items: stretch;
   gap: 0;
   background: var(--card, rgba(15, 20, 42, 0.85));
   border: 1px solid var(--border, rgba(255,255,255,0.08));

@@ -278,12 +278,12 @@
     container.innerHTML = `
       <div class="fondos-app-wrapper">
         <!-- Header del Módulo -->
-        <header class="fondos-header">
+        <section class="fondos-header" aria-labelledby="fondos-page-title">
           <div class="fondos-header-main">
             <div class="fondos-title-badge">
               <span class="fondos-badge-icon">💰</span>
               <div>
-                <h1 class="fondos-title">Fondos de Mercadeo (MDF)</h1>
+                <h1 class="fondos-title" id="fondos-page-title">Fondos de Mercadeo (MDF)</h1>
                 <p class="fondos-subtitle">Control presupuestal, ejecuciones por fabricante y cálculo de comisión de mercadeo</p>
               </div>
             </div>
@@ -309,7 +309,7 @@
               <span class="info-val status-secured">🔒 Nini · C.Estratégica · Juan Novoa · Especialista</span>
             </div>
           </div>
-        </header>
+        </section>
 
         <!-- Tarjetas KPI Principales -->
         <section class="fondos-kpi-grid" id="fondos-kpis-container"></section>
