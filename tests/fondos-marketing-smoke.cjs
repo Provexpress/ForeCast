@@ -9,6 +9,7 @@ const fondos = fs.readFileSync(path.join(root, 'src', 'scripts', 'fondos-marketi
 
 assert.match(html, /id="tab-fondos"[\s\S]*onclick="showPage\('fondos',this\)"/);
 assert.match(html, /<div class="page" id="page-fondos"><\/div>/);
+assert.match(html, /id="program-channel-workbook-table"><\/div>[\s\S]*<\/section>[\s\S]*<\/section>[\s\S]*<\/div>[\s\S]*PAGE: FONDOS MARKETING[\s\S]*id="page-fondos"/);
 assert.match(html, /src\/scripts\/fondos-marketing\.js\?v=20260813-fondos7/);
 assert.match(html, /src\/scripts\/main\.js\?v=20260813-fondos8/);
 
