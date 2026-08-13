@@ -9,8 +9,8 @@ const fondos = fs.readFileSync(path.join(root, 'src', 'scripts', 'fondos-marketi
 
 assert.match(html, /id="tab-fondos"[\s\S]*onclick="showPage\('fondos',this\)"/);
 assert.match(html, /<div class="page" id="page-fondos"><\/div>/);
-assert.match(html, /src\/scripts\/fondos-marketing\.js\?v=20260813-fondos5/);
-assert.match(html, /src\/scripts\/main\.js\?v=20260813-fondos6/);
+assert.match(html, /src\/scripts\/fondos-marketing\.js\?v=20260813-fondos7/);
+assert.match(html, /src\/scripts\/main\.js\?v=20260813-fondos8/);
 
 assert.match(main, /if\(page === 'fondos'\)[\s\S]*renderFondosMarketing\(\)/);
 assert.match(main, /id === 'fondos'/);
@@ -21,5 +21,7 @@ assert.match(main, /window\.renderFondosMarketing = renderFondosMarketing/);
 
 assert.match(fondos, /function init\(\)[\s\S]*renderLayout\(container\)[\s\S]*updateDashboardView\(\)/);
 assert.match(fondos, /return CURRENT_USER\.role === 'gerencia'/);
+assert.doesNotMatch(fondos, /let _rendered = false/);
+assert.match(fondos, /El tablero de Fondos Marketing no quedó insertado/);
 
 console.log('Fondos Marketing: navegación, permisos, caché e inicialización validados.');

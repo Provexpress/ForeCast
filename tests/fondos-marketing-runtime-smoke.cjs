@@ -25,6 +25,10 @@ class FakeElement {
 
   addEventListener() {}
   getAttribute() { return null; }
+  querySelector(selector) {
+    if(selector === '.fondos-app-wrapper' && this._innerHTML.includes('class="fondos-app-wrapper"')) return {};
+    return null;
+  }
   querySelectorAll() { return []; }
 }
 
@@ -62,4 +66,12 @@ assert.match(elements.get('fondos-kpis-container').innerHTML, /Ingresos Totales/
 assert.match(elements.get('fondos-summary-tbody').innerHTML, /TOTAL CONSOLIDADO/);
 assert.match(elements.get('fondos-brand-detail-container').innerHTML, /HP/);
 
-console.log('Fondos Marketing: renderizado funcional de layout, KPIs, tabla y detalle validado.');
+for(const id of [...elements.keys()]) {
+  if(id !== 'page-fondos') elements.delete(id);
+}
+elements.get('page-fondos').innerHTML = '';
+assert.doesNotThrow(() => context.FondosMarketingModule.init());
+assert.match(elements.get('page-fondos').innerHTML, /Fondos de Mercadeo \(MDF\)/);
+assert.match(elements.get('fondos-kpis-container').innerHTML, /Ingresos Totales/);
+
+console.log('Fondos Marketing: renderizado inicial y reconstrucción completa validados.');

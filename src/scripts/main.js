@@ -2997,7 +2997,7 @@ function loadFondosMarketingModule(){
 
   fondosMarketingLoadPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = `src/scripts/fondos-marketing.js?v=20260813-fondos5-retry-${Date.now()}`;
+    script.src = `src/scripts/fondos-marketing.js?v=20260813-fondos7-retry-${Date.now()}`;
     script.async = true;
     script.onload = () => {
       if(window.FondosMarketingModule) resolve(window.FondosMarketingModule);
@@ -7597,7 +7597,10 @@ async function getForecastConnectionsListId(siteId, token) {
   const list = (d.value || []).find(item =>
     item.displayName === FORECAST_CONNECTIONS_LIST_NAME || item.name === FORECAST_CONNECTIONS_LIST_NAME
   );
-  if(!list) throw new Error('No se encontro la lista ' + FORECAST_CONNECTIONS_LIST_NAME);
+  if(!list) {
+    console.info('[FORECAST CONNECTIONS] lista opcional no configurada');
+    return null;
+  }
   FORECAST_CONNECTIONS_LIST_ID = list.id;
   return FORECAST_CONNECTIONS_LIST_ID;
 }
@@ -7639,6 +7642,7 @@ async function syncForecastConnections(siteId) {
   if(!CURRENT_USER || !CURRENT_USER.email) return;
   const token = await getToken(['Sites.ReadWrite.All']);
   const listId = await getForecastConnectionsListId(siteId, token);
+  if(!listId) return;
   const items = await getForecastConnectionItems(siteId, token, listId);
   const email = String(CURRENT_USER.email || '').toLowerCase().trim();
   const existing = items.find(item => String(item.fields && item.fields.Title || '').toLowerCase().trim() === email);

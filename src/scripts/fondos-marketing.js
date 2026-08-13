@@ -843,8 +843,6 @@
   }
 
   // ── Inicialización del Módulo ───────────────────────────────────────
-  let _rendered = false;
-
   function init() {
     const container = document.getElementById('page-fondos');
     if (!container) return;
@@ -862,26 +860,31 @@
       return;
     }
 
-    // Solo renderizar el layout una vez; en visitas siguientes solo actualizar datos
-    if (!_rendered) {
-      state.data = JSON.parse(JSON.stringify(BASELINE_DATA));
-      renderLayout(container);
+    // Reconstruir siempre: otras actualizaciones de la aplicación pueden vaciar
+    // el contenedor mientras el módulo permanece cargado en memoria.
+    Object.values(state.charts).forEach(chart => {
+      if(chart && typeof chart.destroy === 'function') chart.destroy();
+    });
+    state.charts.barChart = null;
+    state.charts.doughnutChart = null;
+    if (!state.data) state.data = JSON.parse(JSON.stringify(BASELINE_DATA));
+    renderLayout(container);
 
-      const exportBtn = document.getElementById('fondos-export-btn');
-      if (exportBtn) exportBtn.addEventListener('click', exportToExcel);
+    const exportBtn = document.getElementById('fondos-export-btn');
+    if (exportBtn) exportBtn.addEventListener('click', exportToExcel);
 
-      const catSelect = document.getElementById('fondos-cat-filter');
-      if (catSelect) {
-        catSelect.addEventListener('change', (e) => {
-          state.activeCategory = e.target.value;
-          updateDashboardView();
-        });
-      }
-
-      _rendered = true;
+    const catSelect = document.getElementById('fondos-cat-filter');
+    if (catSelect) {
+      catSelect.addEventListener('change', (e) => {
+        state.activeCategory = e.target.value;
+        updateDashboardView();
+      });
     }
 
     updateDashboardView();
+    if (!container.querySelector('.fondos-app-wrapper')) {
+      throw new Error('El tablero de Fondos Marketing no quedó insertado en la página.');
+    }
   }
 
   window.FondosMarketingModule = {
@@ -891,4 +894,3 @@
   };
 
 })();
-
