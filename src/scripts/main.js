@@ -2946,7 +2946,7 @@ function renderPage(pageId){
     return;
   }
   if(page === 'fondos') {
-    if(window.FondosMarketingModule && window.FondosMarketingModule.canAccess()) {
+    if(window.FondosMarketingModule) {
       window.FondosMarketingModule.init();
     }
     return;
