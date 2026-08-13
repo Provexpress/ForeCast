@@ -1,4 +1,4 @@
-﻿:root{
+:root{
   color-scheme:dark;
   --bg:#070A18; --surface:#0B1024; --card:#111731; --card2:#151D3B;
   --border:#27325A; --border2:#3A4777;
@@ -3932,17 +3932,22 @@ tr:hover td,.table-row-action:hover td{background:var(--surface-hover);color:var
 
 /* ── LIGHT THEME ────────────────────────────────────────────────── */
 [data-theme="light"] #page-fondos {
-  background: transparent;
+  background: #f1f4f9;
 }
 
-[data-theme="light"] .fondos-header,
+[data-theme="light"] .fondos-header {
+  background: linear-gradient(135deg, #ffffff 0%, #f5f7ff 100%) !important;
+  border-color: rgba(37,99,235,0.14) !important;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.07), 0 8px 32px rgba(0,0,0,0.06) !important;
+}
+
 [data-theme="light"] .fondos-card,
 [data-theme="light"] .kpi-card,
 [data-theme="light"] .fondos-brand-card,
 [data-theme="light"] .fondos-controls-bar {
   background: #ffffff !important;
-  border-color: rgba(15,23,42,0.1) !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04) !important;
+  border-color: rgba(15,23,42,0.09) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04) !important;
 }
 
 [data-theme="light"] .fondos-header-main {
