@@ -36,7 +36,7 @@ assert.match(css, /\.glpi-detail-panel\s*\{[\s\S]*height:100dvh[\s\S]*overflow-y
 const earlyThemePosition = html.indexOf("localStorage.getItem('forecast_theme')");
 const stylesheetPosition = html.indexOf('src/styles/main.css');
 assert.ok(earlyThemePosition >= 0 && earlyThemePosition < stylesheetPosition, 'El tema guardado debe aplicarse antes del CSS');
-assert.equal((html.match(/class="nav-btn[^"]*" data-icon=/g) || []).length, 11);
+assert.equal((html.match(/class="nav-btn[^"]*" data-icon=/g) || []).length, 12);
 assert.ok((html.match(/<label class="filter-label"/g) || []).length >= 17);
 assert.match(html, /id="theme-toggle-btn"[\s\S]*theme-toggle-label/);
 assert.match(html, /id="view-switcher-btn"[\s\S]*aria-expanded="false"[\s\S]*aria-controls="view-panel"/);
@@ -44,7 +44,7 @@ assert.match(html, /id="glpi-context-summary"[\s\S]*aria-live="polite"/);
 assert.doesNotMatch(html, /id="user-badge" style="[^"]*background:/);
 assert.ok((html.match(/v=20260727-visual-refresh1/g) || []).length >= 2);
 assert.match(html, /src\/config\/estructura-comercial-2026\.js\?v=20260812-estructura-comercial1/);
-assert.match(html, /src\/scripts\/main\.js\?v=20260812-estructura-comercial1/);
+assert.match(html, /src\/scripts\/main\.js\?v=20260813-fondos4/);
 assert.match(html, /src\/scripts\/glpi\.js\?v=20260804-glpi-cors-fix1/);
 
 assert.match(main, /new CustomEvent\('forecast:themechange'/);
