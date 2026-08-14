@@ -866,7 +866,17 @@
     if (ctxDoughnut) {
       if (state.charts.doughnutChart) state.charts.doughnutChart.destroy();
 
-      const doughnutValues = [summary.totalEvents, summary.totalIncentives, summary.totalRio, summary.totalOther];
+      const championControlTotal = processedBrands
+        .filter(brand => brand.excludeFromConsolidated)
+        .reduce((total, brand) => total + brand.totalOutflowCOP, 0);
+      const doughnutLabels = ['Eventos', 'Incentivos', 'Convención Río', 'Champion'];
+      const doughnutColors = ['#8B5CF6', '#F59E0B', '#06B6D4', '#64748B'];
+      const doughnutValues = [
+        summary.totalEvents,
+        summary.totalIncentives,
+        summary.totalRio,
+        summary.totalOther + championControlTotal
+      ];
       const doughnutTotal = doughnutValues.reduce((total, value) => total + value, 0);
       const doughnutValueLabels = {
         id: 'fondosDoughnutValueLabels',
@@ -894,9 +904,11 @@
           const { left, right, top, bottom } = chart.chartArea;
           chartCtx.fillStyle = textColor;
           chartCtx.font = '700 10px Plus Jakarta Sans, sans-serif';
-          chartCtx.fillText('Total salidas', (left + right) / 2, (top + bottom) / 2 - 8);
+          chartCtx.fillText('Salidas visibles', (left + right) / 2, (top + bottom) / 2 - 12);
           chartCtx.font = '800 14px Plus Jakarta Sans, sans-serif';
-          chartCtx.fillText(formatCompactCOP(doughnutTotal), (left + right) / 2, (top + bottom) / 2 + 10);
+          chartCtx.fillText(formatCompactCOP(doughnutTotal), (left + right) / 2, (top + bottom) / 2 + 5);
+          chartCtx.font = '600 8px Plus Jakarta Sans, sans-serif';
+          chartCtx.fillText('incluye Champion', (left + right) / 2, (top + bottom) / 2 + 20);
           chartCtx.restore();
         }
       };
@@ -904,15 +916,10 @@
       state.charts.doughnutChart = new Chart(ctxDoughnut, {
         type: 'doughnut',
         data: {
-          labels: ['Eventos', 'Incentivos', 'Convención Río', 'Otros'],
+          labels: doughnutLabels,
           datasets: [{
             data: doughnutValues,
-            backgroundColor: [
-              '#8B5CF6',
-              '#F59E0B',
-              '#06B6D4',
-              '#64748B'
-            ],
+            backgroundColor: doughnutColors,
             borderWidth: 2,
             borderColor: 'var(--bg-card, #1e293b)'
           }]
@@ -928,11 +935,17 @@
                 color: 'var(--text, #e2e8f0)',
                 font: { family: 'Plus Jakarta Sans', size: 10 },
                 generateLabels(chart) {
-                  const defaults = Chart.defaults.plugins.legend.labels.generateLabels(chart);
-                  return defaults.map((item, index) => {
+                  return doughnutLabels.map((label, index) => {
                     const value = doughnutValues[index] || 0;
                     const percent = doughnutTotal ? value / doughnutTotal * 100 : 0;
-                    return { ...item, text: `${item.text} · ${formatCompactCOP(value)} · ${percent.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%` };
+                    return {
+                      text: `${label} · ${formatCompactCOP(value)} · ${percent.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`,
+                      fillStyle: doughnutColors[index],
+                      strokeStyle: doughnutColors[index],
+                      lineWidth: 1,
+                      hidden: !chart.getDataVisibility(index),
+                      index
+                    };
                   });
                 }
               }

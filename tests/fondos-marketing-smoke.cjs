@@ -11,8 +11,8 @@ assert.match(html, /id="tab-fondos"[\s\S]*onclick="showPage\('fondos',this\)"/);
 assert.match(html, /src\/styles\/main\.css\?v=20260814-fondos-final1/);
 assert.match(html, /<div class="page" id="page-fondos"><\/div>/);
 assert.match(html, /id="program-channel-workbook-table"><\/div>[\s\S]*<\/section>[\s\S]*<\/section>[\s\S]*<\/div>[\s\S]*PAGE: FONDOS MARKETING[\s\S]*id="page-fondos"/);
-assert.match(html, /src\/scripts\/fondos-marketing\.js\?v=20260814-fondos-final1/);
-assert.match(html, /src\/scripts\/main\.js\?v=20260814-fondos-final1/);
+assert.match(html, /src\/scripts\/fondos-marketing\.js\?v=20260814-fondos-final2/);
+assert.match(html, /src\/scripts\/main\.js\?v=20260814-fondos-final2/);
 
 assert.match(main, /if\(page === 'fondos'\)[\s\S]*renderFondosMarketing\(\)/);
 assert.match(main, /id === 'fondos'/);
@@ -34,5 +34,7 @@ assert.match(fondos, /function parseFinalWorkbook\(workbook, fileName, lastModif
 assert.match(fondos, /async function loadFromSharePoint\(siteId, token\)/);
 assert.match(fondos, /fondosBarValueLabels/);
 assert.match(fondos, /fondosDoughnutValueLabels/);
+assert.match(fondos, /'Champion'/);
+assert.match(fondos, /generateLabels\(chart\)[\s\S]*doughnutLabels\.map/);
 
 console.log('Fondos Marketing: navegación, permisos, caché e inicialización validados.');

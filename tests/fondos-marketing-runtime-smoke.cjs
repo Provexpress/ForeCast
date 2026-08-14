@@ -88,6 +88,10 @@ class FakeChart {
     };
   }
 
+  getDataVisibility() {
+    return true;
+  }
+
   destroy() {
     this.destroyed = true;
   }
@@ -127,7 +131,10 @@ assert.equal(FakeChart.instances.length, 2);
 assert.equal(FakeChart.instances[0].config.plugins[0].id, 'fondosBarValueLabels');
 assert.equal(FakeChart.instances[1].config.plugins[0].id, 'fondosDoughnutValueLabels');
 assert.match(FakeChart.instances[0].options.plugins.tooltip.callbacks.label({ datasetIndex: 1, dataIndex: 0, dataset: { label: 'Ejecutado (COP)' }, raw: 58269668 }), /93,0%/);
-assert.match(FakeChart.instances[1].options.plugins.tooltip.callbacks.label({ label: 'Eventos', raw: 31321068 }), /17,1%/);
+assert.match(FakeChart.instances[1].options.plugins.tooltip.callbacks.label({ label: 'Eventos', raw: 31321068 }), /14,8%/);
+const doughnutLegend = FakeChart.instances[1].options.plugins.legend.labels.generateLabels(FakeChart.instances[1]);
+assert.equal(doughnutLegend.length, 4);
+assert.match(doughnutLegend[3].text, /Champion · \$28,3M · 13,4%/);
 
 for(const id of [...elements.keys()]) {
   if(id !== 'page-fondos') elements.delete(id);
