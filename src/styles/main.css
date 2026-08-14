@@ -3582,6 +3582,10 @@ tr:hover td,.table-row-action:hover td{background:var(--surface-hover);color:var
   width: 100%;
 }
 
+.fondos-bar-card .chart-container {
+  height: 370px;
+}
+
 /* ── TABLE ──────────────────────────────────────────────────────── */
 .table-card {
   padding: 0;

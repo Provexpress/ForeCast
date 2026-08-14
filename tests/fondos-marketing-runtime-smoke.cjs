@@ -60,6 +60,7 @@ class FakeChart {
     this.data = config.data;
     this.options = config.options;
     this.chartArea = { left: 0, right: 320, top: 0, bottom: 260 };
+    this.width = 900;
     this.ctx = {
       save() {},
       restore() {},
@@ -71,7 +72,12 @@ class FakeChart {
       set strokeStyle(value) {},
       set lineWidth(value) {},
       set font(value) {},
-      set fillStyle(value) {}
+      set fillStyle(value) {},
+      beginPath() {},
+      roundRect() {},
+      fill() {},
+      stroke() {},
+      measureText(value) { return { width: String(value).length * 5 }; }
     };
     FakeChart.instances.push(this);
     (config.plugins || []).forEach(plugin => plugin.afterDatasetsDraw?.(this));
@@ -81,6 +87,8 @@ class FakeChart {
     const values = this.data.datasets[datasetIndex]?.data || [];
     return {
       data: values.map((value, index) => ({
+        y: value < 0 ? 210 : 80,
+        base: 180,
         tooltipPosition() {
           return { x: 40 + index * 38 + datasetIndex * 8, y: value < 0 ? 200 : 90 };
         }
@@ -130,7 +138,11 @@ assert.match(elements.get('fondos-brand-detail-container').innerHTML, /HP/);
 assert.equal(FakeChart.instances.length, 2);
 assert.equal(FakeChart.instances[0].config.plugins[0].id, 'fondosBarValueLabels');
 assert.equal(FakeChart.instances[1].config.plugins[0].id, 'fondosDoughnutValueLabels');
-assert.match(FakeChart.instances[0].options.plugins.tooltip.callbacks.label({ datasetIndex: 1, dataIndex: 0, dataset: { label: 'Ejecutado (COP)' }, raw: 58269668 }), /93,0%/);
+assert.equal(FakeChart.instances[0].options.scales.y.max, 80000000);
+assert.equal(FakeChart.instances[0].options.scales.y.min, -40000000);
+assert.equal(FakeChart.instances[0].data.datasets[0].maxBarThickness, 34);
+assert.match(FakeChart.instances[0].options.plugins.tooltip.callbacks.label({ datasetIndex: 1, dataIndex: 0, dataset: { label: 'Ejecutado' }, raw: 58269668 }), /58\.269\.668/);
+assert.match(FakeChart.instances[0].options.plugins.tooltip.callbacks.afterBody([{ dataIndex: 0 }]), /93,0%/);
 assert.match(FakeChart.instances[1].options.plugins.tooltip.callbacks.label({ label: 'Eventos', raw: 31321068 }), /14,8%/);
 const doughnutLegend = FakeChart.instances[1].options.plugins.legend.labels.generateLabels(FakeChart.instances[1]);
 assert.equal(doughnutLegend.length, 4);

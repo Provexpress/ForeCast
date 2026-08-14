@@ -544,9 +544,12 @@
 
         <!-- Sección de Gráficos de Alto Impacto -->
         <section class="fondos-charts-grid">
-          <div class="fondos-card chart-card">
+          <div class="fondos-card chart-card fondos-bar-card">
             <div class="fondos-card-header">
-              <h3 class="fondos-card-title">📊 Presupuesto vs Ejecución por Marca</h3>
+              <div>
+                <h3 class="fondos-card-title">Presupuesto y ejecución por marca</h3>
+                <p class="fondos-card-sub">Valores en COP · el indicador muestra el porcentaje ejecutado sobre el ingreso</p>
+              </div>
               <span class="fondos-card-tag">Comparativo COP</span>
             </div>
             <div class="chart-container">
@@ -555,7 +558,7 @@
           </div>
           <div class="fondos-card chart-card">
             <div class="fondos-card-header">
-              <h3 class="fondos-card-title">🍩 Distribución de Salidas por Categoría</h3>
+              <h3 class="fondos-card-title">Distribución de salidas por categoría</h3>
               <span class="fondos-card-tag">Consolidado de Gastos</span>
             </div>
             <div class="chart-container">
@@ -759,39 +762,83 @@
       const incomes = processedBrands.map(b => b.totalIncomeCOP);
       const outflows = processedBrands.map(b => b.totalOutflowCOP);
       const balances = processedBrands.map(b => b.balanceCOP);
+      const axisMax = Math.ceil(Math.max(...incomes, ...outflows, 0) * 1.24 / 10000000) * 10000000;
+      const lowestValue = Math.min(...balances, 0);
+      const axisMin = lowestValue < 0
+        ? Math.floor(lowestValue * 1.32 / 10000000) * 10000000
+        : 0;
       const barValueLabels = {
         id: 'fondosBarValueLabels',
         afterDatasetsDraw(chart) {
           const chartCtx = chart.ctx;
-          const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#172033';
+          const rootStyles = getComputedStyle(document.documentElement);
+          const textColor = rootStyles.getPropertyValue('--text').trim() || '#172033';
+          const cardColor = rootStyles.getPropertyValue('--card').trim() || '#FFFFFF';
+          const positiveColor = rootStyles.getPropertyValue('--corp-green').trim() || '#0F766E';
+          const mutedColor = rootStyles.getPropertyValue('--text2').trim() || '#64748B';
           chartCtx.save();
           chartCtx.textAlign = 'center';
           chartCtx.textBaseline = 'middle';
           chartCtx.lineJoin = 'round';
-          chartCtx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--card').trim() || 'rgba(255,255,255,.92)';
-          chartCtx.lineWidth = 3;
           chart.data.datasets.forEach((dataset, datasetIndex) => {
             const meta = chart.getDatasetMeta(datasetIndex);
             meta.data.forEach((element, index) => {
               const value = Number(dataset.data[index] || 0);
               if (!value) return;
-              const income = Number(incomes[index] || 0);
               const position = element.tooltipPosition();
               const isNegative = value < 0;
-              const valueY = position.y + (isNegative ? 13 : -13);
-              chartCtx.font = '700 9px Plus Jakarta Sans, sans-serif';
-              chartCtx.strokeText(formatCompactCOP(value), position.x, valueY);
-              chartCtx.fillStyle = textColor;
-              chartCtx.fillText(formatCompactCOP(value), position.x, valueY);
-              if (datasetIndex > 0) {
-                const percentY = valueY + (isNegative ? 11 : -11);
-                const percentText = formatPercentRatio(value, income);
-                chartCtx.font = '800 8px Plus Jakarta Sans, sans-serif';
-                chartCtx.strokeText(percentText, position.x, percentY);
-                chartCtx.fillStyle = datasetIndex === 1 ? '#DC2626' : '#059669';
-                chartCtx.fillText(percentText, position.x, percentY);
+              const endY = Number.isFinite(element.y) ? element.y : position.y;
+              const baseY = Number.isFinite(element.base) ? element.base : position.y + (isNegative ? -40 : 40);
+              const barHeight = Math.abs(baseY - endY);
+              const drawInside = barHeight >= 30;
+              const valueY = drawInside
+                ? endY + (isNegative ? -13 : 13)
+                : endY + (isNegative ? 11 : -10);
+              chartCtx.font = '800 9px Plus Jakarta Sans, sans-serif';
+              if (drawInside) {
+                chartCtx.fillStyle = '#FFFFFF';
+              } else {
+                chartCtx.strokeStyle = cardColor;
+                chartCtx.lineWidth = 3;
+                chartCtx.strokeText(formatCompactCOP(value), position.x, valueY);
+                chartCtx.fillStyle = dataset.borderColor || textColor;
               }
+              chartCtx.fillText(formatCompactCOP(value), position.x, valueY);
             });
+          });
+
+          processedBrands.forEach((brand, index) => {
+            const visibleElements = chart.data.datasets
+              .map((dataset, datasetIndex) => ({
+                value: Number(dataset.data[index] || 0),
+                element: chart.getDatasetMeta(datasetIndex).data[index]
+              }))
+              .filter(item => item.element);
+            if (!visibleElements.length) return;
+
+            const centerX = visibleElements.reduce((sum, item) => sum + item.element.tooltipPosition().x, 0) / visibleElements.length;
+            const positiveEnds = visibleElements
+              .filter(item => item.value > 0)
+              .map(item => Number.isFinite(item.element.y) ? item.element.y : item.element.tooltipPosition().y);
+            const topY = positiveEnds.length ? Math.min(...positiveEnds) : chart.chartArea.top + 34;
+            const hasIncome = Number(incomes[index] || 0) > 0;
+            const compact = chart.width < 760;
+            const ratio = hasIncome ? formatPercentRatio(outflows[index], incomes[index]) : '';
+            const badgeText = hasIncome ? `${ratio}${compact ? '' : ' ejecutado'}` : 'Sin ingreso';
+            const badgeY = Math.max(chart.chartArea.top + 11, topY - 25);
+
+            chartCtx.font = '800 8px Plus Jakarta Sans, sans-serif';
+            const badgeWidth = Math.max(48, chartCtx.measureText(badgeText).width + 14);
+            const badgeHeight = 18;
+            chartCtx.beginPath();
+            chartCtx.roundRect(centerX - badgeWidth / 2, badgeY - badgeHeight / 2, badgeWidth, badgeHeight, 9);
+            chartCtx.fillStyle = hasIncome ? 'rgba(15, 118, 110, 0.12)' : 'rgba(100, 116, 139, 0.14)';
+            chartCtx.fill();
+            chartCtx.strokeStyle = hasIncome ? 'rgba(15, 118, 110, 0.32)' : 'rgba(100, 116, 139, 0.32)';
+            chartCtx.lineWidth = 1;
+            chartCtx.stroke();
+            chartCtx.fillStyle = hasIncome ? positiveColor : mutedColor;
+            chartCtx.fillText(badgeText, centerX, badgeY);
           });
           chartCtx.restore();
         }
@@ -803,28 +850,34 @@
           labels: labels,
           datasets: [
             {
-              label: 'Ingreso (COP)',
+              label: 'Ingreso',
               data: incomes,
-              backgroundColor: 'rgba(59, 130, 246, 0.75)',
+              backgroundColor: 'rgba(59, 130, 246, 0.88)',
               borderColor: '#3B82F6',
-              borderWidth: 1,
-              borderRadius: 4
+              borderWidth: 0,
+              borderRadius: 6,
+              borderSkipped: false,
+              maxBarThickness: 34
             },
             {
-              label: 'Ejecutado (COP)',
+              label: 'Ejecutado',
               data: outflows,
-              backgroundColor: 'rgba(239, 68, 68, 0.75)',
+              backgroundColor: 'rgba(239, 68, 68, 0.86)',
               borderColor: '#EF4444',
-              borderWidth: 1,
-              borderRadius: 4
+              borderWidth: 0,
+              borderRadius: 6,
+              borderSkipped: false,
+              maxBarThickness: 34
             },
             {
-              label: 'Saldo (COP)',
+              label: 'Saldo',
               data: balances,
-              backgroundColor: 'rgba(16, 185, 129, 0.75)',
+              backgroundColor: 'rgba(16, 185, 129, 0.86)',
               borderColor: '#10B981',
-              borderWidth: 1,
-              borderRadius: 4
+              borderWidth: 0,
+              borderRadius: 6,
+              borderSkipped: false,
+              maxBarThickness: 34
             }
           ]
         },
@@ -832,29 +885,68 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          layout: { padding: { top: 34, bottom: 26, left: 4, right: 4 } },
+          layout: { padding: { top: 24, bottom: 4, left: 6, right: 6 } },
+          interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: { position: 'top', labels: { color: 'var(--text, #e2e8f0)', font: { family: 'Plus Jakarta Sans' } } },
+            legend: {
+              position: 'top',
+              align: 'center',
+              labels: {
+                color: 'var(--text, #e2e8f0)',
+                usePointStyle: true,
+                pointStyle: 'rectRounded',
+                boxWidth: 10,
+                boxHeight: 10,
+                padding: 18,
+                font: { family: 'Plus Jakarta Sans', size: 10, weight: '600' }
+              }
+            },
             tooltip: {
+              backgroundColor: 'rgba(15, 23, 42, 0.96)',
+              titleFont: { family: 'Plus Jakarta Sans', size: 11, weight: '700' },
+              bodyFont: { family: 'Plus Jakarta Sans', size: 10, weight: '600' },
+              padding: 11,
+              cornerRadius: 8,
               callbacks: {
                 label: function (ctx) {
-                  const income = incomes[ctx.dataIndex] || 0;
-                  const percent = ctx.datasetIndex === 0 ? '100,0%' : formatPercentRatio(ctx.raw, income);
-                  return ` ${ctx.dataset.label}: ${formatCOP(ctx.raw)} · ${percent}`;
+                  return ` ${ctx.dataset.label}: ${formatCOP(ctx.raw)}`;
+                },
+                afterBody: function (items) {
+                  const index = items[0]?.dataIndex ?? 0;
+                  return incomes[index] > 0
+                    ? `Ejecución: ${formatPercentRatio(outflows[index], incomes[index])}`
+                    : 'Ejecución: sin ingreso registrado';
                 }
               }
             }
           },
           scales: {
-            x: { ticks: { color: 'var(--text2, #94a3b8)' }, grid: { display: false } },
+            x: {
+              ticks: {
+                color: 'var(--text, #475569)',
+                padding: 10,
+                font: { family: 'Plus Jakarta Sans', size: 10, weight: '700' }
+              },
+              grid: { display: false },
+              border: { display: false }
+            },
             y: {
+              min: axisMin,
+              max: axisMax,
               ticks: {
                 color: 'var(--text2, #94a3b8)',
+                padding: 8,
+                stepSize: 10000000,
+                font: { family: 'Plus Jakarta Sans', size: 9, weight: '600' },
                 callback: function (val) {
-                  return '$' + (val / 1e6).toFixed(0) + 'M';
+                  return val === 0 ? '$0' : '$' + (val / 1e6).toFixed(0) + 'M';
                 }
               },
-              grid: { color: 'rgba(255, 255, 255, 0.05)' }
+              grid: {
+                color: context => context.tick.value === 0 ? 'rgba(100, 116, 139, 0.28)' : 'rgba(148, 163, 184, 0.10)',
+                lineWidth: context => context.tick.value === 0 ? 1.4 : 1
+              },
+              border: { display: false }
             }
           }
         }
