@@ -3578,7 +3578,7 @@ tr:hover td,.table-row-action:hover td{background:var(--surface-hover);color:var
 
 .chart-container {
   position: relative;
-  height: 260px;
+  height: 320px;
   width: 100%;
 }
 

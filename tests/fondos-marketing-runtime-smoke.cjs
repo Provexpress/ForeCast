@@ -40,6 +40,59 @@ const document = {
   }
 };
 
+class FakeChart {
+  static instances = [];
+  static defaults = {
+    plugins: {
+      legend: {
+        labels: {
+          generateLabels(chart) {
+            return (chart.data.labels || []).map((text, index) => ({ text, index }));
+          }
+        }
+      }
+    }
+  };
+
+  constructor(canvas, config) {
+    this.canvas = canvas;
+    this.config = config;
+    this.data = config.data;
+    this.options = config.options;
+    this.chartArea = { left: 0, right: 320, top: 0, bottom: 260 };
+    this.ctx = {
+      save() {},
+      restore() {},
+      strokeText() {},
+      fillText() {},
+      set textAlign(value) {},
+      set textBaseline(value) {},
+      set lineJoin(value) {},
+      set strokeStyle(value) {},
+      set lineWidth(value) {},
+      set font(value) {},
+      set fillStyle(value) {}
+    };
+    FakeChart.instances.push(this);
+    (config.plugins || []).forEach(plugin => plugin.afterDatasetsDraw?.(this));
+  }
+
+  getDatasetMeta(datasetIndex) {
+    const values = this.data.datasets[datasetIndex]?.data || [];
+    return {
+      data: values.map((value, index) => ({
+        tooltipPosition() {
+          return { x: 40 + index * 38 + datasetIndex * 8, y: value < 0 ? 200 : 90 };
+        }
+      }))
+    };
+  }
+
+  destroy() {
+    this.destroyed = true;
+  }
+}
+
 const context = {
   console,
   document,
@@ -49,6 +102,10 @@ const context = {
   Math,
   Number,
   Date,
+  Chart: FakeChart,
+  getComputedStyle() {
+    return { getPropertyValue() { return '#172033'; } };
+  },
   setTimeout,
   clearTimeout
 };
@@ -63,8 +120,14 @@ assert.equal(context.FondosMarketingModule.canAccess(), true);
 assert.doesNotThrow(() => context.FondosMarketingModule.init());
 assert.match(elements.get('page-fondos').innerHTML, /Fondos de Mercadeo \(MDF\)/);
 assert.match(elements.get('fondos-kpis-container').innerHTML, /Ingresos Totales/);
+assert.match(elements.get('fondos-kpis-container').innerHTML, /194\.115\.588/);
 assert.match(elements.get('fondos-summary-tbody').innerHTML, /TOTAL CONSOLIDADO/);
 assert.match(elements.get('fondos-brand-detail-container').innerHTML, /HP/);
+assert.equal(FakeChart.instances.length, 2);
+assert.equal(FakeChart.instances[0].config.plugins[0].id, 'fondosBarValueLabels');
+assert.equal(FakeChart.instances[1].config.plugins[0].id, 'fondosDoughnutValueLabels');
+assert.match(FakeChart.instances[0].options.plugins.tooltip.callbacks.label({ datasetIndex: 1, dataIndex: 0, dataset: { label: 'Ejecutado (COP)' }, raw: 58269668 }), /93,0%/);
+assert.match(FakeChart.instances[1].options.plugins.tooltip.callbacks.label({ label: 'Eventos', raw: 31321068 }), /17,1%/);
 
 for(const id of [...elements.keys()]) {
   if(id !== 'page-fondos') elements.delete(id);

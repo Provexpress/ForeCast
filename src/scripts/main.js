@@ -2997,7 +2997,7 @@ function loadFondosMarketingModule(){
 
   fondosMarketingLoadPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = `src/scripts/fondos-marketing.js?v=20260813-fondos9-retry-${Date.now()}`;
+    script.src = `src/scripts/fondos-marketing.js?v=20260814-fondos-final1-retry-${Date.now()}`;
     script.async = true;
     script.onload = () => {
       if(window.FondosMarketingModule) resolve(window.FondosMarketingModule);
@@ -7401,6 +7401,12 @@ async function loadFolderFromSharePoint() {
         updateLoadingStatus('Cargando programas de fabricantes...');
         await window.ProgramChannelModule.loadFromSharePoint(siteId, filesToken).catch(programError => {
           console.warn('[PROGRAMAS] carga automatica incompleta', programError);
+        });
+      }
+      if(window.FondosMarketingModule && window.FondosMarketingModule.canAccess()) {
+        updateLoadingStatus('Cargando informe final de Fondos Marketing...');
+        await window.FondosMarketingModule.loadFromSharePoint(siteId, filesToken).catch(fondosError => {
+          console.warn('[FONDOS] se conserva el informe final integrado', fondosError);
         });
       }
     }
