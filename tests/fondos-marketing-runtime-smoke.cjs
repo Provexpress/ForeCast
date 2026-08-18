@@ -133,6 +133,9 @@ assert.doesNotThrow(() => context.FondosMarketingModule.init());
 assert.match(elements.get('page-fondos').innerHTML, /Fondos de Mercadeo \(MDF\)/);
 assert.match(elements.get('fondos-kpis-container').innerHTML, /Ingresos Totales/);
 assert.match(elements.get('fondos-kpis-container').innerHTML, /218\.615\.588/);
+assert.match(elements.get('fondos-kpis-container').innerHTML, /Saldo a Favor/);
+assert.match(elements.get('fondos-kpis-container').innerHTML, /486\.136/);
+assert.doesNotMatch(elements.get('fondos-kpis-container').innerHTML, /48\.405\.020/);
 assert.doesNotMatch(elements.get('fondos-kpis-container').innerHTML, /Comisión Dir\. Mercadeo/);
 assert.match(elements.get('fondos-rio-funding').innerHTML, /Valor por cupo/);
 assert.match(elements.get('fondos-rio-funding').innerHTML, /6\.500\.000/);
@@ -204,7 +207,8 @@ const finalWorkbook = {
     Cisco: makeSheet({ B2: 3000, C2: 3333.3333333333335, D2: 10000000, G2: 9750000, H1: 'Saldo cruza negocio', H2: 250000 }),
     Champion: makeSheet({ D2: 'Q1', E2: 2000, F2: 7000000, G2: 2000, H2: 7000000, D3: 'Q2', E3: 2000, F3: 7000000, G3: 2000, H3: 7000000 }),
     'Total Fondos ': makeSheet({
-      H3: 'POP', I3: 20891156, A9: 'Total', B9: 218615588, C9: 170210568, D9: 48405020,
+      H2: 'Champion', I2: 28000000, H3: 'POP', I3: 20891156, H4: 'Total', I4: 48891156, H5: 'Saldo a Favor', I5: 486136,
+      A9: 'Total', B9: 218615588, C9: 170210568, D9: 48405020,
       A15: 6500000, B15: 20, C15: 130000000,
       A17: 'Recaudo Rio', B17: 'Valor', C17: 'Observacion',
       A18: 'Hp', B18: 26000000,
@@ -229,6 +233,10 @@ assert.equal(parsedFinal.brands.find(brand => brand.id === 'hp').incomes.length,
 assert.equal(parsedFinal.brands.find(brand => brand.id === 'intel').incomes.length, 2);
 assert.equal(parsedFinal.brands.find(brand => brand.id === 'microsoft').outflows.reduce((sum, item) => sum + item.cop, 0), 26889500);
 assert.equal(parsedFinal.brands.find(brand => brand.id === 'pop').outflows[0].cop, 20891156);
+assert.equal(parsedFinal.nonAssociatedExpenses.champion, 28000000);
+assert.equal(parsedFinal.nonAssociatedExpenses.pop, 20891156);
+assert.equal(parsedFinal.nonAssociatedExpenses.total, 48891156);
+assert.equal(parsedFinal.nonAssociatedExpenses.balanceFavor, 486136);
 assert.equal(parsedFinal.rioFunding.unitCost, 6500000);
 assert.equal(parsedFinal.rioFunding.totalSeats, 20);
 assert.equal(parsedFinal.rioFunding.factories, 91000000);

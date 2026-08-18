@@ -18,6 +18,12 @@
     trmDefault: 3500,
     lastUpdate: '2026-08-18',
     sourceFileName: 'FONDOS DE MERCADEO NINI_final.xlsx',
+    nonAssociatedExpenses: {
+      champion: 28000000,
+      pop: 20891156,
+      total: 48891156,
+      balanceFavor: 486136
+    },
     rioFunding: {
       unitCost: 6500000,
       totalSeats: 20,
@@ -374,6 +380,16 @@
       { type: 'Otro', concept: 'Gasto no asociado POP', cop: getCellNumber(totalSheet, `I${popRow}`), obs: 'Total Fondos' }
     ]);
 
+    const championExpenseRow = findRowByLabel(totalSheet, 'H', 'Champion');
+    const nonAssociatedTotalRow = findRowByLabel(totalSheet, 'H', 'Total');
+    const balanceFavorRow = findRowByLabel(totalSheet, 'H', 'Saldo a Favor');
+    data.nonAssociatedExpenses = {
+      champion: getCellNumber(totalSheet, `I${championExpenseRow}`) || data.nonAssociatedExpenses.champion,
+      pop: getCellNumber(totalSheet, `I${popRow}`) || data.nonAssociatedExpenses.pop,
+      total: getCellNumber(totalSheet, `I${nonAssociatedTotalRow}`) || data.nonAssociatedExpenses.total,
+      balanceFavor: getCellNumber(totalSheet, `I${balanceFavorRow}`) || data.nonAssociatedExpenses.balanceFavor
+    };
+
     const rioFactoriesRow = findRowByLabel(totalSheet, 'A', 'Total Fabricas', 14);
     const rioProvexpressRow = findRowByLabel(totalSheet, 'A', 'Asumio Provexpress 3 Cupos', 14);
     const rioMarketingRow = findRowByLabel(totalSheet, 'A', 'Conserguir Dinero Mercadeo', 14);
@@ -406,6 +422,10 @@
     };
 
     const summary = getGlobalSummary(data.brands.map(getProcessedBrandData));
+    const nonAssociatedTotal = data.nonAssociatedExpenses.champion + data.nonAssociatedExpenses.pop;
+    if (Math.abs(nonAssociatedTotal - data.nonAssociatedExpenses.total) > 1 || Math.abs((data.nonAssociatedExpenses.total - summary.totalBalance) - data.nonAssociatedExpenses.balanceFavor) > 1) {
+      throw new Error('El saldo a favor no coincide con el bloque de gastos no asociados.');
+    }
     const rioDetailTotal = data.rioFunding.contributions.reduce((sum, item) => sum + Number(item.value || 0), 0);
     if (Math.abs(rioDetailTotal - data.rioFunding.total) > 1) {
       throw new Error('El detalle de recaudo Río no coincide con el valor total de cupos.');
@@ -711,6 +731,7 @@
     if (!container) return;
 
     const pctText = (summary.pctGlobalExecuted * 100).toFixed(1) + '%';
+    const balanceFavor = Number(state.data && state.data.nonAssociatedExpenses && state.data.nonAssociatedExpenses.balanceFavor || 0);
 
     container.innerHTML = `
       <div class="kpi-card kpi-income">
@@ -737,9 +758,9 @@
       <div class="kpi-card kpi-balance">
         <div class="kpi-icon-wrap">💎</div>
         <div class="kpi-body">
-          <span class="kpi-label">Saldo Disponible Neto</span>
-          <div class="kpi-value ${summary.totalBalance < 0 ? 'text-danger' : 'text-success'}">${formatCOP(summary.totalBalance)}</div>
-          <span class="kpi-sub">Fondo disponible para reasignar</span>
+          <span class="kpi-label">Saldo a Favor</span>
+          <div class="kpi-value ${balanceFavor < 0 ? 'text-danger' : 'text-success'}">${formatCOP(balanceFavor)}</div>
+          <span class="kpi-sub">Después de gastos no asociados: Champion y POP</span>
         </div>
       </div>
 
