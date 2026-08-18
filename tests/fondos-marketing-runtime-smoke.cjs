@@ -134,6 +134,9 @@ assert.match(elements.get('page-fondos').innerHTML, /Fondos de Mercadeo \(MDF\)/
 assert.match(elements.get('fondos-kpis-container').innerHTML, /Ingresos Totales/);
 assert.match(elements.get('fondos-kpis-container').innerHTML, /218\.615\.588/);
 assert.doesNotMatch(elements.get('fondos-kpis-container').innerHTML, /Comisión Dir\. Mercadeo/);
+assert.match(elements.get('fondos-rio-funding').innerHTML, /Financiación Río/);
+assert.match(elements.get('fondos-rio-funding').innerHTML, /\$91,0M/);
+assert.match(elements.get('fondos-rio-funding').innerHTML, /\$19,5M/);
 assert.match(elements.get('fondos-summary-tbody').innerHTML, /TOTAL CONSOLIDADO/);
 assert.match(elements.get('fondos-brand-detail-container').innerHTML, /HP/);
 assert.equal(FakeChart.instances.length, 2);
@@ -197,7 +200,14 @@ const finalWorkbook = {
     }),
     Cisco: makeSheet({ B2: 3000, C2: 3333.3333333333335, D2: 10000000, G2: 9750000, H1: 'Saldo cruza negocio', H2: 250000 }),
     Champion: makeSheet({ D2: 'Q1', E2: 2000, F2: 7000000, G2: 2000, H2: 7000000, D3: 'Q2', E3: 2000, F3: 7000000, G3: 2000, H3: 7000000 }),
-    'Total Fondos ': makeSheet({ H3: 'POP', I3: 20891156, A9: 'Total', B9: 218615588, C9: 170210568, D9: 48405020 })
+    'Total Fondos ': makeSheet({
+      H3: 'POP', I3: 20891156, A9: 'Total', B9: 218615588, C9: 170210568, D9: 48405020,
+      A15: 6500000, B15: 20, C15: 130000000,
+      A28: 'Total Fabricas', B28: 91000000,
+      A29: 'Asumio Provexpress 3 Cupos', B29: 19500000,
+      A30: 'Conserguir  Dinero Mercadeo', B30: 19500000,
+      A31: 'Total', B31: 130000000
+    })
   }
 };
 
@@ -207,6 +217,7 @@ assert.equal(parsedFinal.brands.find(brand => brand.id === 'hp').incomes.length,
 assert.equal(parsedFinal.brands.find(brand => brand.id === 'intel').incomes.length, 2);
 assert.equal(parsedFinal.brands.find(brand => brand.id === 'microsoft').outflows.reduce((sum, item) => sum + item.cop, 0), 26889500);
 assert.equal(parsedFinal.brands.find(brand => brand.id === 'pop').outflows[0].cop, 20891156);
+assert.deepEqual(JSON.parse(JSON.stringify(parsedFinal.rioFunding)), { unitCost: 6500000, totalSeats: 20, factories: 91000000, provexpress: 19500000, marketingPending: 19500000, total: 130000000 });
 
 for(const id of [...elements.keys()]) {
   if(id !== 'page-fondos') elements.delete(id);

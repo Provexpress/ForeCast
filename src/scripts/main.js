@@ -2997,7 +2997,7 @@ function loadFondosMarketingModule(){
 
   fondosMarketingLoadPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = `src/scripts/fondos-marketing.js?v=20260818-fondos-card1-retry-${Date.now()}`;
+    script.src = `src/scripts/fondos-marketing.js?v=20260818-fondos-rio1-retry-${Date.now()}`;
     script.async = true;
     script.onload = () => {
       if(window.FondosMarketingModule) resolve(window.FondosMarketingModule);

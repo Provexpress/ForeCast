@@ -18,6 +18,14 @@
     trmDefault: 3500,
     lastUpdate: '2026-08-18',
     sourceFileName: 'FONDOS DE MERCADEO NINI_final.xlsx',
+    rioFunding: {
+      unitCost: 6500000,
+      totalSeats: 20,
+      factories: 91000000,
+      provexpress: 19500000,
+      marketingPending: 19500000,
+      total: 130000000
+    },
     brands: [
       {
         id: 'hp',
@@ -216,9 +224,15 @@
   }
 
   function findRowByLabel(sheet, column, label, startRow = 1, endRow = 100) {
-    const target = String(label || '').trim().toLowerCase();
+    const normalizeLabel = value => String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+    const target = normalizeLabel(label);
     for (let row = startRow; row <= endRow; row += 1) {
-      if (getCellText(sheet, `${column}${row}`).toLowerCase() === target) return row;
+      if (normalizeLabel(getCellText(sheet, `${column}${row}`)) === target) return row;
     }
     return 0;
   }
@@ -349,6 +363,19 @@
     replaceBrandRecords(data, 'pop', [], [
       { type: 'Otro', concept: 'Gasto no asociado POP', cop: getCellNumber(totalSheet, `I${popRow}`), obs: 'Total Fondos' }
     ]);
+
+    const rioFactoriesRow = findRowByLabel(totalSheet, 'A', 'Total Fabricas', 14);
+    const rioProvexpressRow = findRowByLabel(totalSheet, 'A', 'Asumio Provexpress 3 Cupos', 14);
+    const rioMarketingRow = findRowByLabel(totalSheet, 'A', 'Conserguir Dinero Mercadeo', 14);
+    const rioTotalRow = findRowByLabel(totalSheet, 'A', 'Total', 14);
+    data.rioFunding = {
+      unitCost: getCellNumber(totalSheet, 'A15') || data.rioFunding.unitCost,
+      totalSeats: getCellNumber(totalSheet, 'B15') || data.rioFunding.totalSeats,
+      factories: getCellNumber(totalSheet, `B${rioFactoriesRow}`) || data.rioFunding.factories,
+      provexpress: getCellNumber(totalSheet, `B${rioProvexpressRow}`) || data.rioFunding.provexpress,
+      marketingPending: getCellNumber(totalSheet, `B${rioMarketingRow}`) || data.rioFunding.marketingPending,
+      total: getCellNumber(totalSheet, `B${rioTotalRow}`) || getCellNumber(totalSheet, 'C15') || data.rioFunding.total
+    };
 
     const summary = getGlobalSummary(data.brands.map(getProcessedBrandData));
     const consolidatedRow = findRowByLabel(totalSheet, 'A', 'Total');
@@ -604,6 +631,7 @@
             <div class="chart-container">
               <canvas id="fondos-doughnut-chart"></canvas>
             </div>
+            <div class="fondos-rio-funding" id="fondos-rio-funding"></div>
           </div>
         </section>
 
@@ -709,6 +737,24 @@
         updateDashboardView();
       });
     });
+  }
+
+  function renderRioFunding() {
+    const container = document.getElementById('fondos-rio-funding');
+    const funding = state.data && state.data.rioFunding;
+    if (!container || !funding) return;
+    container.innerHTML = `
+      <div class="rio-funding-title">
+        <span>Financiación Río</span>
+        <strong>${Number(funding.totalSeats || 0).toLocaleString('es-CO')} cupos</strong>
+      </div>
+      <div class="rio-funding-grid">
+        <div><span>Fábricas</span><strong>${formatCompactCOP(funding.factories)}</strong></div>
+        <div><span>Provexpress</span><strong>${formatCompactCOP(funding.provexpress)}</strong></div>
+        <div><span>Pendiente mercadeo</span><strong>${formatCompactCOP(funding.marketingPending)}</strong></div>
+        <div class="rio-funding-total"><span>Total</span><strong>${formatCompactCOP(funding.total)}</strong></div>
+      </div>
+    `;
   }
 
   // ── Renderizado de Tabla Consolidada ────────────────────────────────
@@ -992,7 +1038,7 @@
 
       const championControlTotal = processedBrands.find(brand => brand.id === 'champion')?.totalOutflowCOP || 0;
       const popControlTotal = processedBrands.find(brand => brand.id === 'pop')?.totalOutflowCOP || 0;
-      const doughnutLabels = ['Eventos', 'Incentivos', 'Convención Río', 'Champion', 'POP', 'Ajustes'];
+      const doughnutLabels = ['Eventos', 'Incentivos', 'Convención Río', 'Champion', 'POP', 'Saldo Cisco'];
       const doughnutColors = ['#8B5CF6', '#F59E0B', '#06B6D4', '#64748B', '#7C3AED', '#14B8A6'];
       const doughnutValues = [
         summary.totalEvents,
@@ -1228,6 +1274,7 @@
     renderBrandChips(processedBrands);
     renderSummaryTable(processedBrands, summary);
     renderCharts(processedBrands, summary);
+    renderRioFunding();
     renderBrandDetail(processedBrands);
   }
 

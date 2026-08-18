@@ -3586,6 +3586,46 @@ tr:hover td,.table-row-action:hover td{background:var(--surface-hover);color:var
   height: 370px;
 }
 
+.fondos-rio-funding {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, rgba(255,255,255,0.08));
+}
+
+.rio-funding-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+  color: var(--text2, #64748b);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.rio-funding-title strong { color: var(--text, #17243d); }
+
+.rio-funding-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.rio-funding-grid > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  background: rgba(99,102,241,0.06);
+  color: var(--text2, #64748b);
+  font-size: 9px;
+}
+
+.rio-funding-grid strong { color: var(--text, #17243d); font-size: 10px; }
+.rio-funding-grid .rio-funding-total { background: rgba(6,182,212,0.10); }
+
 /* ── TABLE ──────────────────────────────────────────────────────── */
 .table-card {
   padding: 0;
