@@ -677,14 +677,6 @@
         </div>
       </div>
 
-      <div class="kpi-card kpi-commission">
-        <div class="kpi-icon-wrap">🎯</div>
-        <div class="kpi-body">
-          <span class="kpi-label">Comisión Dir. Mercadeo</span>
-          <div class="kpi-value text-accent">${formatCOP(summary.totalCommission)}</div>
-          <span class="kpi-sub">10% sobre el saldo neto consolidado</span>
-        </div>
-      </div>
     `;
   }
 

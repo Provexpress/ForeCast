@@ -3339,7 +3339,7 @@ tr:hover td,.table-row-action:hover td{background:var(--surface-hover);color:var
 /* ── KPI GRID ───────────────────────────────────────────────────── */
 .fondos-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 14px;
 }
 

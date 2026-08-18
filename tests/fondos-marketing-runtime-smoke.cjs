@@ -133,6 +133,7 @@ assert.doesNotThrow(() => context.FondosMarketingModule.init());
 assert.match(elements.get('page-fondos').innerHTML, /Fondos de Mercadeo \(MDF\)/);
 assert.match(elements.get('fondos-kpis-container').innerHTML, /Ingresos Totales/);
 assert.match(elements.get('fondos-kpis-container').innerHTML, /218\.615\.588/);
+assert.doesNotMatch(elements.get('fondos-kpis-container').innerHTML, /Comisión Dir\. Mercadeo/);
 assert.match(elements.get('fondos-summary-tbody').innerHTML, /TOTAL CONSOLIDADO/);
 assert.match(elements.get('fondos-brand-detail-container').innerHTML, /HP/);
 assert.equal(FakeChart.instances.length, 2);
