@@ -16,7 +16,7 @@
   // Datos finales validados del libro FONDOS DE MERCADEO NINI_final.xlsx.
   const BASELINE_DATA = {
     trmDefault: 3500,
-    lastUpdate: '2026-08-14',
+    lastUpdate: '2026-08-18',
     sourceFileName: 'FONDOS DE MERCADEO NINI_final.xlsx',
     brands: [
       {
@@ -34,7 +34,8 @@
           { period: '26Q2', usd: 3000, trm: 3668, cop: 11004000, obs: 'Factura 113461' },
           { period: '26Q2', usd: 1000, trm: 3861, cop: 3861000, obs: 'Factura 106957' },
           { period: '26Q3', usd: 3000, trm: 3668, cop: 11004000, obs: 'Factura 113701' },
-          { period: '26Q3', usd: 1000, trm: 3668, cop: 3668000, obs: 'Factura 112763' }
+          { period: '26Q3', usd: 1000, trm: 3668, cop: 3668000, obs: 'Factura 112763' },
+          { period: '26Q4', usd: 2000, trm: 3500, cop: 7000000, obs: 'Factura pendiente' }
         ],
         outflows: [
           { type: 'Evento', concept: 'HP Suministros - Evento', cupos: null, cop: 2710400, obs: 'Evento presencial suministros' },
@@ -47,9 +48,9 @@
           { type: 'Incentivo', concept: 'Camisetas (obsequio gerencia comercial y direcciones)', cupos: null, cop: 1500000, obs: 'Dotación corporativa' },
           { type: 'Incentivo', concept: 'Incentivo Suministros (Bono Adidas ganadora Dilma)', cupos: null, cop: 300000, obs: 'Bono regalo' },
           { type: 'Incentivo', concept: 'Nintendo', cupos: null, cop: 2600000, obs: 'Premio meta de ventas' },
-          { type: 'Rio', concept: 'Río (20 al 24 mayo) - cupos @ $6.500.000', cupos: 5, cop: 32500000, obs: '5 cupos según consolidado final' }
+          { type: 'Rio', concept: 'Río (20 al 24 mayo) - cupos @ $6.500.000', cupos: 4, cop: 26000000, obs: '4 cupos ejecutados; 1 cupo cruzado con rebate' }
         ],
-        notes: 'Informe final: ingresos $62.627.700, salidas $58.269.668 y saldo $4.358.032.'
+        notes: 'Informe final: ingresos $69.627.700, salidas $51.769.668 y saldo $17.858.032.'
       },
       {
         id: 'dell',
@@ -70,9 +71,9 @@
           { type: 'Evento', concept: 'Tecnología cómputo', cupos: null, cop: 6452650, obs: '17 de julio 2026' },
           { type: 'Incentivo', concept: 'Televisor, Apple TV, bonos H&M', cupos: null, cop: 3000000, obs: 'Premios fidelización' },
           { type: 'Incentivo', concept: 'Play Station', cupos: null, cop: 2600000, obs: 'Premio mejor ejecutivo' },
-          { type: 'Rio', concept: 'Río (20 al 24 mayo) - cupos @ $6.500.000', cupos: 5, cop: 32500000, obs: '5 cupos según consolidado final' }
+          { type: 'Rio', concept: 'Río (20 al 24 mayo) - cupos @ $6.500.000', cupos: 4, cop: 26000000, obs: '4 cupos ejecutados según informe final' }
         ],
-        notes: 'Informe final: el total incluye $10.500.000 de Proposal pendientes por ingresar; saldo reportado $4.563.438.'
+        notes: 'Informe final: el total incluye $10.500.000 de Proposal pendientes por ingresar; saldo reportado $11.063.438.'
       },
       {
         id: 'lenovo',
@@ -99,14 +100,15 @@
         color: '#0071C5',
         bgAlpha: 'rgba(0, 113, 197, 0.18)',
         incomes: [
-          { period: 'H1', usd: 4990, trm: 3500, cop: 17465000, obs: 'Asignación semestral H1' }
+          { period: 'H1', usd: 4990, trm: 3500, cop: 17465000, obs: 'Asignación semestral H1' },
+          { period: 'H2', usd: 5000, trm: 3500, cop: 17500000, obs: 'Asignación semestral H2' }
         ],
         outflows: [
           { type: 'Evento', concept: 'Evento (USD 490)', cupos: null, cop: 1715000, obs: 'Evento focalizado' },
           { type: 'Incentivo', concept: 'Capacitación Rosario - código de vestimenta', cupos: null, cop: 6000000, obs: 'Capacitación e imagen corporativa' },
           { type: 'Rio', concept: 'Rio (20 al 24 mayo) - cupos @ $6.500.000', cupos: 1.5, cop: 9750000, obs: '1.5 cupos convención Río' }
         ],
-        notes: 'Informe final: ejecución del 100% y saldo $0.'
+        notes: 'Informe final: ingresos $34.965.000, salidas $17.465.000 y saldo $17.500.000.'
       },
       {
         id: 'microsoft',
@@ -154,6 +156,19 @@
           { brand: 'DELL', period: 'Q2', usd: 2000, trm: 3500, cop: 7000000, type: 'Otro', concept: 'Ejecución Champion DELL Q2' }
         ],
         notes: 'Ejecuciones Champion por $28.000.000. Se muestran para control, pero el informe final no las incluye en el total consolidado de fondos.'
+      },
+      {
+        id: 'pop',
+        name: 'POP',
+        shortName: 'POP',
+        color: '#7C3AED',
+        bgAlpha: 'rgba(124, 58, 237, 0.18)',
+        excludeFromConsolidated: true,
+        incomes: [],
+        outflows: [
+          { type: 'Otro', concept: 'Gasto no asociado POP', cupos: null, cop: 20891156, obs: 'Valor reportado en Total Fondos' }
+        ],
+        notes: 'Gasto no asociado POP por $20.891.156. Se muestra para control y no integra el consolidado de fondos por fabricante.'
       }
     ]
   };
@@ -192,6 +207,22 @@
     return String(value == null ? '' : value).trim() || fallback;
   }
 
+  function getRowsWithValueAndLabel(sheet, labelColumn, valueColumn, startRow = 2, endRow = 100) {
+    const rows = [];
+    for (let row = startRow; row <= endRow; row += 1) {
+      if (getCellText(sheet, `${labelColumn}${row}`) && getCellNumber(sheet, `${valueColumn}${row}`)) rows.push(row);
+    }
+    return rows;
+  }
+
+  function findRowByLabel(sheet, column, label, startRow = 1, endRow = 100) {
+    const target = String(label || '').trim().toLowerCase();
+    for (let row = startRow; row <= endRow; row += 1) {
+      if (getCellText(sheet, `${column}${row}`).toLowerCase() === target) return row;
+    }
+    return 0;
+  }
+
   function replaceBrandRecords(data, brandId, incomes, outflows, notes) {
     const brand = data.brands.find(item => item.id === brandId);
     if (!brand) return;
@@ -217,9 +248,11 @@
       throw new Error('El informe no contiene todas las hojas esperadas de Fondos Marketing.');
     }
 
+    const hpIncomeRows = getRowsWithValueAndLabel(hp, 'E', 'D');
+    const hpEventRows = getRowsWithValueAndLabel(hp, 'I', 'H');
+    const hpIncentiveRows = getRowsWithValueAndLabel(hp, 'K', 'J');
     replaceBrandRecords(data, 'hp',
-      Array.from({ length: 9 }, (_, index) => {
-        const row = index + 2;
+      hpIncomeRows.map((row, index) => {
         return {
           period: getCellText(hp, `E${row}`, `Registro ${index + 1}`),
           usd: getCellNumber(hp, `B${row}`),
@@ -229,17 +262,15 @@
         };
       }),
       [
-        ...Array.from({ length: 4 }, (_, index) => {
-          const row = index + 2;
+        ...hpEventRows.map(row => {
           return { type: 'Evento', concept: getCellText(hp, `I${row}`, 'Evento HP'), cop: getCellNumber(hp, `H${row}`), obs: 'Informe final' };
         }),
-        ...Array.from({ length: 6 }, (_, index) => {
-          const row = index + 2;
+        ...hpIncentiveRows.map(row => {
           return { type: 'Incentivo', concept: getCellText(hp, `K${row}`, 'Incentivo HP'), cop: getCellNumber(hp, `J${row}`), obs: 'Informe final' };
         }),
         { type: 'Rio', concept: 'Río (20 al 24 mayo)', cupos: getCellNumber(hp, 'L2') / 6500000 || 5, cop: getCellNumber(hp, 'L2'), obs: getCellText(hp, 'M2', 'Informe final') }
       ],
-      `Informe final: ingresos ${formatCOP(getCellNumber(hp, 'D11'))}, salidas ${formatCOP(getCellNumber(hp, 'H12'))} y saldo ${formatCOP(getCellNumber(hp, 'D12'))}.`
+      `Informe final: ingresos ${formatCOP(getCellNumber(hp, 'D12'))}, salidas ${formatCOP(getCellNumber(hp, 'H12'))} y saldo ${formatCOP(getCellNumber(hp, 'D13'))}.`
     );
 
     replaceBrandRecords(data, 'dell',
@@ -265,7 +296,7 @@
       [
         ...[2, 3].map(row => ({ type: 'Evento', concept: getCellText(dell, `M${row}`, 'Evento Dell'), cop: getCellNumber(dell, `L${row}`), obs: getCellText(dell, `N${row}`, 'Informe final') })),
         ...[2, 3].map(row => ({ type: 'Incentivo', concept: getCellText(dell, `P${row}`, 'Incentivo Dell'), cop: getCellNumber(dell, `O${row}`), obs: 'Informe final' })),
-        { type: 'Rio', concept: 'Río (20 al 24 mayo)', cupos: 5, cop: getCellNumber(dell, 'Q2'), obs: 'Informe final' }
+        { type: 'Rio', concept: 'Río (20 al 24 mayo)', cupos: getCellNumber(dell, 'Q2') / 6500000 || 0, cop: getCellNumber(dell, 'Q2'), obs: 'Informe final' }
       ],
       `Informe final: ingresos ${formatCOP(getCellNumber(dell, 'H11'))}, salidas ${formatCOP(getCellNumber(dell, 'S6'))} y saldo ${formatCOP(getCellNumber(dell, 'H12'))}.`
     );
@@ -280,8 +311,9 @@
       `Informe final: ingresos ${formatCOP(getCellNumber(lenovo, 'C5'))}, salidas ${formatCOP(getCellNumber(lenovo, 'M2'))} y saldo ${formatCOP(getCellNumber(lenovo, 'C6'))}.`
     );
 
+    const intelIncomeRows = getRowsWithValueAndLabel(intel, 'B', 'E');
     replaceBrandRecords(data, 'intel',
-      [{ period: getCellText(intel, 'B2', 'H1'), usd: getCellNumber(intel, 'C2'), trm: getCellNumber(intel, 'D2'), cop: getCellNumber(intel, 'E2'), obs: 'Informe final' }],
+      intelIncomeRows.map(row => ({ period: getCellText(intel, `B${row}`, `H${row - 1}`), usd: getCellNumber(intel, `C${row}`), trm: getCellNumber(intel, `D${row}`), cop: getCellNumber(intel, `E${row}`), obs: 'Informe final' })),
       [
         { type: 'Evento', concept: getCellText(intel, 'H2', 'Evento Intel'), cop: getCellNumber(intel, 'G2'), obs: 'Informe final' },
         { type: 'Incentivo', concept: getCellText(intel, 'J2', 'Incentivo Intel'), cop: getCellNumber(intel, 'I2'), obs: 'Informe final' },
@@ -290,10 +322,10 @@
     );
 
     replaceBrandRecords(data, 'microsoft',
-      [2, 3].map(row => ({ period: getCellText(microsoft, `D${row}`, 'Microsoft'), usd: getCellNumber(microsoft, `E${row}`), trm: getCellNumber(microsoft, `F${row}`), cop: getCellNumber(microsoft, `G${row}`), obs: 'Informe final' })),
+      getRowsWithValueAndLabel(microsoft, 'D', 'G').map(row => ({ period: getCellText(microsoft, `D${row}`, 'Microsoft'), usd: getCellNumber(microsoft, `E${row}`), trm: getCellNumber(microsoft, `F${row}`), cop: getCellNumber(microsoft, `G${row}`), obs: 'Informe final' })),
       [
-        { type: 'Incentivo', concept: getCellText(microsoft, 'N2', 'Cruce de cuentas Licencias'), cop: getCellNumber(microsoft, 'M2'), obs: 'Compras' },
-        { type: 'Rio', concept: 'Río (20 al 24 mayo)', cupos: 1.5, cop: getCellNumber(microsoft, 'O2'), obs: 'Pendiente por ingresar' }
+        { type: 'Incentivo', concept: getCellText(microsoft, 'O2', 'Cruce de cuentas Licencias'), cop: getCellNumber(microsoft, 'N2'), obs: 'Compras' },
+        { type: 'Rio', concept: 'Río (20 al 24 mayo)', cupos: getCellNumber(microsoft, 'P2') / 6500000 || 1.5, cop: getCellNumber(microsoft, 'P2'), obs: 'Pendiente por ingresar' }
       ]
     );
 
@@ -306,16 +338,24 @@
     );
 
     if (champion) {
+      const championRows = getRowsWithValueAndLabel(champion, 'D', 'F');
       replaceBrandRecords(data, 'champion', [], [
-        ...[2, 3].map(row => ({ brand: 'HP', period: getCellText(champion, `D${row}`), usd: getCellNumber(champion, `E${row}`), trm: 3500, cop: getCellNumber(champion, `F${row}`), type: 'Otro', concept: `Ejecución Champion HP ${getCellText(champion, `D${row}`)}` })),
-        ...[2, 3].map(row => ({ brand: 'DELL', period: getCellText(champion, `D${row}`), usd: getCellNumber(champion, `G${row}`), trm: 3500, cop: getCellNumber(champion, `H${row}`), type: 'Otro', concept: `Ejecución Champion DELL ${getCellText(champion, `D${row}`)}` }))
+        ...championRows.map(row => ({ brand: 'HP', period: getCellText(champion, `D${row}`), usd: getCellNumber(champion, `E${row}`), trm: 3500, cop: getCellNumber(champion, `F${row}`), type: 'Otro', concept: `Ejecución Champion HP ${getCellText(champion, `D${row}`)}` })),
+        ...championRows.map(row => ({ brand: 'DELL', period: getCellText(champion, `D${row}`), usd: getCellNumber(champion, `G${row}`), trm: 3500, cop: getCellNumber(champion, `H${row}`), type: 'Otro', concept: `Ejecución Champion DELL ${getCellText(champion, `D${row}`)}` }))
       ]);
     }
 
+    const popRow = findRowByLabel(totalSheet, 'H', 'POP');
+    replaceBrandRecords(data, 'pop', [], [
+      { type: 'Otro', concept: 'Gasto no asociado POP', cop: getCellNumber(totalSheet, `I${popRow}`), obs: 'Total Fondos' }
+    ]);
+
     const summary = getGlobalSummary(data.brands.map(getProcessedBrandData));
-    const expectedIncome = getCellNumber(totalSheet, 'H11');
-    const expectedOutflow = getCellNumber(totalSheet, 'I11');
-    const expectedBalance = getCellNumber(totalSheet, 'J11');
+    const consolidatedRow = findRowByLabel(totalSheet, 'A', 'Total');
+    const expectedIncome = consolidatedRow ? getCellNumber(totalSheet, `B${consolidatedRow}`) : getCellNumber(totalSheet, 'H11');
+    const expectedOutflow = consolidatedRow ? getCellNumber(totalSheet, `C${consolidatedRow}`) : getCellNumber(totalSheet, 'I11');
+    const expectedBalance = consolidatedRow ? getCellNumber(totalSheet, `D${consolidatedRow}`) : getCellNumber(totalSheet, 'J11');
+    if (!expectedIncome || !expectedOutflow) throw new Error('No se encontraron los totales consolidados en la hoja Total Fondos.');
     if (Math.abs(summary.totalIncome - expectedIncome) > 1 || Math.abs(summary.totalOutflow - expectedOutflow) > 1 || Math.abs(summary.totalBalance - expectedBalance) > 1) {
       throw new Error('Los totales leídos no coinciden con la hoja Total Fondos.');
     }
@@ -958,16 +998,17 @@
     if (ctxDoughnut) {
       if (state.charts.doughnutChart) state.charts.doughnutChart.destroy();
 
-      const championControlTotal = processedBrands
-        .filter(brand => brand.excludeFromConsolidated)
-        .reduce((total, brand) => total + brand.totalOutflowCOP, 0);
-      const doughnutLabels = ['Eventos', 'Incentivos', 'Convención Río', 'Champion'];
-      const doughnutColors = ['#8B5CF6', '#F59E0B', '#06B6D4', '#64748B'];
+      const championControlTotal = processedBrands.find(brand => brand.id === 'champion')?.totalOutflowCOP || 0;
+      const popControlTotal = processedBrands.find(brand => brand.id === 'pop')?.totalOutflowCOP || 0;
+      const doughnutLabels = ['Eventos', 'Incentivos', 'Convención Río', 'Champion', 'POP', 'Ajustes'];
+      const doughnutColors = ['#8B5CF6', '#F59E0B', '#06B6D4', '#64748B', '#7C3AED', '#14B8A6'];
       const doughnutValues = [
         summary.totalEvents,
         summary.totalIncentives,
         summary.totalRio,
-        summary.totalOther + championControlTotal
+        championControlTotal,
+        popControlTotal,
+        summary.totalOther
       ];
       const doughnutTotal = doughnutValues.reduce((total, value) => total + value, 0);
       const doughnutValueLabels = {
@@ -1000,7 +1041,7 @@
           chartCtx.font = '800 14px Plus Jakarta Sans, sans-serif';
           chartCtx.fillText(formatCompactCOP(doughnutTotal), (left + right) / 2, (top + bottom) / 2 + 5);
           chartCtx.font = '600 8px Plus Jakarta Sans, sans-serif';
-          chartCtx.fillText('incluye Champion', (left + right) / 2, (top + bottom) / 2 + 20);
+          chartCtx.fillText('incluye controles', (left + right) / 2, (top + bottom) / 2 + 20);
           chartCtx.restore();
         }
       };
@@ -1302,6 +1343,7 @@
     init,
     canAccess,
     loadFromSharePoint,
+    parseFinalWorkbook,
     updateDashboardView
   };
 

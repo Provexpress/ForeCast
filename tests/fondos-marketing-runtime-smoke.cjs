@@ -132,21 +132,80 @@ assert.equal(context.FondosMarketingModule.canAccess(), true);
 assert.doesNotThrow(() => context.FondosMarketingModule.init());
 assert.match(elements.get('page-fondos').innerHTML, /Fondos de Mercadeo \(MDF\)/);
 assert.match(elements.get('fondos-kpis-container').innerHTML, /Ingresos Totales/);
-assert.match(elements.get('fondos-kpis-container').innerHTML, /194\.115\.588/);
+assert.match(elements.get('fondos-kpis-container').innerHTML, /218\.615\.588/);
 assert.match(elements.get('fondos-summary-tbody').innerHTML, /TOTAL CONSOLIDADO/);
 assert.match(elements.get('fondos-brand-detail-container').innerHTML, /HP/);
 assert.equal(FakeChart.instances.length, 2);
 assert.equal(FakeChart.instances[0].config.plugins[0].id, 'fondosBarValueLabels');
 assert.equal(FakeChart.instances[1].config.plugins[0].id, 'fondosDoughnutValueLabels');
-assert.equal(FakeChart.instances[0].options.scales.y.max, 80000000);
+assert.equal(FakeChart.instances[0].options.scales.y.max, 90000000);
 assert.equal(FakeChart.instances[0].options.scales.y.min, -40000000);
 assert.equal(FakeChart.instances[0].data.datasets[0].maxBarThickness, 34);
-assert.match(FakeChart.instances[0].options.plugins.tooltip.callbacks.label({ datasetIndex: 1, dataIndex: 0, dataset: { label: 'Ejecutado' }, raw: 58269668 }), /58\.269\.668/);
-assert.match(FakeChart.instances[0].options.plugins.tooltip.callbacks.afterBody([{ dataIndex: 0 }]), /93,0%/);
-assert.match(FakeChart.instances[1].options.plugins.tooltip.callbacks.label({ label: 'Eventos', raw: 31321068 }), /14,8%/);
+assert.match(FakeChart.instances[0].options.plugins.tooltip.callbacks.label({ datasetIndex: 1, dataIndex: 0, dataset: { label: 'Ejecutado' }, raw: 51769668 }), /51\.769\.668/);
+assert.match(FakeChart.instances[0].options.plugins.tooltip.callbacks.afterBody([{ dataIndex: 0 }]), /74,4%/);
+assert.match(FakeChart.instances[1].options.plugins.tooltip.callbacks.label({ label: 'Eventos', raw: 31321068 }), /14,3%/);
 const doughnutLegend = FakeChart.instances[1].options.plugins.legend.labels.generateLabels(FakeChart.instances[1]);
-assert.equal(doughnutLegend.length, 4);
-assert.match(doughnutLegend[3].text, /Champion · \$28,3M · 13,4%/);
+assert.equal(doughnutLegend.length, 6);
+assert.match(doughnutLegend[3].text, /Champion · \$28,0M · 12,8%/);
+assert.match(doughnutLegend[4].text, /POP · \$20,9M · 9,5%/);
+
+function makeSheet(cells) {
+  return Object.fromEntries(Object.entries(cells).map(([address, value]) => [address, { v: value, w: typeof value === 'string' ? value : undefined }]));
+}
+
+const finalWorkbook = {
+  SheetNames: ['hp', 'Dell', 'Lenovo', 'Intel', 'Microsoft', 'Cisco', 'Champion', 'Total Fondos '],
+  Sheets: {
+    hp: makeSheet({
+      B2: 2200, C2: 3861, D2: 8494200, E2: '26Q1', F2: 108962,
+      B3: 500, C3: 4019, D3: 2009500, E3: '26Q1', F3: 110438,
+      B4: 1500, C4: 3861, D4: 5791500, E4: '26Q1', F4: 106826,
+      B5: 1500, C5: 3861, D5: 5791500, E5: '26Q1', F5: 107237,
+      B6: 3000, C6: 3668, D6: 11004000, E6: '26Q2', F6: 112747,
+      B7: 3000, C7: 3668, D7: 11004000, E7: '26Q2', F7: 113461,
+      B8: 1000, C8: 3861, D8: 3861000, E8: '26Q2', F8: 106957,
+      B9: 3000, C9: 3668, D9: 11004000, E9: '26Q3', F9: 113701,
+      B10: 1000, C10: 3668, D10: 3668000, E10: '26Q3', F10: 112763,
+      B11: 2000, C11: 3500, D11: 7000000, E11: '26Q4', F11: 'Pendiente factura',
+      D12: 69627700, D13: 17858032,
+      H2: 2710400, I2: 'HP suministros', H3: 486000, I3: 'Liga Z', H4: 730085, I4: 'Workstation', H5: 5943183, I5: 'Nueva era',
+      J2: 2500000, K2: 'Concurso Supplies', J3: 3000000, K3: 'Concurso portafolio', J4: 6000000, K4: 'Campaña', J5: 1500000, K5: 'Camisetas', J6: 300000, K6: 'Bono Adidas', J7: 2600000, K7: 'Nintendo',
+      L2: 26000000, M2: '1 cupo cruzado con rebate', H12: 51769668
+    }),
+    Dell: makeSheet({
+      C2: '2026', D2: 'Q3', E2: 'Agosto', F2: 1414.49, G2: 3513.54, H2: 4969868,
+      C3: '2026', D3: 'Q4', E3: 'Noviembre', F3: 1000, G3: 3810.99, H3: 3810990,
+      C4: '2027', D4: 'Q1', E4: 'Enero', F4: 2864, G4: 3066.99, H4: 8783850,
+      C5: '2027', D5: 'Q2', E5: 'Mayo', F5: 1811, G5: 3962.55, H5: 7176180,
+      C8: 'Proposal', F8: 6500, G8: 3500, H8: 22750000,
+      C9: 'Proposal pendiente', F9: 3000, G9: 3500, H9: 10500000,
+      H11: 57990888, H12: 11063438,
+      L2: 8874800, M2: 'Infraestructura', L3: 6452650, M3: 'Cómputo', O2: 3000000, P2: 'Televisor', O3: 2600000, P3: 'Play Station', Q2: 26000000, S6: 46927450
+    }),
+    Lenovo: makeSheet({
+      A2: 3349, B2: 3500, C2: 11721500, D2: 'Validar NC', A4: 1906, B4: 3500, C4: 6671000, D4: 'Ingreso', C5: 18392500, C6: 1233550,
+      H2: 4408950, I2: 'Infraestructura', J2: 2500000, K2: 'Legion', J3: 500000, K3: 'Bono', L2: 9750000, M2: 17158950
+    }),
+    Intel: makeSheet({
+      B2: 'H1', C2: 4990, D2: 3500, E2: 17465000, B3: 'H2', C3: 5000, D3: 3500, E3: 17500000,
+      G2: 1715000, H2: 'Evento', I2: 6000000, J2: 'Capacitación', K2: 9750000
+    }),
+    Microsoft: makeSheet({
+      D2: 'LOL', E2: 3000, F2: 3500, G2: 10500000, D3: 'INGRAM', E3: 4897, F3: 3500, G3: 17139500,
+      N2: 17139500, O2: 'Cruce de cuentas Licencias', P2: 9750000
+    }),
+    Cisco: makeSheet({ B2: 3000, C2: 3333.3333333333335, D2: 10000000, G2: 9750000, H1: 'Saldo cruza negocio', H2: 250000 }),
+    Champion: makeSheet({ D2: 'Q1', E2: 2000, F2: 7000000, G2: 2000, H2: 7000000, D3: 'Q2', E3: 2000, F3: 7000000, G3: 2000, H3: 7000000 }),
+    'Total Fondos ': makeSheet({ H3: 'POP', I3: 20891156, A9: 'Total', B9: 218615588, C9: 170210568, D9: 48405020 })
+  }
+};
+
+const parsedFinal = context.FondosMarketingModule.parseFinalWorkbook(finalWorkbook, 'FONDOS DE MERCADEO NINI_final.xlsx', '2026-08-18T12:55:47Z');
+assert.equal(parsedFinal.lastUpdate, '2026-08-18');
+assert.equal(parsedFinal.brands.find(brand => brand.id === 'hp').incomes.length, 10);
+assert.equal(parsedFinal.brands.find(brand => brand.id === 'intel').incomes.length, 2);
+assert.equal(parsedFinal.brands.find(brand => brand.id === 'microsoft').outflows.reduce((sum, item) => sum + item.cop, 0), 26889500);
+assert.equal(parsedFinal.brands.find(brand => brand.id === 'pop').outflows[0].cop, 20891156);
 
 for(const id of [...elements.keys()]) {
   if(id !== 'page-fondos') elements.delete(id);
