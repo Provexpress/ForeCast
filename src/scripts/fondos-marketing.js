@@ -24,7 +24,17 @@
       factories: 91000000,
       provexpress: 19500000,
       marketingPending: 19500000,
-      total: 130000000
+      total: 130000000,
+      contributions: [
+        { name: 'HP', value: 26000000, seats: 4, observation: '' },
+        { name: 'Dell', value: 26000000, seats: 4, observation: '' },
+        { name: 'Lenovo', value: 9750000, seats: 1.5, observation: '' },
+        { name: 'Intel', value: 9750000, seats: 1.5, observation: '' },
+        { name: 'Cisco', value: 9750000, seats: 1.5, observation: '' },
+        { name: 'Microsoft', value: 9750000, seats: 1.5, observation: 'No ha ingresado dinero' },
+        { name: 'Provexpress', value: 19500000, seats: 3, observation: 'Asumió Provexpress 3 cupos' },
+        { name: 'Provexpress mercadeo', value: 19500000, seats: 3, observation: 'Conseguir dinero mercadeo' }
+      ]
     },
     brands: [
       {
@@ -368,16 +378,38 @@
     const rioProvexpressRow = findRowByLabel(totalSheet, 'A', 'Asumio Provexpress 3 Cupos', 14);
     const rioMarketingRow = findRowByLabel(totalSheet, 'A', 'Conserguir Dinero Mercadeo', 14);
     const rioTotalRow = findRowByLabel(totalSheet, 'A', 'Total', 14);
+    const rioHeaderRow = findRowByLabel(totalSheet, 'A', 'Recaudo Rio', 14);
+    const rioUnitCost = getCellNumber(totalSheet, 'A15') || data.rioFunding.unitCost;
+    const rioContributions = [];
+    if (rioHeaderRow) {
+      const lastDetailRow = rioFactoriesRow || rioHeaderRow + 12;
+      for (let row = rioHeaderRow + 1; row < lastDetailRow; row += 1) {
+        const name = getCellText(totalSheet, `A${row}`);
+        const value = getCellNumber(totalSheet, `B${row}`);
+        if (!name || !value) continue;
+        rioContributions.push({
+          name,
+          value,
+          seats: rioUnitCost ? value / rioUnitCost : 0,
+          observation: getCellText(totalSheet, `C${row}`)
+        });
+      }
+    }
     data.rioFunding = {
-      unitCost: getCellNumber(totalSheet, 'A15') || data.rioFunding.unitCost,
+      unitCost: rioUnitCost,
       totalSeats: getCellNumber(totalSheet, 'B15') || data.rioFunding.totalSeats,
       factories: getCellNumber(totalSheet, `B${rioFactoriesRow}`) || data.rioFunding.factories,
       provexpress: getCellNumber(totalSheet, `B${rioProvexpressRow}`) || data.rioFunding.provexpress,
       marketingPending: getCellNumber(totalSheet, `B${rioMarketingRow}`) || data.rioFunding.marketingPending,
-      total: getCellNumber(totalSheet, `B${rioTotalRow}`) || getCellNumber(totalSheet, 'C15') || data.rioFunding.total
+      total: getCellNumber(totalSheet, `B${rioTotalRow}`) || getCellNumber(totalSheet, 'C15') || data.rioFunding.total,
+      contributions: rioContributions.length ? rioContributions : data.rioFunding.contributions
     };
 
     const summary = getGlobalSummary(data.brands.map(getProcessedBrandData));
+    const rioDetailTotal = data.rioFunding.contributions.reduce((sum, item) => sum + Number(item.value || 0), 0);
+    if (Math.abs(rioDetailTotal - data.rioFunding.total) > 1) {
+      throw new Error('El detalle de recaudo Río no coincide con el valor total de cupos.');
+    }
     const consolidatedRow = findRowByLabel(totalSheet, 'A', 'Total');
     const expectedIncome = consolidatedRow ? getCellNumber(totalSheet, `B${consolidatedRow}`) : getCellNumber(totalSheet, 'H11');
     const expectedOutflow = consolidatedRow ? getCellNumber(totalSheet, `C${consolidatedRow}`) : getCellNumber(totalSheet, 'I11');
@@ -500,7 +532,6 @@
 
     const balanceCOP = totalIncomeCOP - totalOutflowCOP;
     const pctExecuted = totalIncomeCOP > 0 ? (totalOutflowCOP / totalIncomeCOP) : (totalOutflowCOP > 0 ? 1 : 0);
-    const commissionCOP = balanceCOP > 0 ? balanceCOP * 0.10 : 0;
 
     return {
       ...brand,
@@ -512,8 +543,7 @@
       rioCOP,
       otherCOP,
       balanceCOP,
-      pctExecuted,
-      commissionCOP
+      pctExecuted
     };
   }
 
@@ -536,14 +566,12 @@
 
     const totalBalance = totalIncome - totalOutflow;
     const pctGlobalExecuted = totalIncome > 0 ? (totalOutflow / totalIncome) : 0;
-    const totalCommission = totalBalance > 0 ? totalBalance * 0.10 : 0;
 
     return {
       totalIncome,
       totalOutflow,
       totalBalance,
       pctGlobalExecuted,
-      totalCommission,
       totalEvents,
       totalIncentives,
       totalRio,
@@ -564,7 +592,7 @@
               <span class="fondos-badge-icon">💰</span>
               <div>
                 <h1 class="fondos-title" id="fondos-page-title">Fondos de Mercadeo (MDF)</h1>
-                <p class="fondos-subtitle">Control presupuestal, ejecuciones por fabricante y cálculo de comisión de mercadeo</p>
+                <p class="fondos-subtitle">Control presupuestal, ejecuciones por fabricante y recaudo para la convención Río</p>
               </div>
             </div>
             <div class="fondos-actions">
@@ -631,8 +659,19 @@
             <div class="chart-container">
               <canvas id="fondos-doughnut-chart"></canvas>
             </div>
-            <div class="fondos-rio-funding" id="fondos-rio-funding"></div>
           </div>
+        </section>
+
+        <!-- Recaudo completo para la convención Río -->
+        <section class="fondos-card fondos-rio-card">
+          <div class="fondos-card-header">
+            <div>
+              <h3 class="fondos-card-title">Recaudo Río · 20 al 24 de mayo</h3>
+              <p class="fondos-card-sub">Detalle completo de cupos, aportes y observaciones registrado en el informe final</p>
+            </div>
+            <span class="fondos-card-tag">20 cupos</span>
+          </div>
+          <div id="fondos-rio-funding"></div>
         </section>
 
         <!-- Tabla Consolidada General -->
@@ -652,7 +691,6 @@
                   <th class="num">Ejecutado (COP)</th>
                   <th class="num">Saldo Disponible (COP)</th>
                   <th class="center">% Ejecutado</th>
-                  <th class="num">Comisión Dir. (10%)</th>
                   <th class="center">Estado</th>
                 </tr>
               </thead>
@@ -743,16 +781,53 @@
     const container = document.getElementById('fondos-rio-funding');
     const funding = state.data && state.data.rioFunding;
     if (!container || !funding) return;
+    const contributions = Array.isArray(funding.contributions) ? funding.contributions : [];
+    const rows = contributions.map(item => {
+      const observation = item.observation || '—';
+      const isPending = /no ha ingresado|conseguir/i.test(observation);
+      return `
+        <tr class="${isPending ? 'rio-row-pending' : ''}">
+          <td><strong>${escapeMarkup(item.name)}</strong></td>
+          <td class="center">${Number(item.seats || 0).toLocaleString('es-CO', { maximumFractionDigits: 1 })}</td>
+          <td class="num font-mono"><strong>${formatCOP(item.value)}</strong></td>
+          <td><span class="rio-observation">${escapeMarkup(observation)}</span></td>
+        </tr>
+      `;
+    }).join('');
+
     container.innerHTML = `
-      <div class="rio-funding-title">
-        <span>Financiación Río</span>
-        <strong>${Number(funding.totalSeats || 0).toLocaleString('es-CO')} cupos</strong>
+      <div class="rio-funding-summary">
+        <div class="rio-summary-card">
+          <span>Valor por cupo</span>
+          <strong>${formatCOP(funding.unitCost)}</strong>
+        </div>
+        <div class="rio-summary-card">
+          <span>Total cupos</span>
+          <strong>${Number(funding.totalSeats || 0).toLocaleString('es-CO')}</strong>
+        </div>
+        <div class="rio-summary-card rio-summary-total">
+          <span>Valor total cupos</span>
+          <strong>${formatCOP(funding.total)}</strong>
+        </div>
       </div>
-      <div class="rio-funding-grid">
-        <div><span>Fábricas</span><strong>${formatCompactCOP(funding.factories)}</strong></div>
-        <div><span>Provexpress</span><strong>${formatCompactCOP(funding.provexpress)}</strong></div>
-        <div><span>Pendiente mercadeo</span><strong>${formatCompactCOP(funding.marketingPending)}</strong></div>
-        <div class="rio-funding-total"><span>Total</span><strong>${formatCompactCOP(funding.total)}</strong></div>
+      <div class="table-responsive rio-table-wrap">
+        <table class="fondos-table fondos-rio-table">
+          <thead>
+            <tr>
+              <th>Recaudo Río</th>
+              <th class="center">Cupos</th>
+              <th class="num">Valor</th>
+              <th>Observación</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+          <tfoot>
+            <tr><td colspan="2"><strong>Total fábricas</strong></td><td class="num"><strong>${formatCOP(funding.factories)}</strong></td><td></td></tr>
+            <tr><td colspan="2"><strong>Asumió Provexpress 3 cupos</strong></td><td class="num"><strong>${formatCOP(funding.provexpress)}</strong></td><td></td></tr>
+            <tr><td colspan="2"><strong>Conseguir dinero mercadeo</strong></td><td class="num"><strong>${formatCOP(funding.marketingPending)}</strong></td><td></td></tr>
+            <tr class="rio-grand-total"><td colspan="2"><strong>Total</strong></td><td class="num"><strong>${formatCOP(funding.total)}</strong></td><td></td></tr>
+          </tfoot>
+        </table>
       </div>
     `;
   }
@@ -791,7 +866,6 @@
               </div>
             </div>
           </td>
-          <td class="num text-accent font-bold">${formatCOP(b.commissionCOP)}</td>
           <td class="center">${statusBadge}</td>
         </tr>
       `;
@@ -808,7 +882,6 @@
         <td class="center">
           <strong>${pctTotalText}</strong>
         </td>
-        <td class="num text-accent font-bold"><strong>${formatCOP(summary.totalCommission)}</strong></td>
         <td class="center"><span class="status-pill pill-gold">Consolidado</span></td>
       </tr>
     `;
@@ -1253,7 +1326,6 @@
           <footer class="brand-card-footer">
             <div class="brand-footer-summary">
               <span><strong>Saldo Disponible:</strong> ${formatCOP(b.balanceCOP)}</span>
-              <span><strong>Comisión Dir. Mercadeo (10%):</strong> <strong class="text-accent">${formatCOP(b.commissionCOP)}</strong></span>
             </div>
           </footer>
         </article>
@@ -1312,7 +1384,6 @@
       'Ejecutado (COP)': b.totalOutflowCOP,
       'Saldo Disponible (COP)': b.balanceCOP,
       '% Ejecutado': (b.pctExecuted * 100).toFixed(1) + '%',
-      'Comisión Dir. Mercadeo 10% (COP)': b.commissionCOP,
       'Observaciones': b.notes || ''
     }));
 
@@ -1322,13 +1393,28 @@
       'Ejecutado (COP)': summary.totalOutflow,
       'Saldo Disponible (COP)': summary.totalBalance,
       '% Ejecutado': (summary.pctGlobalExecuted * 100).toFixed(1) + '%',
-      'Comisión Dir. Mercadeo 10% (COP)': summary.totalCommission,
       'Observaciones': 'Consolidado General'
     });
 
     const wb = XLSX.utils.book_new();
     const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
     XLSX.utils.book_append_sheet(wb, wsSummary, 'Consolidado');
+
+    const funding = state.data.rioFunding;
+    const rioRows = funding.contributions.map(item => ({
+      'Recaudo Río': item.name,
+      'Cupos': item.seats,
+      'Valor (COP)': item.value,
+      'Observación': item.observation || ''
+    }));
+    rioRows.push(
+      { 'Recaudo Río': 'Total fábricas', 'Cupos': '', 'Valor (COP)': funding.factories, 'Observación': '' },
+      { 'Recaudo Río': 'Asumió Provexpress 3 cupos', 'Cupos': 3, 'Valor (COP)': funding.provexpress, 'Observación': '' },
+      { 'Recaudo Río': 'Conseguir dinero mercadeo', 'Cupos': 3, 'Valor (COP)': funding.marketingPending, 'Observación': '' },
+      { 'Recaudo Río': 'TOTAL', 'Cupos': funding.totalSeats, 'Valor (COP)': funding.total, 'Observación': `Valor por cupo: ${formatCOP(funding.unitCost)}` }
+    );
+    const wsRio = XLSX.utils.json_to_sheet(rioRows);
+    XLSX.utils.book_append_sheet(wb, wsRio, 'Recaudo Río');
 
     XLSX.writeFile(wb, `Fondos_Mercadeo_Forecast_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }

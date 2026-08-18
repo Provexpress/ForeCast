@@ -134,9 +134,12 @@ assert.match(elements.get('page-fondos').innerHTML, /Fondos de Mercadeo \(MDF\)/
 assert.match(elements.get('fondos-kpis-container').innerHTML, /Ingresos Totales/);
 assert.match(elements.get('fondos-kpis-container').innerHTML, /218\.615\.588/);
 assert.doesNotMatch(elements.get('fondos-kpis-container').innerHTML, /Comisión Dir\. Mercadeo/);
-assert.match(elements.get('fondos-rio-funding').innerHTML, /Financiación Río/);
-assert.match(elements.get('fondos-rio-funding').innerHTML, /\$91,0M/);
-assert.match(elements.get('fondos-rio-funding').innerHTML, /\$19,5M/);
+assert.match(elements.get('fondos-rio-funding').innerHTML, /Valor por cupo/);
+assert.match(elements.get('fondos-rio-funding').innerHTML, /6\.500\.000/);
+assert.match(elements.get('fondos-rio-funding').innerHTML, /HP/);
+assert.match(elements.get('fondos-rio-funding').innerHTML, /26\.000\.000/);
+assert.match(elements.get('fondos-rio-funding').innerHTML, /No ha ingresado dinero/);
+assert.match(elements.get('fondos-rio-funding').innerHTML, /130\.000\.000/);
 assert.match(elements.get('fondos-summary-tbody').innerHTML, /TOTAL CONSOLIDADO/);
 assert.match(elements.get('fondos-brand-detail-container').innerHTML, /HP/);
 assert.equal(FakeChart.instances.length, 2);
@@ -203,6 +206,15 @@ const finalWorkbook = {
     'Total Fondos ': makeSheet({
       H3: 'POP', I3: 20891156, A9: 'Total', B9: 218615588, C9: 170210568, D9: 48405020,
       A15: 6500000, B15: 20, C15: 130000000,
+      A17: 'Recaudo Rio', B17: 'Valor', C17: 'Observacion',
+      A18: 'Hp', B18: 26000000,
+      A19: 'Dell', B19: 26000000,
+      A20: 'Lenovo', B20: 9750000,
+      A21: 'Intel', B21: 9750000,
+      A22: 'Cisco', B22: 9750000,
+      A23: 'Microsoft', B23: 9750000, C23: 'No ha ingresado Dinero',
+      A24: 'Provexpress', B24: 19500000, C24: 'Asumio Provexpress 3 Cupos',
+      A25: 'Provexpress mercadeo', B25: 19500000, C25: 'Conserguir Dinero Mercadeo',
       A28: 'Total Fabricas', B28: 91000000,
       A29: 'Asumio Provexpress 3 Cupos', B29: 19500000,
       A30: 'Conserguir  Dinero Mercadeo', B30: 19500000,
@@ -217,7 +229,16 @@ assert.equal(parsedFinal.brands.find(brand => brand.id === 'hp').incomes.length,
 assert.equal(parsedFinal.brands.find(brand => brand.id === 'intel').incomes.length, 2);
 assert.equal(parsedFinal.brands.find(brand => brand.id === 'microsoft').outflows.reduce((sum, item) => sum + item.cop, 0), 26889500);
 assert.equal(parsedFinal.brands.find(brand => brand.id === 'pop').outflows[0].cop, 20891156);
-assert.deepEqual(JSON.parse(JSON.stringify(parsedFinal.rioFunding)), { unitCost: 6500000, totalSeats: 20, factories: 91000000, provexpress: 19500000, marketingPending: 19500000, total: 130000000 });
+assert.equal(parsedFinal.rioFunding.unitCost, 6500000);
+assert.equal(parsedFinal.rioFunding.totalSeats, 20);
+assert.equal(parsedFinal.rioFunding.factories, 91000000);
+assert.equal(parsedFinal.rioFunding.provexpress, 19500000);
+assert.equal(parsedFinal.rioFunding.marketingPending, 19500000);
+assert.equal(parsedFinal.rioFunding.total, 130000000);
+assert.equal(parsedFinal.rioFunding.contributions.length, 8);
+assert.equal(parsedFinal.rioFunding.contributions[0].name, 'Hp');
+assert.equal(parsedFinal.rioFunding.contributions[0].seats, 4);
+assert.equal(parsedFinal.rioFunding.contributions[5].observation, 'No ha ingresado Dinero');
 
 for(const id of [...elements.keys()]) {
   if(id !== 'page-fondos') elements.delete(id);
