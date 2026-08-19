@@ -227,6 +227,9 @@ function getConfiguredUserName(email, role){
   if((role === 'sales_support' || role === 'sales_support_comercial') && structure.getSupportDisplayNameByEmail) {
     return structure.getSupportDisplayNameByEmail(email) || '';
   }
+  if(role === 'glpi_only' && structure.getGlpiUserDisplayNameByEmail) {
+    return structure.getGlpiUserDisplayNameByEmail(email) || '';
+  }
   return '';
 }
 
@@ -286,7 +289,8 @@ function showUserBadge() {
     director: 'Director',
     ejecutivo: 'Ejecutivo',
     sales_support: 'Sales Support',
-    sales_support_comercial: 'Sales Support · Comercial'
+    sales_support_comercial: 'Sales Support · Comercial',
+    glpi_only: 'Tickets GLPI'
   };
   let roleText = roleLabels[CURRENT_USER.role] || CURRENT_USER.role || 'Sin permisos';
   if(CURRENT_USER.role === 'sales_support' && CURRENT_USER.supportScope === 'unit') roleText = 'Sales Support · Unidad';

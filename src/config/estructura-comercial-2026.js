@@ -253,6 +253,17 @@
           'jessica.valencia@provexpress.com.co'
         ]
       }
+    },
+    glpiOnly: {
+      'soporte.garantias@provexpress.com.co': {
+        nombre: 'John Jairo Moreno Quintero'
+      },
+      'garantias@provexpress.com.co': {
+        nombre: 'Stefania García Cardenas'
+      },
+      'oscar.perez@provexpress.com.co': {
+        nombre: 'Oscar Orlando Perez Mejia'
+      }
     }
   };
 
@@ -320,7 +331,19 @@
     if(ESTRUCTURA_COMERCIAL_2026.ejecutivos[normalized]) return 'ejecutivo';
     if(ESTRUCTURA_COMERCIAL_2026.salesSupport[normalized]) return 'sales_support';
     if(ESTRUCTURA_COMERCIAL_2026.salesSupportComerciales[normalized]) return 'sales_support_comercial';
+    if(ESTRUCTURA_COMERCIAL_2026.glpiOnly && ESTRUCTURA_COMERCIAL_2026.glpiOnly[normalized]) return 'glpi_only';
     return null;
+  }
+
+  function getGlpiUserByEmail(email){
+    const normalized = normalizeEmail(email);
+    const data = ESTRUCTURA_COMERCIAL_2026.glpiOnly ? ESTRUCTURA_COMERCIAL_2026.glpiOnly[normalized] : null;
+    return data ? { email: normalized, ...data } : null;
+  }
+
+  function getGlpiUserDisplayNameByEmail(email){
+    const user = getGlpiUserByEmail(email);
+    return user ? user.nombre : '';
   }
 
   function getGroupByEmail(email){
@@ -492,7 +515,9 @@
     isUnitSalesSupport,
     getPrimarySupportGroupByEmail,
     getSupportScopeByEmail,
-    getVisibleExecutiveNamesBySupport
+    getVisibleExecutiveNamesBySupport,
+    getGlpiUserByEmail,
+    getGlpiUserDisplayNameByEmail
   };
 
   window.ESTRUCTURA_COMERCIAL_2026 = ESTRUCTURA_COMERCIAL_2026;

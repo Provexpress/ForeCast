@@ -355,7 +355,8 @@ function getRoleLabel(role) {
     director: 'Director',
     ejecutivo: 'Ejecutivo',
     sales_support: 'Sales Support',
-    sales_support_comercial: 'Sales Support · Comercial'
+    sales_support_comercial: 'Sales Support · Comercial',
+    glpi_only: 'Tickets GLPI'
   })[role] || role || '';
 }
 function formatLastConnection(value) {
@@ -3071,6 +3072,10 @@ function setPageEmptyState(pageId, visible){
 }
 
 function showPage(id,btn){
+  if(CURRENT_USER && CURRENT_USER.role === 'glpi_only' && id !== 'glpi') {
+    console.warn('[AUTH] acceso denegado a otra vista para rol glpi_only');
+    return;
+  }
   if(id === 'programas' && (!window.ProgramChannelModule || !window.ProgramChannelModule.canAccess())) {
     console.warn('[PROGRAMAS] acceso denegado para la vista actual');
     return;
@@ -7366,9 +7371,14 @@ async function loadFolderFromSharePoint() {
   }
   updateLoadingStatus('Cargando archivos de SharePoint...');
   try {
+    const { role, directorGroup } = CURRENT_USER || {};
+    if(role === 'glpi_only') {
+      finalizeLoad();
+      hideLoadingOverlay();
+      return;
+    }
     const siteId = await getSiteId();
     const filesToken = await getToken(['Files.Read.All']);
-    const { role, directorGroup } = CURRENT_USER;
     ALL_DATA = [];
     SALES_DATA = [];
     SALES_PENDING_DATA = [];
@@ -8419,6 +8429,20 @@ function applyRoleTabs() {
 
   if(!role) {
     Object.values(tabs).forEach(t => { if(t) t.style.display = 'none'; });
+  } else if(role === 'glpi_only') {
+    tabs.gerencia  && (tabs.gerencia.style.display  = 'none');
+    tabs.director  && (tabs.director.style.display  = 'none');
+    tabs.ejecutivo && (tabs.ejecutivo.style.display = 'none');
+    tabs.sales     && (tabs.sales.style.display     = 'none');
+    tabs.preventa  && (tabs.preventa.style.display  = 'none');
+    tabs.divisas   && (tabs.divisas.style.display   = 'none');
+    tabs.marcas    && (tabs.marcas.style.display    = 'none');
+    tabs.resumen   && (tabs.resumen.style.display   = 'none');
+    tabs.finanzas  && (tabs.finanzas.style.display  = 'none');
+    tabs.programas && (tabs.programas.style.display = 'none');
+    tabs.fondos    && (tabs.fondos.style.display    = 'none');
+    tabs.glpi      && (tabs.glpi.style.display      = '');
+    showPage('glpi', tabs.glpi);
   } else if(isSalesSupportRole(role)) {
     tabs.gerencia && (tabs.gerencia.style.display = 'none');
     tabs.director && (tabs.director.style.display = 'none');
