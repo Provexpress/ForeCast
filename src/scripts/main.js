@@ -5673,13 +5673,14 @@ function renderDirector(){
   const utilidadCOP = sumUtilidad(data, 'COP');
   const utilidadUSD = sumUtilidad(data, 'USD');
   const ganadas=data.filter(r=>r['ESTADO']==='GANADA');
-  // Todos los ejecutivos de este director (estructura comercial + archivos + datos)
-  const execsFromStructure = (typeof window.getDirectorExecs === 'function')
+  // Todos los ejecutivos de este director
+  const execs = (typeof window.getDirectorExecs === 'function')
     ? window.getDirectorExecs(dir)
-    : [];
-  const execsWithDataDir=[...new Set(data.map(r=>(r['COMERCIAL']||'').trim()).filter(Boolean))];
-  const execsFromFilesDir=(LOADED_FILES_BY_DIR[dir]||[]).map(f=>f.name.replace(/\.(xlsx|xls)$/i,'').trim()).filter(Boolean);
-  const execs=[...new Set([...execsFromStructure, ...execsWithDataDir, ...execsFromFilesDir])].sort();
+    : [...new Set([
+        ...data.map(r=>(r['COMERCIAL']||'').trim()).filter(Boolean),
+        ...(LOADED_FILES_BY_DIR[dir]||[]).map(f=>f.name.replace(/\.(xlsx|xls)$/i,'').trim()).filter(Boolean)
+      ])].sort((a, b) => a.localeCompare(b, 'es'));
+  const execsWithData = execs.filter(e => data.some(r => namesMatch(r['COMERCIAL'], e)));
   
   // Evolution del director
   const evoMonthKeys = mes
@@ -5721,7 +5722,7 @@ function renderDirector(){
   
   // Equipo execs
   const ejCards=execs.map((e,i)=>{
-    const ed=data.filter(r=>(r['COMERCIAL']||'').trim()===e);
+    const ed=data.filter(r=>namesMatch(r['COMERCIAL'], e));
     const cop=ed.reduce((s,r)=>s+toCOP(r),0);
     const gan=ed.filter(r=>r['ESTADO']==='GANADA').length;
     const pen=ed.filter(r=>r['ESTADO']==='PENDIENTE').length;
@@ -5744,7 +5745,7 @@ function renderDirector(){
   }).join('');
   
   const selectedExec = SELECTED_EXEC_BY_DIR[dir] || null;
-  const execData = selectedExec ? data.filter(r=>(r['COMERCIAL']||'').trim()===selectedExec) : [];
+  const execData = selectedExec ? data.filter(r=>namesMatch(r['COMERCIAL'], selectedExec)) : [];
   const execUtilidadCOP = selectedExec ? sumUtilidad(execData, 'COP') : 0;
   const execUtilidadUSD = selectedExec ? sumUtilidad(execData, 'USD') : 0;
   const execGanadas = selectedExec ? execData.filter(r=>r['ESTADO']==='GANADA') : [];
@@ -5868,7 +5869,7 @@ function renderDirector(){
               ${execs.map((e, idx) => {
                 const eCuota = getExecutiveCuota(e);
                 const eApiData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(e, mes) : null;
-                const eData = data.filter(r => (r['COMERCIAL']||'').trim() === e);
+                const eData = data.filter(r => namesMatch(r['COMERCIAL'], e));
                 const eUtilidad = eApiData ? eApiData.utilidad : (sumUtilidad(eData, 'COP') + (sumUtilidad(eData, 'USD') * trm));
                 const eVentas = eApiData ? eApiData.mercancia : eData.reduce((s,r) => s + toCOP(r), 0);
                 const ePct = eCuota > 0 ? (eUtilidad / eCuota) * 100 : 0;
@@ -5948,7 +5949,7 @@ function renderDirector(){
         <div class="kpi" style="--ac:var(--corp-amber)"><div class="kpi-accent"></div>
           <div class="kpi-label">Ejecutivos</div>
           <div class="kpi-val">${execs.length}</div>
-          <div class="kpi-sub">${data.length} negocios · ${execsWithDataDir.length} activos</div>
+          <div class="kpi-sub">${data.length} negocios · ${execsWithData.length} activos</div>
         </div>
       </div>
 

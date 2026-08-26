@@ -91,19 +91,25 @@ const avanceCode = fs.readFileSync(path.resolve(__dirname, '..', 'src', 'scripts
 const mainCode = fs.readFileSync(path.resolve(__dirname, '..', 'src', 'scripts', 'main.js'), 'utf8');
 
 const fixture = `
-  ALL_DATA = [{
-    COMERCIAL: 'Ángela Torres',
-    DIRECTOR: 'Angélica Caballero',
-    CLIENTE: 'Cliente prueba',
-    ESTADO: 'GANADA',
-    UTILIDAD: 5000000,
-    'MONEDA 2': 'COP',
-    'MONTO VENTA CLIENTE': 50000000,
-    'FECHA DIA/MES/AÑO': '2026-08-10',
-    'LINEA DE PRODUCTO': 'Tecnología'
-  }];
+  ALL_DATA = [
+    { DIRECTOR: 'Angélica Caballero', COMERCIAL: 'Angela Rocio Torres Matallana', ESTADO: 'GANADA', UTILIDAD: 5000000, 'MONEDA 2': 'COP', 'MONTO VENTA CLIENTE': 50000000, 'FECHA DIA/MES/AÑO': '2026-08-10' },
+    { DIRECTOR: 'Angélica Caballero', COMERCIAL: 'Yurany Andrea Vargas Soler', ESTADO: 'GANADA', UTILIDAD: 4000000, 'MONEDA 2': 'COP', 'MONTO VENTA CLIENTE': 40000000, 'FECHA DIA/MES/AÑO': '2026-08-10' },
+    { DIRECTOR: 'Angélica Caballero', COMERCIAL: 'Maria Alejandra Velásquez Espinosa', ESTADO: 'GANADA', UTILIDAD: 3000000, 'MONEDA 2': 'COP', 'MONTO VENTA CLIENTE': 30000000, 'FECHA DIA/MES/AÑO': '2026-08-10' },
+    { DIRECTOR: 'Angélica Caballero', COMERCIAL: 'Fernando Alberto Quiñonez', ESTADO: 'GANADA', UTILIDAD: 2000000, 'MONEDA 2': 'COP', 'MONTO VENTA CLIENTE': 20000000, 'FECHA DIA/MES/AÑO': '2026-08-10' },
+    { DIRECTOR: 'Angélica Caballero', COMERCIAL: 'Jasbleidy Johana Mojica', ESTADO: 'GANADA', UTILIDAD: 1000000, 'MONEDA 2': 'COP', 'MONTO VENTA CLIENTE': 10000000, 'FECHA DIA/MES/AÑO': '2026-08-10' }
+  ];
   LOADED_FILES_BY_DIR = {
-    'Angelica Caballero': [{ name: 'Ángela Torres.xlsx' }]
+    'Angelica Caballero': [
+      { name: 'Ángela Torres.xlsx' },
+      { name: 'Yurany Andrea Vargas.xlsx' },
+      { name: 'Alejandra Velásquez.xlsx' },
+      { name: 'Fernando Quiñonez.xlsx' },
+      { name: 'Jasbleidy Mójica.xlsx' },
+      { name: 'Johanna Jaime.xlsx' },
+      { name: 'Dayana Chala.xlsx' },
+      { name: 'Yovanny Herrera.xlsx' },
+      { name: 'César Cespedes.xlsx' }
+    ]
   };
   document.getElementById('sel-director').value = 'Angelica Caballero';
   renderDirector();
@@ -117,14 +123,17 @@ assert.ok(html.includes('11 comerciales asignados'), 'Debe indicar 11 comerciale
 assert.ok(html.includes('11 Comerciales Evaluados'), 'Debe indicar 11 Comerciales Evaluados');
 assert.ok(html.includes('11 EJECUTIVOS'), 'Debe indicar 11 EJECUTIVOS en la sección de equipo');
 
+const cardMatches = html.match(/class="persona-card/g) || [];
+assert.equal(cardMatches.length, 11, 'Debe haber exactamente 11 tarjetas de equipo sin duplicados (obtenido: ' + cardMatches.length + ')');
+
 const expectedComerciales = [
-  'Ángela Torres', 'Yurany Andrea Vargas', 'Alejandra Velásquez',
-  'Fernando Quiñonez', 'Jasbleidy Mójica', 'Johanna Jaime', 'Dayana Chala',
-  'Yovanny Herrera', 'César Céspedes', 'Daniel Galindo', 'Adriana Cucaita'
+  'Adriana Cucaita', 'Alejandra Velásquez', 'César Céspedes', 'Daniel Galindo',
+  'Dayana Chala', 'Fernando Quiñonez', 'Jasbleidy Mójica', 'Johanna Jaime',
+  'Yovanny Herrera', 'Yurany Andrea Vargas', 'Ángela Torres'
 ];
 
 expectedComerciales.forEach(name => {
   assert.ok(html.includes(name), 'Debe incluir en la tabla y tarjetas a ' + name);
 });
 
-console.log('Director Grupo 2 (Angélica Caballero): Todos los 11 comerciales renderizados correctamente en vista de director.');
+console.log('Director Grupo 2 (Angélica Caballero): Exactamente 11 comerciales renderizados sin duplicaciones.');
