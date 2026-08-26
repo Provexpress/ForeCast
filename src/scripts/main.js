@@ -140,7 +140,9 @@ const EXECUTIVE_MONTHLY_QUOTAS = [
   { name:'Juan David Martínez Pedraza', category:'Junior', value:14000000 },
   { name:'Jenny Alexandra Gonzalez Buitrago', category:'Junior', value:18000000 },
   { name:'Freddy Andres Peña Sanchez', category:'Master', value:28000000 },
-  { name:'Jair Yovanny Herrea', category:'Junior', value:18000000 }
+  { name:'Jair Yovanny Herrea', category:'Junior', value:18000000 },
+  { name:'Adriana Cucaita', category:'Junior', value:18000000 },
+  { name:'Deisy Mogollón', category:'Junior', value:18000000 }
 ];
 
 function getForecastStructure(){
@@ -2600,9 +2602,13 @@ function finalizeLoad(){
   ].filter(Boolean))].sort();
   selDir.innerHTML=buildOptionList(dirsForSel);
   
+  const structure = getForecastStructure();
+  const configuredExecs = structure.estructura && structure.estructura.ejecutivos
+    ? Object.values(structure.estructura.ejecutivos).map(e => e.nombre)
+    : [];
   const execsFromFiles2=Object.values(LOADED_FILES_BY_DIR||{}).flat()
     .map(f=>f.name.replace(/\.(xlsx|xls)$/i,'').trim()).filter(Boolean);
-  const allExecsForSel=[...new Set([...execs,...execsFromFiles2])].sort();
+  const allExecsForSel=[...new Set([...configuredExecs,...execs,...execsFromFiles2])].sort();
   const selEj=document.getElementById('sel-ejecutivo');
   selEj.innerHTML=buildOptionList(allExecsForSel);
   refreshForecastMonthFilters();
@@ -5667,10 +5673,13 @@ function renderDirector(){
   const utilidadCOP = sumUtilidad(data, 'COP');
   const utilidadUSD = sumUtilidad(data, 'USD');
   const ganadas=data.filter(r=>r['ESTADO']==='GANADA');
-  // Todos los ejecutivos de este director (con o sin datos)
+  // Todos los ejecutivos de este director (estructura comercial + archivos + datos)
+  const execsFromStructure = (typeof window.getDirectorExecs === 'function')
+    ? window.getDirectorExecs(dir)
+    : [];
   const execsWithDataDir=[...new Set(data.map(r=>(r['COMERCIAL']||'').trim()).filter(Boolean))];
   const execsFromFilesDir=(LOADED_FILES_BY_DIR[dir]||[]).map(f=>f.name.replace(/\.(xlsx|xls)$/i,'').trim()).filter(Boolean);
-  const execs=[...new Set([...execsWithDataDir,...execsFromFilesDir])].sort();
+  const execs=[...new Set([...execsFromStructure, ...execsWithDataDir, ...execsFromFilesDir])].sort();
   
   // Evolution del director
   const evoMonthKeys = mes
@@ -6016,12 +6025,16 @@ function renderEjecutivo(){
   const trm=getTRM();
   
   // Persona grid — todos los ejecutivos cargados, tengan o no datos
+  const structure = getForecastStructure();
+  const configuredExecs = (role === 'director' && CURRENT_USER && CURRENT_USER.group && structure.getEmailsByGroup)
+    ? structure.getEmailsByGroup(CURRENT_USER.group).map(em => structure.getExecutiveDisplayNameByEmail(em)).filter(Boolean)
+    : (structure.estructura && structure.estructura.ejecutivos ? Object.values(structure.estructura.ejecutivos).map(e => e.nombre) : []);
   const execsFromData = [...new Set(ALL_DATA.map(r=>(r['COMERCIAL']||'').trim()).filter(Boolean))];
   // Agregar ejecutivos de archivos cargados aunque estén vacíos
   const execsFromFiles = Object.values(LOADED_FILES_BY_DIR||{}).flat()
     .map(f=>f.name.replace(/\.(xlsx|xls)$/i,'').trim());
   const allExecs = execsFromData.slice();
-  execsFromFiles.forEach(fileExecutive => {
+  [...configuredExecs, ...execsFromFiles].forEach(fileExecutive => {
     if(fileExecutive && !allExecs.some(dataExecutive => namesMatch(dataExecutive, fileExecutive))) {
       allExecs.push(fileExecutive);
     }
@@ -6064,7 +6077,14 @@ function renderEjecutivo(){
     const c=COLORS[i%COLORS.length];
     const dirFromData=allExecutiveRows[0]?allExecutiveRows[0]['DIRECTOR']||'':'';
     const dirFromFile=Object.entries(LOADED_FILES_BY_DIR||{}).find(([d,fs])=>fs.some(f=>f.name.replace(/\.(xlsx|xls)$/i,'').trim()===e));
-    const dir=dirFromData||(dirFromFile?dirFromFile[0]:'—');
+    const dirFromStructure = (function(){
+      if(!structure.getExecutiveEmailByName || !structure.getGroupByEmail || !structure.getDirectorNameByGroup) return '';
+      const email = structure.getExecutiveEmailByName(e);
+      if(!email) return '';
+      const grp = structure.getGroupByEmail(email);
+      return grp ? structure.getDirectorNameByGroup(grp) : '';
+    })();
+    const dir=dirFromData||(dirFromFile?dirFromFile[0]:'')||dirFromStructure||'—';
     const hasData=ed.length>0;
     const selected=namesMatch(e, ej)?'selected':'';
     const selectAction=jsCall('selectEjecutivo', e);

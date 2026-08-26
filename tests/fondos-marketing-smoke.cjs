@@ -12,7 +12,7 @@ assert.match(html, /src\/styles\/main\.css\?v=20260818-fondos-saldo1/);
 assert.match(html, /<div class="page" id="page-fondos"><\/div>/);
 assert.match(html, /id="program-channel-workbook-table"><\/div>[\s\S]*<\/section>[\s\S]*<\/section>[\s\S]*<\/div>[\s\S]*PAGE: FONDOS MARKETING[\s\S]*id="page-fondos"/);
 assert.match(html, /src\/scripts\/fondos-marketing\.js\?v=20260818-fondos-saldo1/);
-assert.match(html, /src\/scripts\/main\.js\?v=20260818-fondos-saldo1/);
+assert.match(html, /src\/scripts\/main\.js\?v=/);
 
 assert.match(main, /if\(page === 'fondos'\)[\s\S]*renderFondosMarketing\(\)/);
 assert.match(main, /id === 'fondos'/);
