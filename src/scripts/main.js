@@ -1882,8 +1882,24 @@ function namesMatch(a,b){
   if(!na || !nb) return false;
   if(na === nb) return true;
 
-  // Permite casos como "dayana chala" vs "dayana chala perez"
+  // 1. Verificación cruzada por estructura comercial oficial / aliases
+  const structure = getForecastStructure();
+  if(structure.getExecutiveEmailByName) {
+    const emailA = structure.getExecutiveEmailByName(a);
+    const emailB = structure.getExecutiveEmailByName(b);
+    if(emailA && emailB && emailA === emailB) return true;
+  }
+
+  // 2. Permite casos como "dayana chala" vs "dayana chala perez"
   if((na.includes(nb) || nb.includes(na)) && Math.min(na.length, nb.length) >= 8) {
+    return true;
+  }
+
+  // 3. Normalización fonética / variaciones ortográficas comunes (y <-> i, b <-> v, rr <-> r, nn <-> n)
+  const phonNa = na.replace(/y/g, 'i').replace(/b/g, 'v').replace(/rr/g, 'r').replace(/nn/g, 'n');
+  const phonNb = nb.replace(/y/g, 'i').replace(/b/g, 'v').replace(/rr/g, 'r').replace(/nn/g, 'n');
+  if(phonNa === phonNb) return true;
+  if((phonNa.includes(phonNb) || phonNb.includes(phonNa)) && Math.min(phonNa.length, phonNb.length) >= 8) {
     return true;
   }
 
@@ -1893,6 +1909,12 @@ function namesMatch(a,b){
 
   if(common.length >= 2) return true;
   if(common.length === 1 && (ta.length === 1 || tb.length === 1) && common[0].length >= 5) return true;
+
+  const phonTa = [...new Set(phonNa.split(' ').filter(Boolean))];
+  const phonTb = [...new Set(phonNb.split(' ').filter(Boolean))];
+  const phonCommon = phonTa.filter(t => phonTb.includes(t));
+  if(phonCommon.length >= 2) return true;
+  if(phonCommon.length === 1 && (phonTa.length === 1 || phonTb.length === 1) && phonCommon[0].length >= 5) return true;
 
   return false;
 }
@@ -2357,7 +2379,10 @@ function decorateRecordFromFile(rec, fileName, directorHint){
     rec['SOPORTA'] = soportaName;
   } else {
     const fileNameExec = toTitleName(fileName.replace(/\.(xlsx|xls)$/i,'').trim());
-    rec['COMERCIAL'] = fileNameExec || toTitleName(rec['COMERCIAL'] || '');
+    const rawExec = fileNameExec || toTitleName(rec['COMERCIAL'] || '');
+    const structure = getForecastStructure();
+    const canonical = structure.canonicalizeExecutiveName ? structure.canonicalizeExecutiveName(rawExec) : '';
+    rec['COMERCIAL'] = canonical || rawExec;
   }
   return rec;
 }
