@@ -2698,6 +2698,9 @@ function setGerenciaMonthFilter(value){
   GERENCIA_CROSSFILTERS.mes = /^\d{4}-\d{2}$/.test(selected) ? selected : '';
   Object.keys(GERENCIA_ESTADO_LIMITS).forEach(estado => { GERENCIA_ESTADO_LIMITS[estado] = 30; });
   renderGerencia();
+  if (typeof window.fetchUtilidadForMonth === 'function' && GERENCIA_CROSSFILTERS.mes) {
+    window.fetchUtilidadForMonth(GERENCIA_CROSSFILTERS.mes);
+  }
 }
 
 function setGerenciaCrossfilter(type, value){
@@ -8584,4 +8587,5 @@ window.closeNegocioDetail = closeNegocioDetail;
 window.refreshAvanceDiarioViews = function() {
   if (typeof renderDirector === 'function' && document.getElementById('sel-director')) renderDirector();
   if (typeof renderEjecutivo === 'function' && document.getElementById('sel-ejecutivo')) renderEjecutivo();
+  if (typeof renderGerenciaCumplimientoTable === 'function' && document.getElementById('gerencia-cumplimiento-section')) renderGerenciaCumplimientoTable();
 };

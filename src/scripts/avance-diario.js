@@ -67,9 +67,24 @@
     }
   }
 
-  // 1. Cargar datos de la API de Utilidad en el cliente (Intenta EN VIVO primero, luego cache)
+  // 1. Cargar datos de la API de Utilidad en el cliente (Carga cache completo de meses + refresca en vivo)
   async function loadApiUtilidadCache() {
     try {
+      // 1.1 Cargar cache completo de respaldo primero para disponer de todos los meses de inmediato
+      const cachePath = 'src/data/api-utilidad-cache.json?v=' + Date.now();
+      try {
+        const resp = await fetch(cachePath);
+        if (resp.ok) {
+          const data = await resp.json();
+          window.API_UTILIDAD_DATA = data.vendedores || [];
+          window.API_UTILIDAD_MESES = Object.assign({}, data.meses || {}, window.API_UTILIDAD_MESES || {});
+          console.log('✅ Base de datos de API cargada en ForeCast con', Object.keys(window.API_UTILIDAD_MESES).length, 'meses');
+        }
+      } catch (cacheErr) {
+        console.warn('⚠️ No se pudo cargar cache estático de API:', cacheErr.message);
+      }
+
+      // 1.2 Refrescar datos EN VIVO del mes actual
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -78,7 +93,6 @@
       const fechaInicial = `${curMonthKey}-01`;
       const fechaFinal = `${year}-${month}-${day}`;
 
-      // Intentar peticion directa EN VIVO a la API (tipo Postman)
       const liveRows = await fetchLiveUtilidadFromApi(fechaInicial, fechaFinal);
       if (liveRows && liveRows.length) {
         window.API_UTILIDAD_DATA = liveRows;
@@ -89,19 +103,7 @@
           totalVendedores: liveRows.length,
           vendedores: liveRows
         };
-        console.log('⚡ Conexión EN VIVO a la API de Power BI establecida exitosamente:', liveRows.length, 'registros');
-      }
-
-      // Cargar cache de respaldo
-      const cachePath = 'src/data/api-utilidad-cache.json?v=' + Date.now();
-      const resp = await fetch(cachePath);
-      if (resp.ok) {
-        const data = await resp.json();
-        if (!window.API_UTILIDAD_DATA || !window.API_UTILIDAD_DATA.length) {
-          window.API_UTILIDAD_DATA = data.vendedores || [];
-        }
-        window.API_UTILIDAD_MESES = Object.assign({}, data.meses || {}, window.API_UTILIDAD_MESES || {});
-        console.log('✅ Base de datos de API cargada en ForeCast con', Object.keys(window.API_UTILIDAD_MESES).length, 'meses');
+        console.log('⚡ Conexión EN VIVO a la API de Power BI establecida exitosamente:', liveRows.length, 'registros para', curMonthKey);
       }
 
       if (typeof window.refreshAvanceDiarioViews === 'function') {
@@ -112,6 +114,42 @@
     }
   }
 
+  // Permite consultar bajo demanda los datos en vivo de cualquier mes
+  window.fetchUtilidadForMonth = async function (monthKey, forceReload) {
+    if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return;
+    if (!forceReload && window.API_UTILIDAD_MESES && window.API_UTILIDAD_MESES[monthKey] && window.API_UTILIDAD_MESES[monthKey].vendedores) {
+      return window.API_UTILIDAD_MESES[monthKey].vendedores;
+    }
+
+    try {
+      const parts = monthKey.split('-');
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const lastDay = new Date(y, m, 0).getDate();
+      const now = new Date();
+      const isCurrentMonth = (now.getFullYear() === y && (now.getMonth() + 1) === m);
+      const endDay = isCurrentMonth ? Math.min(now.getDate(), lastDay) : lastDay;
+      const fechaInicial = `${monthKey}-01`;
+      const fechaFinal = `${monthKey}-${String(endDay).padStart(2, '0')}`;
+
+      const rows = await fetchLiveUtilidadFromApi(fechaInicial, fechaFinal);
+      if (rows && rows.length) {
+        if (!window.API_UTILIDAD_MESES) window.API_UTILIDAD_MESES = {};
+        window.API_UTILIDAD_MESES[monthKey] = {
+          fechaInicial,
+          fechaFinal,
+          totalVendedores: rows.length,
+          vendedores: rows
+        };
+        if (typeof window.refreshAvanceDiarioViews === 'function') {
+          window.refreshAvanceDiarioViews();
+        }
+        return rows;
+      }
+    } catch (e) {
+      console.warn(`⚠️ Error al consultar datos en vivo para ${monthKey}:`, e.message);
+    }
+  };
 
   const API_NAME_ALIASES = {
     "johanna mojica": "Jasbleidy Johana Mojica",
@@ -163,7 +201,11 @@
     "steven acevedo": "Jhonatan Steven Acevedo Fonseca",
     "camilo hernandez": "Jhonatan Camilo Hernandez Martinez",
     "yeison urrego": "Yeison Alonso Urrego Cortes",
-    "diana castro": "Diana Catalina Castro Castro"
+    "diana castro": "Diana Catalina Castro Castro",
+    "deisy mogollon": "Deisy Mogollón Gamboa",
+    "deisy mogollon gamboa": "Deisy Mogollón Gamboa",
+    "adriana cucaita": "Adriana Cucaita Bonilla",
+    "adriana cucaita bonilla": "Adriana Cucaita Bonilla"
   };
 
   function normalizeName(str) {
