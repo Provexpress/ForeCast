@@ -5669,6 +5669,9 @@ function renderDirector(){
   const dir=document.getElementById('sel-director').value;
   const directorMonthRows = dir ? ALL_DATA.filter(r=>(r['DIRECTOR']||'').trim()===dir) : ALL_DATA;
   const mes=syncMonthSelectOptions('sel-dir-mes', getForecastMonths(directorMonthRows));
+  if (typeof window.fetchUtilidadForMonth === 'function' && mes) {
+    window.fetchUtilidadForMonth(mes);
+  }
   const est=document.getElementById('sel-dir-estado').value;
   const trm=getTRM();
   const estadoOptions = [
@@ -6095,6 +6098,9 @@ function renderEjecutivo(){
   if(focusedDirector) execMonthRows = execMonthRows.filter(r => cleanDisplayText(r['DIRECTOR'], '') === focusedDirector);
   if(focusedBrand) execMonthRows = execMonthRows.filter(r => normalizeCategoryValue(getRowBrandName(r)) === brandKey);
   const mes=syncMonthSelectOptions('sel-ej-mes', getForecastMonths(execMonthRows));
+  if (typeof window.fetchUtilidadForMonth === 'function' && mes) {
+    window.fetchUtilidadForMonth(mes);
+  }
   document.getElementById('persona-grid').innerHTML=execs.map((e,i)=>{
     const allExecutiveRows=ALL_DATA.filter(r=>namesMatch(r['COMERCIAL'], e));
     const ed=mes
