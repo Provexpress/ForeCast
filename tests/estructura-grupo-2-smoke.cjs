@@ -26,7 +26,7 @@ const expectedGroups = {
   3: [
     'Gina García', 'Karent Carrillo', 'Lington Linares', 'Angélica Álvarez',
     'Andrés Peña', 'Tatiana Parra', 'Claudia Triana', 'Dilma Cuesta',
-    'Juan Martínez', 'Deisy Mogollón'
+    'Juan Martínez'
   ],
   4: [
     'Astrid Jiménez', 'María Paola Briceño', 'Dafne Ruiz', 'Jessica Valencia',
@@ -52,12 +52,6 @@ assert.equal(adriana.nombre, 'Adriana Cucaita');
 assert.equal(adriana.archivo, 'Adriana Cucaita.xlsx');
 assert.equal(structure.getRoleByEmail(adriana.email), 'ejecutivo');
 assert.equal(structure.getDirectorNameByGroup(adriana.grupo), 'Angélica Caballero');
-
-const deisy = structure.getExecutiveByEmail('deisy.mogollon@provexpress.com.co');
-assert.ok(deisy);
-assert.equal(deisy.grupo, 3);
-assert.equal(deisy.nombre, 'Deisy Mogollón');
-assert.equal(deisy.archivo, 'Deisy Mogollón.xlsx');
 
 const supportNames = emails => emails.map(email => structure.getExecutiveByEmail(email).nombre)
   .sort((a, b) => a.localeCompare(b, 'es'));

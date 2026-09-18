@@ -219,12 +219,6 @@
         archivo: 'Juan Martínez.xlsx',
         aliases: ['Juan David Martinez Pedraza', 'Juan Martinez']
       },
-      'deisy.mogollon@provexpress.com.co': {
-        grupo: 3,
-        nombre: 'Deisy Mogollón',
-        archivo: 'Deisy Mogollón.xlsx',
-        aliases: ['Deisy Mogollon', 'Deisy Mogollón']
-      },
       'astrid.jimenez@provexpress.com.co': {
         grupo: 4,
         nombre: 'Astrid Jiménez',

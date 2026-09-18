@@ -141,8 +141,7 @@ const EXECUTIVE_MONTHLY_QUOTAS = [
   { name:'Jenny Alexandra Gonzalez Buitrago', category:'Junior', value:18000000 },
   { name:'Freddy Andres Peña Sanchez', category:'Master', value:28000000 },
   { name:'Jair Yovanny Herrea', category:'Junior', value:18000000 },
-  { name:'Adriana Cucaita', category:'Junior', value:18000000 },
-  { name:'Deisy Mogollón', category:'Junior', value:18000000 }
+  { name:'Adriana Cucaita', category:'Junior', value:18000000 }
 ];
 
 function getForecastStructure(){
