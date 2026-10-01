@@ -1,0 +1,55 @@
+name: Refresh API Utilidad Cache
+
+on:
+  # Ejecutar cada día a las 11:00 PM hora Bogotá (UTC-5 → 04:00 UTC)
+  schedule:
+    - cron: '0 4 * * *'
+
+  # También permitir ejecución manual desde GitHub
+  workflow_dispatch:
+
+jobs:
+  refresh-cache:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # necesario para hacer commit al repo
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Actualizar cache de utilidad API
+        run: node scripts/sync-api-utilidad.js
+        timeout-minutes: 5
+
+      - name: Verificar que el cache se actualizó
+        run: |
+          node -e "
+            const d = require('./src/data/api-utilidad-cache.json');
+            const meses = Object.keys(d.meses);
+            console.log('Meses en cache:', meses.join(', '));
+            meses.forEach(k => {
+              const m = d.meses[k];
+              const total = m.vendedores?.reduce((s,v)=>s+(v.Valor_Utilidad||0),0)||0;
+              console.log(k + ': ' + m.fechaInicial + ' → ' + m.fechaFinal + ' | \$' + Math.round(total/1e6) + 'M | ' + m.totalVendedores + ' vendedores');
+            });
+          "
+
+      - name: Commit y push si hay cambios
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/data/api-utilidad-cache.json
+          if git diff --staged --quiet; then
+            echo "ℹ️ Sin cambios en el cache — nada que commitear"
+          else
+            FECHA=$(date '+%Y-%m-%d' --date='TZ="America/Bogota"' 2>/dev/null || date '+%Y-%m-%d')
+            git commit -m "data(cache): actualización automática diaria — $FECHA"
+            git push
+            echo "✅ Cache actualizado y pusheado exitosamente"
+          fi

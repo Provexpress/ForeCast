@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-01T17:15:53.306Z",
+  "updatedAt": "2026-10-01T17:17:54.017Z",
   "currentMonthKey": "2026-10",
   "vendedores": [
     {
@@ -165,6 +165,15 @@
       "Grupo_Personal": "Grupo Romero"
     },
     {
+      "Id": "PRIPp8Xi9Oo6Kv2Hh0Rt",
+      "Descripcion": "Edgar Zapata Rodríguez",
+      "Valor_Mercancia": 5258840,
+      "Valor_Costo": 4494285.7,
+      "Valor_Utilidad": 764554.3,
+      "Porcentaje_Utilidad": 14.54,
+      "Grupo_Personal": "Grupo Romero"
+    },
+    {
       "Id": "PRIQd5Tg4Yj2Ay8Dx1Bm",
       "Descripcion": "Jhonatan Camilo Hernandez Martinez",
       "Valor_Mercancia": 97294829,
@@ -187,7 +196,7 @@
     "2026-10": {
       "fechaInicial": "2026-10-01",
       "fechaFinal": "2026-10-01",
-      "totalVendedores": 20,
+      "totalVendedores": 21,
       "vendedores": [
         {
           "Id": "PRICz5Wo3Pw2Kv8Zl4Wo",
@@ -349,6 +358,15 @@
           "Valor_Costo": 15964619,
           "Valor_Utilidad": 6225234,
           "Porcentaje_Utilidad": 28.05,
+          "Grupo_Personal": "Grupo Romero"
+        },
+        {
+          "Id": "PRIPp8Xi9Oo6Kv2Hh0Rt",
+          "Descripcion": "Edgar Zapata Rodríguez",
+          "Valor_Mercancia": 5258840,
+          "Valor_Costo": 4494285.7,
+          "Valor_Utilidad": 764554.3,
+          "Porcentaje_Utilidad": 14.54,
           "Grupo_Personal": "Grupo Romero"
         },
         {
