@@ -44,7 +44,7 @@ function initMsalApp() {
 function loadMSAL(callback) {
   if(typeof msal !== 'undefined') { callback(); return; }
   const s = document.createElement('script');
-  s.src = 'https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js';
+  s.src = 'https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js';
   s.onload = () => callback();
   s.onerror = () => {
     const s2 = document.createElement('script');

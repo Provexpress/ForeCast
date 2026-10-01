@@ -8444,15 +8444,23 @@ function parseWorkbookSalesPendingRecords(wb, item, dirName){
 async function loadSpFileBundle(item, dirName) {
   const url = item['@microsoft.graph.downloadUrl'];
   if(!url) return { records: [], pendingRecords: [] };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
   try {
-    const buf = await (await fetch(url)).arrayBuffer();
+    const resp = await fetch(url, { signal: controller.signal });
+    const buf  = await resp.arrayBuffer();
+    clearTimeout(timer);
     const wb  = XLSX.read(buf, { type:'array', cellDates:true });
     const datasetType = isSalesSupportFile(item.name) ? 'sales' : 'forecast';
     return {
       records: parseWorkbookMainRecords(wb, item, dirName, datasetType),
       pendingRecords: datasetType === 'sales' ? parseWorkbookSalesPendingRecords(wb, item, dirName) : []
     };
-  } catch(e) { console.warn('Error leyendo', item.name, e); return { records: [], pendingRecords: [] }; }
+  } catch(e) {
+    clearTimeout(timer);
+    console.warn('[loadSpFileBundle] Error/timeout leyendo', item.name, e.name === 'AbortError' ? 'TIMEOUT 30s' : e);
+    return { records: [], pendingRecords: [] };
+  }
 }
 
 async function loadSpFile(item, dirName) {
