@@ -16,7 +16,7 @@ const expectedGroups = {
   1: [
     'Rosmira Rojas', 'Mario Reyes', 'Wilson Sánchez', 'María Eugenia Cruz',
     'Javier Cortés', 'Rosa Mendoza', 'Mariela Ramírez', 'Jenny Gónzalez',
-    'Julieth Galindo', 'Adriana Ramírez'
+    'Julieth Galindo', 'Adriana Ramírez', 'Óscar Morales'
   ],
   2: [
     'Ángela Torres', 'Yurany Andrea Vargas', 'Alejandra Velásquez',

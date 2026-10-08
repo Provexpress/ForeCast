@@ -101,6 +101,19 @@
           'Adriana Ramírez'
         ]
       },
+      'oscar.morales@provexpress.com.co': {
+        grupo: 1,
+        nombre: 'Óscar Morales',
+        archivo: 'Oscar Morales.xlsx',
+        aliases: [
+          'Oscar Fernando Morales Neira',
+          'Óscar Fernando Morales Neira',
+          'Oscar Fernando Morales',
+          'Óscar Fernando Morales',
+          'Oscar Morales',
+          'Óscar Morales'
+        ]
+      },
       'angela.torres@provexpress.com.co': {
         grupo: 2,
         nombre: 'Ángela Torres',
