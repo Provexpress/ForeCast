@@ -88,6 +88,19 @@
         archivo: 'Julieth Galindo.xlsx',
         aliases: ['Julieth Milena Galindo Fino', 'Julieth Galindo']
       },
+      'adriana.ramirez@provexpress.com.co': {
+        grupo: 1,
+        nombre: 'Adriana Ramírez',
+        archivo: 'Adriana Ramírez.xlsx',
+        aliases: [
+          'Adriana Cecilia Ramirez Muñoz',
+          'Adriana Cecilia Ramírez Muñoz',
+          'Adriana Ramirez Muñoz',
+          'Adriana Ramírez Muñoz',
+          'Adriana Ramirez',
+          'Adriana Ramírez'
+        ]
+      },
       'angela.torres@provexpress.com.co': {
         grupo: 2,
         nombre: 'Ángela Torres',
@@ -260,6 +273,29 @@
         nombre: 'Diana Castro',
         archivo: 'Diana Catalina Castro.xlsx',
         aliases: ['Diana Catalina Castro Castro', 'Diana Castro']
+      },
+      'edgar.zapata@provexpress.com.co': {
+        grupo: 4,
+        nombre: 'Edgar Zapata',
+        archivo: 'Edgar Zapata.xlsx',
+        aliases: [
+          'Edgar Zapata Rodriguez',
+          'Edgar Zapata Rodríguez',
+          'Edgar Zapata'
+        ]
+      },
+      'juan.velasquez@provexpress.com.co': {
+        grupo: 4,
+        nombre: 'Juan Camilo Velásquez',
+        archivo: 'Juan Camilo Velasquez.xlsx',
+        aliases: [
+          'Juan Camilo Velasquez Graciano',
+          'Juan Camilo Velásquez Graciano',
+          'Juan Camilo Velasquez',
+          'Juan Camilo Velásquez',
+          'Juan Velasquez',
+          'Juan Velásquez'
+        ]
       }
     },
     salesSupport: {

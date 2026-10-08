@@ -16,7 +16,7 @@ const expectedGroups = {
   1: [
     'Rosmira Rojas', 'Mario Reyes', 'Wilson Sánchez', 'María Eugenia Cruz',
     'Javier Cortés', 'Rosa Mendoza', 'Mariela Ramírez', 'Jenny Gónzalez',
-    'Julieth Galindo'
+    'Julieth Galindo', 'Adriana Ramírez'
   ],
   2: [
     'Ángela Torres', 'Yurany Andrea Vargas', 'Alejandra Velásquez',
@@ -29,7 +29,8 @@ const expectedGroups = {
   ],
   4: [
     'Astrid Jiménez', 'María Paola Briceño', 'Dafne Ruiz', 'Jessica Valencia',
-    'Jhonatan Acevedo', 'Camilo Hernández', 'Yeison Urrego', 'Diana Castro'
+    'Jhonatan Acevedo', 'Camilo Hernández', 'Yeison Urrego', 'Diana Castro',
+    'Edgar Zapata', 'Juan Camilo Velásquez'
   ]
 };
 
