@@ -460,7 +460,7 @@
     let totalVentas = 0;
 
     execs.forEach((e) => {
-      const eCuota = (typeof getExecutiveCuota === 'function') ? getExecutiveCuota(e) : 18000000;
+      const eCuota = (typeof getExecutiveCuota === 'function') ? getExecutiveCuota(e) : 24000000;
       const eApiData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(e, mesKey) : null;
       const eUtilidad = eApiData ? eApiData.utilidad : 0;
       const eVentas = eApiData ? eApiData.mercancia : 0;
@@ -622,7 +622,7 @@
 
     sheet.addRow([]);
 
-    const eCuota = (typeof getExecutiveCuota === 'function') ? getExecutiveCuota(ejName) : 18000000;
+    const eCuota = (typeof getExecutiveCuota === 'function') ? getExecutiveCuota(ejName) : 24000000;
     const eApiData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(ejName, mesKey) : null;
     const eUtilidad = eApiData ? eApiData.utilidad : 0;
     const eVentas = eApiData ? eApiData.mercancia : 0;
@@ -694,16 +694,16 @@
       : 'Junior';
     const cuota = (typeof window.getExecutiveCuota === 'function' && ejName)
       ? window.getExecutiveCuota(ejName)
-      : 18000000;
+      : 24000000;
 
     // Umbral mínimo requerido según la categoría asignada
-    let minThreshold = 18000000;
+    let minThreshold = 24000000;
     if (category === 'Enterprise') {
-      minThreshold = cuota < 48000000 ? cuota : 48000000;
+      minThreshold = cuota < 53000000 ? cuota : 53000000;
     } else if (category === 'Master') {
-      minThreshold = 28000000;
+      minThreshold = 32000000;
     } else if (category === 'Junior') {
-      minThreshold = cuota < 18000000 ? cuota : 18000000;
+      minThreshold = cuota < 24000000 ? cuota : 24000000;
     }
 
     // Si no alcanzó el umbral mínimo de su propia categoría, NO gana bono inferior
@@ -718,13 +718,13 @@
     }
 
     // Si alcanzó o superó el umbral de su categoría, evalúa la escala (pudiendo subir de categoría)
-    if (val >= 96000000) {
+    if (val >= 106000000) {
       return { bono: 1000000, nivel: 'Global (Top Tier)', badgeBg: 'FFD1FAE5', badgeFg: 'FF065F46' };
-    } else if (val >= 48000000) {
+    } else if (val >= 53000000) {
       return { bono: 600000, nivel: 'Enterprise', badgeBg: 'FFE0E7FF', badgeFg: 'FF3730A3' };
-    } else if (val >= 28000000) {
+    } else if (val >= 32000000) {
       return { bono: 500000, nivel: 'Master', badgeBg: 'FFFEF3C7', badgeFg: 'FF92400E' };
-    } else if (val >= 18000000) {
+    } else if (val >= 24000000) {
       return { bono: 400000, nivel: 'Junior', badgeBg: 'FFDBEAFE', badgeFg: 'FF1E40AF' };
     } else {
       return { bono: 400000, nivel: 'Junior', badgeBg: 'FFDBEAFE', badgeFg: 'FF1E40AF' };
@@ -818,7 +818,7 @@
 
       execs.forEach(e => {
         const eCategoria = (typeof window.getExecutiveCategory === 'function') ? window.getExecutiveCategory(e) : 'Junior';
-        const eCuota = (typeof getExecutiveCuota === 'function') ? getExecutiveCuota(e) : 18000000;
+        const eCuota = (typeof getExecutiveCuota === 'function') ? getExecutiveCuota(e) : 24000000;
         const eApiData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(e, mesKey) : null;
         const eUtilidad = eApiData ? eApiData.utilidad : 0;
         const eVentas = eApiData ? eApiData.mercancia : 0;

@@ -213,12 +213,6 @@
         archivo: 'Dilma Cuesta.xlsx',
         aliases: ['Dilma Constanza Cuesta Rubiano', 'Dilma Cuesta']
       },
-      'juan.martinez@provexpress.com.co': {
-        grupo: 3,
-        nombre: 'Juan Martínez',
-        archivo: 'Juan Martínez.xlsx',
-        aliases: ['Juan David Martinez Pedraza', 'Juan Martinez']
-      },
       'astrid.jimenez@provexpress.com.co': {
         grupo: 4,
         nombre: 'Astrid Jiménez',

@@ -105,43 +105,42 @@ const FORECAST_CONNECTIONS_LIST_NAME = 'ForecastConexiones';
 const PREVENTA_FOLDER_NAME = 'Grupo preventa';
 const FORECAST_BASE_FALLBACK = 'COMERCIAL/FORECAST 2026';
 const EXECUTIVE_MONTHLY_QUOTAS = [
-  { name:'Lington Linares Linares', category:'Master', value:28000000 },
-  { name:'María Paola Briceño Muñoz', category:'Enterprise', value:48000000 },
-  { name:'Claudia Patricia Triana Olaya', category:'Master', value:28000000 },
-  { name:'Dayana Marcela Chala Rodríguez', category:'Junior', value:18000000 },
-  { name:'Daniel Galindo Girón', category:'Master', value:28000000 },
-  { name:'Yeison Alonso Urrego Cortes', category:'Enterprise', value:48000000 },
-  { name:'Jhonatan Camilo Hernandez Martinez', category:'Enterprise', value:48000000 },
-  { name:'Maria Angelica Alvarez Morales', category:'Junior', value:18000000 },
-  { name:'Maria Alejandra Velásquez Espinosa', category:'Master', value:28000000 },
-  { name:'Wilson Fernando Sanchez Monroy', category:'Master', value:28000000 },
-  { name:'Gina Paola Garcia Quito', category:'Master', value:28000000 },
-  { name:'Angela Rocio Torres Matallana', category:'Junior', value:18000000 },
-  { name:'Fernando Alberto Quiñonez', category:'Master', value:28000000 },
-  { name:'Jhonatan Steven Acevedo Fonseca', category:'Enterprise', value:48000000 },
-  { name:'Julieth Milena Galindo Fino', category:'Junior', value:18000000 },
-  { name:'Jasbleidy Johana Mojica', category:'Master', value:28000000 },
-  { name:'Karent Carrillo Marin', category:'Master', value:28000000 },
-  { name:'Angie Tatiana Parra Durán', category:'Junior', value:18000000 },
-  { name:'Johanna Jaime Murcia', category:'Master', value:28000000 },
-  { name:'Rosmira Rojas Puentes', category:'Master', value:28000000 },
-  { name:'Jessica Lorena Valencia Isaza', category:'Enterprise', value:48000000 },
-  { name:'Dilma Constanza Cuesta Rubiano', category:'Junior', value:18000000 },
-  { name:'Mario Reyes Gutierrez', category:'Master', value:28000000 },
-  { name:'Mariela Ramírez Castro', category:'Junior', value:18000000 },
-  { name:'Leidy Astrid Jimenez Ossa', category:'Enterprise', value:48000000 },
-  { name:'Javier Antonio Cortes Murcia', category:'Master', value:28000000 },
-  { name:'Maria Eugenia Cruz Herrera', category:'Master', value:28000000 },
-  { name:'Rosa Maria Mendoza Mendoza', category:'Master', value:28000000 },
-  { name:'Diana Catalina Castro Castro', category:'Enterprise', value:48000000 },
-  { name:'Cesar Augusto Cespedes Sabroso', category:'Master', value:28000000 },
-  { name:'Yurany Andrea Vargas Soler', category:'Master', value:28000000 },
-  { name:'Dafne Lizeth Ruiz Bernal', category:'Enterprise', value:48000000 },
-  { name:'Juan David Martínez Pedraza', category:'Junior', value:14000000 },
-  { name:'Jenny Alexandra Gonzalez Buitrago', category:'Junior', value:18000000 },
-  { name:'Freddy Andres Peña Sanchez', category:'Master', value:28000000 },
-  { name:'Jair Yovanny Herrea', category:'Junior', value:18000000 },
-  { name:'Adriana Cucaita', category:'Junior', value:18000000 }
+  { name:'Lington Linares Linares', category:'Master', value:32000000 },
+  { name:'María Paola Briceño Muñoz', category:'Enterprise', value:53000000 },
+  { name:'Claudia Patricia Triana Olaya', category:'Master', value:32000000 },
+  { name:'Dayana Marcela Chala Rodríguez', category:'Junior', value:24000000 },
+  { name:'Daniel Galindo Girón', category:'Master', value:32000000 },
+  { name:'Yeison Alonso Urrego Cortes', category:'Enterprise', value:53000000 },
+  { name:'Jhonatan Camilo Hernandez Martinez', category:'Enterprise', value:53000000 },
+  { name:'Maria Angelica Alvarez Morales', category:'Junior', value:24000000 },
+  { name:'Maria Alejandra Velásquez Espinosa', category:'Master', value:32000000 },
+  { name:'Wilson Fernando Sanchez Monroy', category:'Master', value:32000000 },
+  { name:'Gina Paola Garcia Quito', category:'Master', value:32000000 },
+  { name:'Angela Rocio Torres Matallana', category:'Junior', value:24000000 },
+  { name:'Fernando Alberto Quiñonez', category:'Master', value:32000000 },
+  { name:'Jhonatan Steven Acevedo Fonseca', category:'Enterprise', value:53000000 },
+  { name:'Julieth Milena Galindo Fino', category:'Junior', value:24000000 },
+  { name:'Jasbleidy Johana Mojica', category:'Master', value:32000000 },
+  { name:'Karent Carrillo Marin', category:'Master', value:32000000 },
+  { name:'Angie Tatiana Parra Durán', category:'Junior', value:24000000 },
+  { name:'Johanna Jaime Murcia', category:'Master', value:32000000 },
+  { name:'Rosmira Rojas Puentes', category:'Master', value:32000000 },
+  { name:'Jessica Lorena Valencia Isaza', category:'Enterprise', value:53000000 },
+  { name:'Dilma Constanza Cuesta Rubiano', category:'Junior', value:24000000 },
+  { name:'Mario Reyes Gutierrez', category:'Master', value:32000000 },
+  { name:'Mariela Ramírez Castro', category:'Junior', value:24000000 },
+  { name:'Leidy Astrid Jimenez Ossa', category:'Enterprise', value:53000000 },
+  { name:'Javier Antonio Cortes Murcia', category:'Master', value:32000000 },
+  { name:'Maria Eugenia Cruz Herrera', category:'Master', value:32000000 },
+  { name:'Rosa Maria Mendoza Mendoza', category:'Master', value:32000000 },
+  { name:'Diana Catalina Castro Castro', category:'Enterprise', value:53000000 },
+  { name:'Cesar Augusto Cespedes Sabroso', category:'Master', value:32000000 },
+  { name:'Yurany Andrea Vargas Soler', category:'Master', value:32000000 },
+  { name:'Dafne Lizeth Ruiz Bernal', category:'Enterprise', value:53000000 },
+  { name:'Jenny Alexandra Gonzalez Buitrago', category:'Junior', value:24000000 },
+  { name:'Freddy Andres Peña Sanchez', category:'Master', value:32000000 },
+  { name:'Jair Yovanny Herrea', category:'Junior', value:24000000 },
+  { name:'Adriana Cucaita', category:'Junior', value:24000000 }
 ];
 
 function getForecastStructure(){
@@ -1920,7 +1919,7 @@ function namesMatch(a,b){
 
 function getExecutiveCuota(executiveName){
   const match = EXECUTIVE_MONTHLY_QUOTAS.find(item => namesMatch(executiveName, item.name));
-  return match ? match.value : 18000000;
+  return match ? match.value : 24000000;
 }
 
 function getExecutiveCategory(executiveName){
@@ -4106,7 +4105,7 @@ function renderGerenciaCumplimientoTable() {
 
     const execRowsHtml = execs.map((e, idx) => {
       const eCategoria = (typeof getExecutiveCategory === 'function') ? getExecutiveCategory(e) : 'Junior';
-      const eCuota = (typeof getExecutiveCuota === 'function') ? getExecutiveCuota(e) : 18000000;
+      const eCuota = (typeof getExecutiveCuota === 'function') ? getExecutiveCuota(e) : 24000000;
       const eApiData = typeof window.getApiUtilidadForEjecutivo === 'function' ? window.getApiUtilidadForEjecutivo(e, mesKey) : null;
       const eUtilidad = eApiData ? eApiData.utilidad : 0;
       const eVentas = eApiData ? eApiData.mercancia : 0;
@@ -5826,7 +5825,7 @@ function renderDirector(){
     </div>
   `;
   
-  const totalCuotaGrupo = execs.reduce((sum, e) => sum + getExecutiveCuota(e), 0) || 180000000;
+  const totalCuotaGrupo = execs.reduce((sum, e) => sum + getExecutiveCuota(e), 0) || 240000000;
   const apiDirData = typeof window.getApiUtilidadForDirector === 'function' ? window.getApiUtilidadForDirector(dir, execs, mes) : null;
   const utilidadGrupoTotal = apiDirData ? apiDirData.utilidad : (utilidadCOP + (utilidadUSD * trm));
   const pctAvanceGrupo = totalCuotaGrupo > 0 ? (utilidadGrupoTotal / totalCuotaGrupo) * 100 : 0;

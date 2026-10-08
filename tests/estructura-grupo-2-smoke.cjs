@@ -25,8 +25,7 @@ const expectedGroups = {
   ],
   3: [
     'Gina García', 'Karent Carrillo', 'Lington Linares', 'Angélica Álvarez',
-    'Andrés Peña', 'Tatiana Parra', 'Claudia Triana', 'Dilma Cuesta',
-    'Juan Martínez'
+    'Andrés Peña', 'Tatiana Parra', 'Claudia Triana', 'Dilma Cuesta'
   ],
   4: [
     'Astrid Jiménez', 'María Paola Briceño', 'Dafne Ruiz', 'Jessica Valencia',
