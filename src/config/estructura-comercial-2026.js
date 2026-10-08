@@ -91,27 +91,30 @@
       'adriana.ramirez@provexpress.com.co': {
         grupo: 1,
         nombre: 'Adriana Ramírez',
-        archivo: 'Adriana Ramírez.xlsx',
+        archivo: 'Adriana Cecilia Ramirez Muñoz.xlsx',
         aliases: [
           'Adriana Cecilia Ramirez Muñoz',
           'Adriana Cecilia Ramírez Muñoz',
           'Adriana Ramirez Muñoz',
           'Adriana Ramírez Muñoz',
           'Adriana Ramirez',
-          'Adriana Ramírez'
+          'Adriana Ramírez',
+          'Adriana Ramírez.xlsx',
+          'Adriana Ramirez.xlsx'
         ]
       },
       'oscar.morales@provexpress.com.co': {
         grupo: 1,
         nombre: 'Óscar Morales',
-        archivo: 'Oscar Morales.xlsx',
+        archivo: 'Oscar Fernando Morales Neira.xlsx',
         aliases: [
           'Oscar Fernando Morales Neira',
           'Óscar Fernando Morales Neira',
           'Oscar Fernando Morales',
           'Óscar Fernando Morales',
           'Oscar Morales',
-          'Óscar Morales'
+          'Óscar Morales',
+          'Oscar Morales.xlsx'
         ]
       },
       'angela.torres@provexpress.com.co': {
@@ -290,24 +293,26 @@
       'edgar.zapata@provexpress.com.co': {
         grupo: 4,
         nombre: 'Edgar Zapata',
-        archivo: 'Edgar Zapata.xlsx',
+        archivo: 'Edgar Zapata Rodriguez.xlsx',
         aliases: [
           'Edgar Zapata Rodriguez',
           'Edgar Zapata Rodríguez',
-          'Edgar Zapata'
+          'Edgar Zapata',
+          'Edgar Zapata.xlsx'
         ]
       },
       'juan.velasquez@provexpress.com.co': {
         grupo: 4,
         nombre: 'Juan Camilo Velásquez',
-        archivo: 'Juan Camilo Velasquez.xlsx',
+        archivo: 'Juan Camilo Velasquez Graciano.xlsx',
         aliases: [
           'Juan Camilo Velasquez Graciano',
           'Juan Camilo Velásquez Graciano',
           'Juan Camilo Velasquez',
           'Juan Camilo Velásquez',
           'Juan Velasquez',
-          'Juan Velásquez'
+          'Juan Velásquez',
+          'Juan Camilo Velasquez.xlsx'
         ]
       }
     },
