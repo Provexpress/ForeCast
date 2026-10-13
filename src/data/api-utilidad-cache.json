@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-12T11:50:47.430Z",
+  "updatedAt": "2026-10-13T11:38:53.720Z",
   "currentMonthKey": "2026-10",
   "vendedores": [
     {
@@ -32,10 +32,10 @@
     {
       "Id": "PRICz5Wo3Pw2Kv8Zl4Wo",
       "Descripcion": "Angie Tatiana Parra Durán",
-      "Valor_Mercancia": 22604696,
-      "Valor_Costo": 17021266.74,
-      "Valor_Utilidad": 5583429.26,
-      "Porcentaje_Utilidad": 24.7,
+      "Valor_Mercancia": 23405646,
+      "Valor_Costo": 17702742.67,
+      "Valor_Utilidad": 5702903.33,
+      "Porcentaje_Utilidad": 24.37,
       "Grupo_Personal": "Grupo Beltran"
     },
     {
@@ -113,10 +113,10 @@
     {
       "Id": "PRIXj8Eo6Vt2Zc3Mq2Bq",
       "Descripcion": "Gina Paola Garcia Quito",
-      "Valor_Mercancia": 41983905,
-      "Valor_Costo": 32164357.53,
-      "Valor_Utilidad": 9819547.47,
-      "Porcentaje_Utilidad": 23.39,
+      "Valor_Mercancia": 44567420,
+      "Valor_Costo": 34116909.68,
+      "Valor_Utilidad": 10450510.32,
+      "Porcentaje_Utilidad": 23.45,
       "Grupo_Personal": "Grupo Beltran"
     },
     {
@@ -302,10 +302,10 @@
     {
       "Id": "PRITb4Ak9Cg2Mc6Xa7Kb",
       "Descripcion": "Oscar Fernando Morales Neira",
-      "Valor_Mercancia": 93104946,
-      "Valor_Costo": 76850274.97,
-      "Valor_Utilidad": 16254671.03,
-      "Porcentaje_Utilidad": 17.46,
+      "Valor_Mercancia": 94870946,
+      "Valor_Costo": 78335110.17,
+      "Valor_Utilidad": 16535835.83,
+      "Porcentaje_Utilidad": 17.43,
       "Grupo_Personal": "Grupo Novoa"
     },
     {
@@ -411,7 +411,7 @@
   "meses": {
     "2026-10": {
       "fechaInicial": "2026-10-01",
-      "fechaFinal": "2026-10-12",
+      "fechaFinal": "2026-10-13",
       "totalVendedores": 45,
       "vendedores": [
         {
@@ -444,10 +444,10 @@
         {
           "Id": "PRICz5Wo3Pw2Kv8Zl4Wo",
           "Descripcion": "Angie Tatiana Parra Durán",
-          "Valor_Mercancia": 22604696,
-          "Valor_Costo": 17021266.74,
-          "Valor_Utilidad": 5583429.26,
-          "Porcentaje_Utilidad": 24.7,
+          "Valor_Mercancia": 23405646,
+          "Valor_Costo": 17702742.67,
+          "Valor_Utilidad": 5702903.33,
+          "Porcentaje_Utilidad": 24.37,
           "Grupo_Personal": "Grupo Beltran"
         },
         {
@@ -525,10 +525,10 @@
         {
           "Id": "PRIXj8Eo6Vt2Zc3Mq2Bq",
           "Descripcion": "Gina Paola Garcia Quito",
-          "Valor_Mercancia": 41983905,
-          "Valor_Costo": 32164357.53,
-          "Valor_Utilidad": 9819547.47,
-          "Porcentaje_Utilidad": 23.39,
+          "Valor_Mercancia": 44567420,
+          "Valor_Costo": 34116909.68,
+          "Valor_Utilidad": 10450510.32,
+          "Porcentaje_Utilidad": 23.45,
           "Grupo_Personal": "Grupo Beltran"
         },
         {
@@ -714,10 +714,10 @@
         {
           "Id": "PRITb4Ak9Cg2Mc6Xa7Kb",
           "Descripcion": "Oscar Fernando Morales Neira",
-          "Valor_Mercancia": 93104946,
-          "Valor_Costo": 76850274.97,
-          "Valor_Utilidad": 16254671.03,
-          "Porcentaje_Utilidad": 17.46,
+          "Valor_Mercancia": 94870946,
+          "Valor_Costo": 78335110.17,
+          "Valor_Utilidad": 16535835.83,
+          "Porcentaje_Utilidad": 17.43,
           "Grupo_Personal": "Grupo Novoa"
         },
         {
