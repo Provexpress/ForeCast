@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-17T08:28:13.467Z",
+  "updatedAt": "2026-10-18T08:46:40.778Z",
   "currentMonthKey": "2026-10",
   "vendedores": [
     {
@@ -420,7 +420,7 @@
   "meses": {
     "2026-10": {
       "fechaInicial": "2026-10-01",
-      "fechaFinal": "2026-10-17",
+      "fechaFinal": "2026-10-18",
       "totalVendedores": 46,
       "vendedores": [
         {
