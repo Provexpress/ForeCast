@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-01T11:11:20.864Z",
+  "updatedAt": "2026-11-02T12:14:14.216Z",
   "currentMonthKey": "2026-11",
   "vendedores": [],
   "meses": {
@@ -3918,7 +3918,7 @@
     },
     "2026-11": {
       "fechaInicial": "2026-11-01",
-      "fechaFinal": "2026-11-01",
+      "fechaFinal": "2026-11-02",
       "totalVendedores": 0,
       "vendedores": []
     }
