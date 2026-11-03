@@ -1,7 +1,71 @@
 {
-  "updatedAt": "2026-11-02T12:14:14.216Z",
+  "updatedAt": "2026-11-03T11:49:02.634Z",
   "currentMonthKey": "2026-11",
-  "vendedores": [],
+  "vendedores": [
+    {
+      "Id": "PRIPz0Ah0Pp9Po0Wm9Rt",
+      "Descripcion": "Lington Linares Linares",
+      "Valor_Mercancia": 5046000,
+      "Valor_Costo": 4265138.2,
+      "Valor_Utilidad": 780861.8,
+      "Porcentaje_Utilidad": 15.47,
+      "Grupo_Personal": "Grupo Beltran"
+    },
+    {
+      "Id": "PRIFt4Vl2Oz4Oo5Az1Th",
+      "Descripcion": "Jair Yovanny Herrea",
+      "Valor_Mercancia": 177816000,
+      "Valor_Costo": 158508432.8,
+      "Valor_Utilidad": 19307567.2,
+      "Porcentaje_Utilidad": 10.86,
+      "Grupo_Personal": "Grupo Caballero"
+    },
+    {
+      "Id": "PRIFz5Ei1Wk0Kv3Qs5Vl",
+      "Descripcion": "Fernando Alberto Quiñonez",
+      "Valor_Mercancia": 14578300,
+      "Valor_Costo": 11431366.24,
+      "Valor_Utilidad": 3146933.76,
+      "Porcentaje_Utilidad": 21.59,
+      "Grupo_Personal": "Grupo Caballero"
+    },
+    {
+      "Id": "PRIIc3Ot9Zh9Tn1Kp7Wk",
+      "Descripcion": "Maria Alejandra Velásquez Espinosa",
+      "Valor_Mercancia": 14820200,
+      "Valor_Costo": 12394212.33,
+      "Valor_Utilidad": 2425987.67,
+      "Porcentaje_Utilidad": 16.37,
+      "Grupo_Personal": "Grupo Caballero"
+    },
+    {
+      "Id": "PRIJu3Tk9Wh4Sa6Rp2If",
+      "Descripcion": "Maria Eugenia Cruz Herrera",
+      "Valor_Mercancia": 324800,
+      "Valor_Costo": 167124.5,
+      "Valor_Utilidad": 157675.5,
+      "Porcentaje_Utilidad": 48.55,
+      "Grupo_Personal": "Grupo Novoa"
+    },
+    {
+      "Id": "PRIWu6Pc6Ym2Ct6Ep8Fs",
+      "Descripcion": "Diana Catalina Castro Castro",
+      "Valor_Mercancia": 13533200,
+      "Valor_Costo": 10889568.08,
+      "Valor_Utilidad": 2643631.92,
+      "Porcentaje_Utilidad": 19.53,
+      "Grupo_Personal": "Grupo Romero"
+    },
+    {
+      "Id": "PRIZd9Wp9Za8Hg5Lj2Sw",
+      "Descripcion": "Jhonatan Steven Acevedo Fonseca",
+      "Valor_Mercancia": 1550000,
+      "Valor_Costo": 1253450,
+      "Valor_Utilidad": 296550,
+      "Porcentaje_Utilidad": 19.13,
+      "Grupo_Personal": "Grupo Romero"
+    }
+  ],
   "meses": {
     "2026-10": {
       "fechaInicial": "2026-10-01",
@@ -3918,9 +3982,73 @@
     },
     "2026-11": {
       "fechaInicial": "2026-11-01",
-      "fechaFinal": "2026-11-02",
-      "totalVendedores": 0,
-      "vendedores": []
+      "fechaFinal": "2026-11-03",
+      "totalVendedores": 7,
+      "vendedores": [
+        {
+          "Id": "PRIPz0Ah0Pp9Po0Wm9Rt",
+          "Descripcion": "Lington Linares Linares",
+          "Valor_Mercancia": 5046000,
+          "Valor_Costo": 4265138.2,
+          "Valor_Utilidad": 780861.8,
+          "Porcentaje_Utilidad": 15.47,
+          "Grupo_Personal": "Grupo Beltran"
+        },
+        {
+          "Id": "PRIFt4Vl2Oz4Oo5Az1Th",
+          "Descripcion": "Jair Yovanny Herrea",
+          "Valor_Mercancia": 177816000,
+          "Valor_Costo": 158508432.8,
+          "Valor_Utilidad": 19307567.2,
+          "Porcentaje_Utilidad": 10.86,
+          "Grupo_Personal": "Grupo Caballero"
+        },
+        {
+          "Id": "PRIFz5Ei1Wk0Kv3Qs5Vl",
+          "Descripcion": "Fernando Alberto Quiñonez",
+          "Valor_Mercancia": 14578300,
+          "Valor_Costo": 11431366.24,
+          "Valor_Utilidad": 3146933.76,
+          "Porcentaje_Utilidad": 21.59,
+          "Grupo_Personal": "Grupo Caballero"
+        },
+        {
+          "Id": "PRIIc3Ot9Zh9Tn1Kp7Wk",
+          "Descripcion": "Maria Alejandra Velásquez Espinosa",
+          "Valor_Mercancia": 14820200,
+          "Valor_Costo": 12394212.33,
+          "Valor_Utilidad": 2425987.67,
+          "Porcentaje_Utilidad": 16.37,
+          "Grupo_Personal": "Grupo Caballero"
+        },
+        {
+          "Id": "PRIJu3Tk9Wh4Sa6Rp2If",
+          "Descripcion": "Maria Eugenia Cruz Herrera",
+          "Valor_Mercancia": 324800,
+          "Valor_Costo": 167124.5,
+          "Valor_Utilidad": 157675.5,
+          "Porcentaje_Utilidad": 48.55,
+          "Grupo_Personal": "Grupo Novoa"
+        },
+        {
+          "Id": "PRIWu6Pc6Ym2Ct6Ep8Fs",
+          "Descripcion": "Diana Catalina Castro Castro",
+          "Valor_Mercancia": 13533200,
+          "Valor_Costo": 10889568.08,
+          "Valor_Utilidad": 2643631.92,
+          "Porcentaje_Utilidad": 19.53,
+          "Grupo_Personal": "Grupo Romero"
+        },
+        {
+          "Id": "PRIZd9Wp9Za8Hg5Lj2Sw",
+          "Descripcion": "Jhonatan Steven Acevedo Fonseca",
+          "Valor_Mercancia": 1550000,
+          "Valor_Costo": 1253450,
+          "Valor_Utilidad": 296550,
+          "Porcentaje_Utilidad": 19.13,
+          "Grupo_Personal": "Grupo Romero"
+        }
+      ]
     }
   }
 }
