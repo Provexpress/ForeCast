@@ -355,6 +355,19 @@
       'oscar.perez@provexpress.com.co': {
         nombre: 'Oscar Orlando Perez Mejia'
       }
+    },
+    preventa: {
+      'jorge.sepulveda@provexpress.com.co': {
+        nombre: 'Jorge Sepúlveda Garavito',
+        archivo: 'Jorge Sepulveda Garavito.xlsx',
+        aliases: [
+          'Jorge Sepulveda Garavito',
+          'Jorge Sepúlveda Garavito',
+          'Jorge Sepulveda',
+          'Jorge Sepúlveda',
+          'Jorge Sepulveda Garavito.xlsx'
+        ]
+      }
     }
   };
 
@@ -423,6 +436,7 @@
     if(ESTRUCTURA_COMERCIAL_2026.salesSupport[normalized]) return 'sales_support';
     if(ESTRUCTURA_COMERCIAL_2026.salesSupportComerciales[normalized]) return 'sales_support_comercial';
     if(ESTRUCTURA_COMERCIAL_2026.glpiOnly && ESTRUCTURA_COMERCIAL_2026.glpiOnly[normalized]) return 'glpi_only';
+    if(ESTRUCTURA_COMERCIAL_2026.preventa && ESTRUCTURA_COMERCIAL_2026.preventa[normalized]) return 'preventa';
     return null;
   }
 
@@ -435,6 +449,72 @@
   function getGlpiUserDisplayNameByEmail(email){
     const user = getGlpiUserByEmail(email);
     return user ? user.nombre : '';
+  }
+
+  function getPreventaEntries(){
+    return Object.entries(ESTRUCTURA_COMERCIAL_2026.preventa || {});
+  }
+
+  function getPreventaByEmail(email){
+    const normalized = normalizeEmail(email);
+    const data = ESTRUCTURA_COMERCIAL_2026.preventa ? ESTRUCTURA_COMERCIAL_2026.preventa[normalized] : null;
+    return data ? { email: normalized, ...data } : null;
+  }
+
+  function getPreventaDisplayNameByEmail(email){
+    const user = getPreventaByEmail(email);
+    return user ? user.nombre : '';
+  }
+
+  function getPreventaFileByEmail(email){
+    const user = getPreventaByEmail(email);
+    return user ? user.archivo : '';
+  }
+
+  function getPreventaFileBaseByEmail(email){
+    return fileBaseName(getPreventaFileByEmail(email));
+  }
+
+  function getPreventaMatchNamesByEmail(email){
+    const user = getPreventaByEmail(email);
+    if(!user) return [];
+    const aliases = Array.isArray(user.aliases) ? user.aliases : [];
+    return [...new Set([user.nombre, fileBaseName(user.archivo), ...aliases].filter(Boolean))];
+  }
+
+  function getPreventaEmailByName(name){
+    const target = normalizeName(name);
+    if(!target) return '';
+    const targetPhon = target.replace(/y/g, 'i').replace(/b/g, 'v').replace(/rr/g, 'r').replace(/nn/g, 'n');
+    const entry = getPreventaEntries().find(([, data]) => {
+      if(normalizeName(data.nombre) === target || normalizeName(fileBaseName(data.archivo)) === target) {
+        return true;
+      }
+      if(Array.isArray(data.aliases) && data.aliases.some(a => normalizeName(a) === target)) {
+        return true;
+      }
+      const dataNorm = normalizeName(data.nombre);
+      const dataPhon = dataNorm.replace(/y/g, 'i').replace(/b/g, 'v').replace(/rr/g, 'r').replace(/nn/g, 'n');
+      if(dataPhon === targetPhon) return true;
+      if(Array.isArray(data.aliases)) {
+        for(const a of data.aliases) {
+          const aPhon = normalizeName(a).replace(/y/g, 'i').replace(/b/g, 'v').replace(/rr/g, 'r').replace(/nn/g, 'n');
+          if(aPhon === targetPhon) return true;
+        }
+      }
+      return false;
+    });
+    return entry ? entry[0] : '';
+  }
+
+  function canonicalizePreventaName(name){
+    if(!name) return '';
+    const email = getPreventaEmailByName(name);
+    if(email) {
+      const display = getPreventaDisplayNameByEmail(email);
+      if(display) return display;
+    }
+    return String(name).trim();
   }
 
   function getGroupByEmail(email){
@@ -635,10 +715,19 @@
     getSupportScopeByEmail,
     getVisibleExecutiveNamesBySupport,
     getGlpiUserByEmail,
-    getGlpiUserDisplayNameByEmail
+    getGlpiUserDisplayNameByEmail,
+    getPreventaEntries,
+    getPreventaByEmail,
+    getPreventaDisplayNameByEmail,
+    getPreventaFileByEmail,
+    getPreventaFileBaseByEmail,
+    getPreventaMatchNamesByEmail,
+    getPreventaEmailByName,
+    canonicalizePreventaName
   };
 
   window.ESTRUCTURA_COMERCIAL_2026 = ESTRUCTURA_COMERCIAL_2026;
+  window.canonicalizePreventaName = canonicalizePreventaName;
   window.FORECAST_STRUCTURE = helpers;
   window.canonicalizeExecutiveName = canonicalizeExecutiveName;
   window.normalizeEmail = normalizeEmail;

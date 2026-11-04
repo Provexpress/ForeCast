@@ -360,7 +360,8 @@ function getRoleLabel(role) {
     ejecutivo: 'Ejecutivo',
     sales_support: 'Sales Support',
     sales_support_comercial: 'Sales Support · Comercial',
-    glpi_only: 'Tickets GLPI'
+    glpi_only: 'Tickets GLPI',
+    preventa: 'Preventa'
   })[role] || role || '';
 }
 function formatLastConnection(value) {
@@ -1891,6 +1892,11 @@ function namesMatch(a,b){
     const emailB = structure.getExecutiveEmailByName(b);
     if(emailA && emailB && emailA === emailB) return true;
   }
+  if(structure.getPreventaEmailByName) {
+    const pEmailA = structure.getPreventaEmailByName(a);
+    const pEmailB = structure.getPreventaEmailByName(b);
+    if(pEmailA && pEmailB && pEmailA === pEmailB) return true;
+  }
 
   // 2. Permite casos como "dayana chala" vs "dayana chala perez"
   if((na.includes(nb) || nb.includes(na)) && Math.min(na.length, nb.length) >= 8) {
@@ -2884,7 +2890,7 @@ function getVisibleSalesData() {
     const targetDirector = normalizePersonName(directorGroup);
     return SALES_DATA.filter(r => normalizePersonName(r['DIRECTOR']) === targetDirector);
   }
-  if(role === 'ejecutivo') return [];
+  if(role === 'ejecutivo' || role === 'preventa' || role === 'glpi_only') return [];
   return SALES_DATA;
 }
 
@@ -2901,7 +2907,7 @@ function getVisibleSalesPendingData() {
     const targetDirector = normalizePersonName(directorGroup);
     return SALES_PENDING_DATA.filter(r => normalizePersonName(r['DIRECTOR']) === targetDirector);
   }
-  if(role === 'ejecutivo') return [];
+  if(role === 'ejecutivo' || role === 'preventa' || role === 'glpi_only') return [];
   return SALES_PENDING_DATA;
 }
 
@@ -2911,7 +2917,7 @@ function getPreventaName(row){
 
 function getVisiblePreventaData() {
   if(!CURRENT_USER) return PREVENTA_DATA;
-  if(isSalesSupportRole(CURRENT_USER.role) || CURRENT_USER.role === 'ejecutivo' || CURRENT_USER.role === 'director') return [];
+  if(isSalesSupportRole(CURRENT_USER.role) || CURRENT_USER.role === 'ejecutivo' || CURRENT_USER.role === 'director' || CURRENT_USER.role === 'glpi_only') return [];
   return PREVENTA_DATA;
 }
 
@@ -3110,6 +3116,10 @@ function setPageEmptyState(pageId, visible){
 function showPage(id,btn){
   if(CURRENT_USER && CURRENT_USER.role === 'glpi_only' && id !== 'glpi') {
     console.warn('[AUTH] acceso denegado a otra vista para rol glpi_only');
+    return;
+  }
+  if(CURRENT_USER && CURRENT_USER.role === 'preventa' && id !== 'preventa' && id !== 'negocio') {
+    console.warn('[AUTH] acceso denegado a otra vista para rol preventa');
     return;
   }
   if(id === 'programas' && (!window.ProgramChannelModule || !window.ProgramChannelModule.canAccess())) {
@@ -6792,10 +6802,19 @@ function renderPreventa(){
   const namesFromFiles = (LOADED_PREVENTA_FILES || []).map(f=>f.name).filter(Boolean);
   const allNames = [...new Set([...namesFromData, ...namesFromFiles])].sort((a,b)=>a.localeCompare(b,'es'));
 
+  const userMatchedName = (CURRENT_USER && CURRENT_USER.name)
+    ? allNames.find(n => namesMatch(n, CURRENT_USER.name))
+    : null;
+
   const current = selPreventa.value;
   selPreventa.innerHTML = buildOptionList(allNames);
-  if(current && allNames.includes(current)) selPreventa.value = current;
-  else if(allNames[0]) selPreventa.value = allNames[0];
+  if(current && allNames.includes(current)) {
+    selPreventa.value = current;
+  } else if(userMatchedName) {
+    selPreventa.value = userMatchedName;
+  } else if(allNames[0]) {
+    selPreventa.value = allNames[0];
+  }
 
   if(!allNames.length){
     grid.innerHTML = '';
@@ -7445,7 +7464,9 @@ async function loadFolderFromSharePoint() {
     LOADED_SALES_BY_SUPPORT = {};
     LOADED_PREVENTA_FILES = [];
 
-    if(isSalesSupportRole(role)) {
+    if(role === 'preventa') {
+      await loadPreventaFolder(siteId, filesToken);
+    } else if(isSalesSupportRole(role)) {
       await loadForecastDataForSupport(siteId, filesToken);
       try {
         await loadSalesSupportFiles(siteId, filesToken);
@@ -7954,8 +7975,11 @@ async function loadPreventaSpFile(item, dirName) {
     const buf = await (await fetch(url)).arrayBuffer();
     const wb = XLSX.read(buf, { type:'array', cellDates:true });
     const records = parseWorkbookMainRecords(wb, item, dirName, 'preventa');
+    const fallbackName = item.name.replace(/\.(xlsx|xls)$/i,'').trim();
+    const structure = getForecastStructure();
     records.forEach(record => {
-      record['PREVENTA'] = cleanDisplayText(record['COMERCIAL'], item.name.replace(/\.(xlsx|xls)$/i,'').trim());
+      const rawName = cleanDisplayText(record['PREVENTA'] || record['COMERCIAL'], fallbackName);
+      record['PREVENTA'] = structure.canonicalizePreventaName ? structure.canonicalizePreventaName(rawName) : rawName;
     });
     console.log('[PREVENTA PARSE SP]', item.name, 'rows:', records.length);
     return records;
@@ -7990,7 +8014,9 @@ async function loadPreventaFolder(siteId, token) {
   await runWithConcurrencyLimit(files, FILE_LOAD_CONCURRENCY, async item => {
     updateLoadingStatus('Leyendo preventa: ' + item.name);
     const recs = await loadPreventaSpFile(item, normalizeDirectorName(PREVENTA_FOLDER_NAME));
-    const name = cleanNameSegment(item.name.replace(/\.(xlsx|xls)$/i,'').trim());
+    const rawName = cleanNameSegment(item.name.replace(/\.(xlsx|xls)$/i,'').trim());
+    const structure = getForecastStructure();
+    const name = structure.canonicalizePreventaName ? structure.canonicalizePreventaName(rawName) : rawName;
     LOADED_PREVENTA_FILES.push({ name, file: item.name });
     PREVENTA_DATA.push(...recs);
   });
@@ -8508,6 +8534,20 @@ function applyRoleTabs() {
     tabs.fondos    && (tabs.fondos.style.display    = 'none');
     tabs.glpi      && (tabs.glpi.style.display      = '');
     showPage('glpi', tabs.glpi);
+  } else if(role === 'preventa') {
+    tabs.gerencia  && (tabs.gerencia.style.display  = 'none');
+    tabs.director  && (tabs.director.style.display  = 'none');
+    tabs.ejecutivo && (tabs.ejecutivo.style.display = 'none');
+    tabs.sales     && (tabs.sales.style.display     = 'none');
+    tabs.divisas   && (tabs.divisas.style.display   = 'none');
+    tabs.marcas    && (tabs.marcas.style.display    = 'none');
+    tabs.resumen   && (tabs.resumen.style.display   = 'none');
+    tabs.finanzas  && (tabs.finanzas.style.display  = 'none');
+    tabs.programas && (tabs.programas.style.display = 'none');
+    tabs.fondos    && (tabs.fondos.style.display    = 'none');
+    tabs.glpi      && (tabs.glpi.style.display      = 'none');
+    tabs.preventa  && (tabs.preventa.style.display  = '');
+    showPage('preventa', tabs.preventa);
   } else if(isSalesSupportRole(role)) {
     tabs.gerencia && (tabs.gerencia.style.display = 'none');
     tabs.director && (tabs.director.style.display = 'none');

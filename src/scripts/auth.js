@@ -230,6 +230,9 @@ function getConfiguredUserName(email, role){
   if(role === 'glpi_only' && structure.getGlpiUserDisplayNameByEmail) {
     return structure.getGlpiUserDisplayNameByEmail(email) || '';
   }
+  if(role === 'preventa' && structure.getPreventaDisplayNameByEmail) {
+    return structure.getPreventaDisplayNameByEmail(email) || '';
+  }
   return '';
 }
 
@@ -290,7 +293,8 @@ function showUserBadge() {
     ejecutivo: 'Ejecutivo',
     sales_support: 'Sales Support',
     sales_support_comercial: 'Sales Support · Comercial',
-    glpi_only: 'Tickets GLPI'
+    glpi_only: 'Tickets GLPI',
+    preventa: 'Preventa'
   };
   let roleText = roleLabels[CURRENT_USER.role] || CURRENT_USER.role || 'Sin permisos';
   if(CURRENT_USER.role === 'sales_support' && CURRENT_USER.supportScope === 'unit') roleText = 'Sales Support · Unidad';
@@ -391,11 +395,12 @@ function switchView(buttonEl, role, directorGroup, nameOverride) {
   applyRoleTabs();
   // Update role badge
   const rb = document.getElementById('user-role-badge');
-  const roleLabels = {gerencia:'Gerencia',director:'Director',ejecutivo:'Ejecutivo',sales_support:'Sales Support',sales_support_comercial:'Sales Support · Comercial'};
+  const roleLabels = {gerencia:'Gerencia',director:'Director',ejecutivo:'Ejecutivo',sales_support:'Sales Support',sales_support_comercial:'Sales Support · Comercial',glpi_only:'Tickets GLPI',preventa:'Preventa'};
   let tail = '';
   if(role === 'director' && directorGroup) tail = ' · '+directorGroup.split(' ')[0];
   if(role === 'ejecutivo' && viewName) tail = ' · '+viewName.split(' ')[0];
   if((role === 'sales_support' || role === 'sales_support_comercial') && viewName) tail = ' · '+viewName.split(' ')[0];
+  if(role === 'preventa' && viewName) tail = ' · '+viewName.split(' ')[0];
   if(rb) rb.textContent = (roleLabels[role]||role) + tail + ' ⚙';
   // Highlight active button
   document.querySelectorAll('.view-opt-btn').forEach(b => b.classList.remove('active'));
