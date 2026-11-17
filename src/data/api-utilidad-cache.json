@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-16T12:36:37.618Z",
+  "updatedAt": "2026-11-17T13:03:52.148Z",
   "currentMonthKey": "2026-11",
   "vendedores": [
     {
@@ -176,10 +176,10 @@
     {
       "Id": "PRIFz5Ei1Wk0Kv3Qs5Vl",
       "Descripcion": "Fernando Alberto Quiñonez",
-      "Valor_Mercancia": 245540061.73,
-      "Valor_Costo": 211288392.06,
-      "Valor_Utilidad": 34251669.67,
-      "Porcentaje_Utilidad": 13.95,
+      "Valor_Mercancia": 245911261.73,
+      "Valor_Costo": 211587248.06,
+      "Valor_Utilidad": 34324013.67,
+      "Porcentaje_Utilidad": 13.96,
       "Grupo_Personal": "Grupo Caballero"
     },
     {
@@ -239,9 +239,9 @@
     {
       "Id": "PRIFx4Dm6Qn2Bc9Xn8Bb",
       "Descripcion": "Mario Reyes Gutierrez",
-      "Valor_Mercancia": 79108290,
-      "Valor_Costo": 63951338.39,
-      "Valor_Utilidad": 15156951.61,
+      "Valor_Mercancia": 80568630,
+      "Valor_Costo": 65131679.5,
+      "Valor_Utilidad": 15436950.5,
       "Porcentaje_Utilidad": 19.16,
       "Grupo_Personal": "Grupo Novoa"
     },
@@ -4315,7 +4315,7 @@
     },
     "2026-11": {
       "fechaInicial": "2026-11-01",
-      "fechaFinal": "2026-11-16",
+      "fechaFinal": "2026-11-17",
       "totalVendedores": 44,
       "vendedores": [
         {
@@ -4492,10 +4492,10 @@
         {
           "Id": "PRIFz5Ei1Wk0Kv3Qs5Vl",
           "Descripcion": "Fernando Alberto Quiñonez",
-          "Valor_Mercancia": 245540061.73,
-          "Valor_Costo": 211288392.06,
-          "Valor_Utilidad": 34251669.67,
-          "Porcentaje_Utilidad": 13.95,
+          "Valor_Mercancia": 245911261.73,
+          "Valor_Costo": 211587248.06,
+          "Valor_Utilidad": 34324013.67,
+          "Porcentaje_Utilidad": 13.96,
           "Grupo_Personal": "Grupo Caballero"
         },
         {
@@ -4555,9 +4555,9 @@
         {
           "Id": "PRIFx4Dm6Qn2Bc9Xn8Bb",
           "Descripcion": "Mario Reyes Gutierrez",
-          "Valor_Mercancia": 79108290,
-          "Valor_Costo": 63951338.39,
-          "Valor_Utilidad": 15156951.61,
+          "Valor_Mercancia": 80568630,
+          "Valor_Costo": 65131679.5,
+          "Valor_Utilidad": 15436950.5,
           "Porcentaje_Utilidad": 19.16,
           "Grupo_Personal": "Grupo Novoa"
         },
