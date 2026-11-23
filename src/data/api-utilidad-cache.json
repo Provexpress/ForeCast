@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-22T12:27:27.762Z",
+  "updatedAt": "2026-11-23T14:20:39.888Z",
   "currentMonthKey": "2026-11",
   "vendedores": [
     {
@@ -329,9 +329,9 @@
     {
       "Id": "PRIAz5It9Sz3Qs4Xz8Yy",
       "Descripcion": "Dafne Lizeth Ruiz Bernal",
-      "Valor_Mercancia": 569582526,
-      "Valor_Costo": 520106764.18,
-      "Valor_Utilidad": 49475761.82,
+      "Valor_Mercancia": 572496964,
+      "Valor_Costo": 522732131.79,
+      "Valor_Utilidad": 49764832.21,
       "Porcentaje_Utilidad": 8.69,
       "Grupo_Personal": "Grupo Romero"
     },
@@ -4324,7 +4324,7 @@
     },
     "2026-11": {
       "fechaInicial": "2026-11-01",
-      "fechaFinal": "2026-11-22",
+      "fechaFinal": "2026-11-23",
       "totalVendedores": 45,
       "vendedores": [
         {
@@ -4654,9 +4654,9 @@
         {
           "Id": "PRIAz5It9Sz3Qs4Xz8Yy",
           "Descripcion": "Dafne Lizeth Ruiz Bernal",
-          "Valor_Mercancia": 569582526,
-          "Valor_Costo": 520106764.18,
-          "Valor_Utilidad": 49475761.82,
+          "Valor_Mercancia": 572496964,
+          "Valor_Costo": 522732131.79,
+          "Valor_Utilidad": 49764832.21,
           "Porcentaje_Utilidad": 8.69,
           "Grupo_Personal": "Grupo Romero"
         },
