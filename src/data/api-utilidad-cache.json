@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-24T14:44:15.841Z",
+  "updatedAt": "2026-11-25T14:07:10.625Z",
   "currentMonthKey": "2026-11",
   "vendedores": [
     {
@@ -77,19 +77,19 @@
     {
       "Id": "PRILi1Ea7Oh5Db3Gu3Gc",
       "Descripcion": "Maria Angelica Alvarez Morales",
-      "Valor_Mercancia": 796552487.29,
-      "Valor_Costo": 651253421.96,
-      "Valor_Utilidad": 145299065.33,
-      "Porcentaje_Utilidad": 18.24,
+      "Valor_Mercancia": 807778037.29,
+      "Valor_Costo": 661729206.81,
+      "Valor_Utilidad": 146048830.48,
+      "Porcentaje_Utilidad": 18.08,
       "Grupo_Personal": "Grupo Beltran"
     },
     {
       "Id": "PRIMu7Hg6Pj0Wy0Oj7Ms",
       "Descripcion": "Oscar Alejandro Beltran Garzon",
-      "Valor_Mercancia": 28294599.2,
-      "Valor_Costo": 21995312.92,
-      "Valor_Utilidad": 6299286.28,
-      "Porcentaje_Utilidad": 22.26,
+      "Valor_Mercancia": 35020953.2,
+      "Valor_Costo": 27414630.63,
+      "Valor_Utilidad": 7606322.57,
+      "Porcentaje_Utilidad": 21.72,
       "Grupo_Personal": "Grupo Beltran"
     },
     {
@@ -104,10 +104,10 @@
     {
       "Id": "PRIRe3Ey3Fu2Qn7Rg5Rp",
       "Descripcion": "Dilma Constanza Cuesta Rubiano",
-      "Valor_Mercancia": 213477458.8,
-      "Valor_Costo": 174428894.45,
-      "Valor_Utilidad": 39048564.35,
-      "Porcentaje_Utilidad": 18.29,
+      "Valor_Mercancia": 213566288.8,
+      "Valor_Costo": 174491515.52,
+      "Valor_Utilidad": 39074773.28,
+      "Porcentaje_Utilidad": 18.3,
       "Grupo_Personal": "Grupo Beltran"
     },
     {
@@ -131,19 +131,19 @@
     {
       "Id": "PRIBp9Qy8Kv3Av2Nq8Oz",
       "Descripcion": "Angela Rocio Torres Matallana",
-      "Valor_Mercancia": 152744687,
-      "Valor_Costo": 136111129.6,
-      "Valor_Utilidad": 16633557.4,
+      "Valor_Mercancia": 154299087,
+      "Valor_Costo": 137495897.6,
+      "Valor_Utilidad": 16803189.4,
       "Porcentaje_Utilidad": 10.89,
       "Grupo_Personal": "Grupo Caballero"
     },
     {
       "Id": "PRIDd7Fx9Wd2Kx8Fm8Rf",
       "Descripcion": "Johanna Jaime Murcia",
-      "Valor_Mercancia": 212245223.99,
-      "Valor_Costo": 178547127.61,
-      "Valor_Utilidad": 33698096.38,
-      "Porcentaje_Utilidad": 15.88,
+      "Valor_Mercancia": 216545223.99,
+      "Valor_Costo": 182309976.73,
+      "Valor_Utilidad": 34235247.26,
+      "Porcentaje_Utilidad": 15.81,
       "Grupo_Personal": "Grupo Caballero"
     },
     {
@@ -158,19 +158,19 @@
     {
       "Id": "PRIEe9Kb0Bb6Kq8Vc0Lv",
       "Descripcion": "Cesar Augusto Cespedes Sabroso",
-      "Valor_Mercancia": 85284339,
-      "Valor_Costo": 73992583.15,
-      "Valor_Utilidad": 11291755.85,
-      "Porcentaje_Utilidad": 13.24,
+      "Valor_Mercancia": 88984059,
+      "Valor_Costo": 76864636.9,
+      "Valor_Utilidad": 12119422.1,
+      "Porcentaje_Utilidad": 13.62,
       "Grupo_Personal": "Grupo Caballero"
     },
     {
       "Id": "PRIEi8Cc1Ry6Iw3Um3Vj",
       "Descripcion": "Daniel Galindo Giron",
-      "Valor_Mercancia": 175498339,
-      "Valor_Costo": 149360727.87,
-      "Valor_Utilidad": 26137611.13,
-      "Porcentaje_Utilidad": 14.89,
+      "Valor_Mercancia": 200176339,
+      "Valor_Costo": 169732058.18,
+      "Valor_Utilidad": 30444280.82,
+      "Porcentaje_Utilidad": 15.21,
       "Grupo_Personal": "Grupo Caballero"
     },
     {
@@ -230,37 +230,37 @@
     {
       "Id": "PRIAk3Nu3Uv2Gl1Gy5Xn",
       "Descripcion": "Julieth Milena Galindo Fino",
-      "Valor_Mercancia": 120607336.04,
-      "Valor_Costo": 106828095.95,
-      "Valor_Utilidad": 13779240.09,
-      "Porcentaje_Utilidad": 11.42,
+      "Valor_Mercancia": 120750796.04,
+      "Valor_Costo": 106934367.4,
+      "Valor_Utilidad": 13816428.64,
+      "Porcentaje_Utilidad": 11.44,
       "Grupo_Personal": "Grupo Novoa"
     },
     {
       "Id": "PRIDn1Mq8Zg0Ho7Ot0Uh",
       "Descripcion": "Mariela Ramírez Castro",
-      "Valor_Mercancia": 55615516,
-      "Valor_Costo": 47188997.78,
-      "Valor_Utilidad": 8426518.22,
-      "Porcentaje_Utilidad": 15.15,
+      "Valor_Mercancia": 56821516,
+      "Valor_Costo": 48168652.78,
+      "Valor_Utilidad": 8652863.22,
+      "Porcentaje_Utilidad": 15.23,
       "Grupo_Personal": "Grupo Novoa"
     },
     {
       "Id": "PRIFx4Dm6Qn2Bc9Xn8Bb",
       "Descripcion": "Mario Reyes Gutierrez",
-      "Valor_Mercancia": 101327891,
-      "Valor_Costo": 82417388.78,
-      "Valor_Utilidad": 18910502.22,
-      "Porcentaje_Utilidad": 18.66,
+      "Valor_Mercancia": 111222891,
+      "Valor_Costo": 91437181.78,
+      "Valor_Utilidad": 19785709.22,
+      "Porcentaje_Utilidad": 17.79,
       "Grupo_Personal": "Grupo Novoa"
     },
     {
       "Id": "PRIGs4Jk3Cw1Ky5Ax7Gc",
       "Descripcion": "Rosmira Rojas Puentes",
-      "Valor_Mercancia": 120357556,
-      "Valor_Costo": 102529384.92,
-      "Valor_Utilidad": 17828171.08,
-      "Porcentaje_Utilidad": 14.81,
+      "Valor_Mercancia": 123876582,
+      "Valor_Costo": 105253175.07,
+      "Valor_Utilidad": 18623406.93,
+      "Porcentaje_Utilidad": 15.03,
       "Grupo_Personal": "Grupo Novoa"
     },
     {
@@ -284,10 +284,10 @@
     {
       "Id": "PRIMb5Ds5Nm0Qx0Sj4Yu",
       "Descripcion": "Adriana Cecilia Ramirez Muñoz",
-      "Valor_Mercancia": 65709146,
-      "Valor_Costo": 58620697.66,
-      "Valor_Utilidad": 7088448.34,
-      "Porcentaje_Utilidad": 10.79,
+      "Valor_Mercancia": 99613458,
+      "Valor_Costo": 85837462.35,
+      "Valor_Utilidad": 13775995.65,
+      "Porcentaje_Utilidad": 13.83,
       "Grupo_Personal": "Grupo Novoa"
     },
     {
@@ -311,19 +311,19 @@
     {
       "Id": "PRIUe3Up1Mt8Lp6Ui2Oy",
       "Descripcion": "Javier Antonio Cortes Murcia",
-      "Valor_Mercancia": 85919550,
-      "Valor_Costo": 68654589.38,
-      "Valor_Utilidad": 17264960.62,
-      "Porcentaje_Utilidad": 20.09,
+      "Valor_Mercancia": 86156350,
+      "Valor_Costo": 68856766.82,
+      "Valor_Utilidad": 17299583.18,
+      "Porcentaje_Utilidad": 20.08,
       "Grupo_Personal": "Grupo Novoa"
     },
     {
       "Id": "PRIWo4Qc9Hp0Gq3At2Jp",
       "Descripcion": "Wilson Fernando Sanchez Monroy",
-      "Valor_Mercancia": 83477651.5,
-      "Valor_Costo": 66304452.08,
-      "Valor_Utilidad": 17173199.42,
-      "Porcentaje_Utilidad": 20.57,
+      "Valor_Mercancia": 86893471.5,
+      "Valor_Costo": 69336025.93,
+      "Valor_Utilidad": 17557445.57,
+      "Porcentaje_Utilidad": 20.21,
       "Grupo_Personal": "Grupo Novoa"
     },
     {
@@ -338,19 +338,19 @@
     {
       "Id": "PRIBf4De8Hh5Nn1Ti1Pi",
       "Descripcion": "Yeison Alonso Urrego Cortes",
-      "Valor_Mercancia": 1388825899.77,
-      "Valor_Costo": 1225268814.96,
-      "Valor_Utilidad": 163557084.81,
+      "Valor_Mercancia": 1389135899.77,
+      "Valor_Costo": 1225471457.76,
+      "Valor_Utilidad": 163664442.01,
       "Porcentaje_Utilidad": 11.78,
       "Grupo_Personal": "Grupo Romero"
     },
     {
       "Id": "PRINu8Wn6Kf3En1Fs4Ip",
       "Descripcion": "Leidy Astrid Jimenez Ossa",
-      "Valor_Mercancia": 362991462.24,
-      "Valor_Costo": 318904716.99,
-      "Valor_Utilidad": 44086745.25,
-      "Porcentaje_Utilidad": 12.15,
+      "Valor_Mercancia": 365305062.24,
+      "Valor_Costo": 320824716.99,
+      "Valor_Utilidad": 44480345.25,
+      "Porcentaje_Utilidad": 12.18,
       "Grupo_Personal": "Grupo Romero"
     },
     {
@@ -383,28 +383,28 @@
     {
       "Id": "PRIWu6Pc6Ym2Ct6Ep8Fs",
       "Descripcion": "Diana Catalina Castro Castro",
-      "Valor_Mercancia": 236164978.12,
-      "Valor_Costo": 207744648.39,
-      "Valor_Utilidad": 28420329.73,
-      "Porcentaje_Utilidad": 12.03,
+      "Valor_Mercancia": 240171138.12,
+      "Valor_Costo": 210539220.12,
+      "Valor_Utilidad": 29631918,
+      "Porcentaje_Utilidad": 12.34,
       "Grupo_Personal": "Grupo Romero"
     },
     {
       "Id": "PRIXn6Df1Ys1Ru6Zo7Yi",
       "Descripcion": "Jessica Lorena Valencia Isaza",
-      "Valor_Mercancia": 171545030.99,
-      "Valor_Costo": 143564957.77,
-      "Valor_Utilidad": 27980073.22,
-      "Porcentaje_Utilidad": 16.31,
+      "Valor_Mercancia": 184150132.87,
+      "Valor_Costo": 147691191.35,
+      "Valor_Utilidad": 36458941.52,
+      "Porcentaje_Utilidad": 19.8,
       "Grupo_Personal": "Grupo Romero"
     },
     {
       "Id": "PRIZd9Wp9Za8Hg5Lj2Sw",
       "Descripcion": "Jhonatan Steven Acevedo Fonseca",
-      "Valor_Mercancia": 231802073,
-      "Valor_Costo": 188211669.44,
-      "Valor_Utilidad": 43590403.56,
-      "Porcentaje_Utilidad": 18.81,
+      "Valor_Mercancia": 284368073,
+      "Valor_Costo": 224843715.76,
+      "Valor_Utilidad": 59524357.24,
+      "Porcentaje_Utilidad": 20.93,
       "Grupo_Personal": "Grupo Romero"
     }
   ],
@@ -4324,7 +4324,7 @@
     },
     "2026-11": {
       "fechaInicial": "2026-11-01",
-      "fechaFinal": "2026-11-24",
+      "fechaFinal": "2026-11-25",
       "totalVendedores": 45,
       "vendedores": [
         {
@@ -4402,19 +4402,19 @@
         {
           "Id": "PRILi1Ea7Oh5Db3Gu3Gc",
           "Descripcion": "Maria Angelica Alvarez Morales",
-          "Valor_Mercancia": 796552487.29,
-          "Valor_Costo": 651253421.96,
-          "Valor_Utilidad": 145299065.33,
-          "Porcentaje_Utilidad": 18.24,
+          "Valor_Mercancia": 807778037.29,
+          "Valor_Costo": 661729206.81,
+          "Valor_Utilidad": 146048830.48,
+          "Porcentaje_Utilidad": 18.08,
           "Grupo_Personal": "Grupo Beltran"
         },
         {
           "Id": "PRIMu7Hg6Pj0Wy0Oj7Ms",
           "Descripcion": "Oscar Alejandro Beltran Garzon",
-          "Valor_Mercancia": 28294599.2,
-          "Valor_Costo": 21995312.92,
-          "Valor_Utilidad": 6299286.28,
-          "Porcentaje_Utilidad": 22.26,
+          "Valor_Mercancia": 35020953.2,
+          "Valor_Costo": 27414630.63,
+          "Valor_Utilidad": 7606322.57,
+          "Porcentaje_Utilidad": 21.72,
           "Grupo_Personal": "Grupo Beltran"
         },
         {
@@ -4429,10 +4429,10 @@
         {
           "Id": "PRIRe3Ey3Fu2Qn7Rg5Rp",
           "Descripcion": "Dilma Constanza Cuesta Rubiano",
-          "Valor_Mercancia": 213477458.8,
-          "Valor_Costo": 174428894.45,
-          "Valor_Utilidad": 39048564.35,
-          "Porcentaje_Utilidad": 18.29,
+          "Valor_Mercancia": 213566288.8,
+          "Valor_Costo": 174491515.52,
+          "Valor_Utilidad": 39074773.28,
+          "Porcentaje_Utilidad": 18.3,
           "Grupo_Personal": "Grupo Beltran"
         },
         {
@@ -4456,19 +4456,19 @@
         {
           "Id": "PRIBp9Qy8Kv3Av2Nq8Oz",
           "Descripcion": "Angela Rocio Torres Matallana",
-          "Valor_Mercancia": 152744687,
-          "Valor_Costo": 136111129.6,
-          "Valor_Utilidad": 16633557.4,
+          "Valor_Mercancia": 154299087,
+          "Valor_Costo": 137495897.6,
+          "Valor_Utilidad": 16803189.4,
           "Porcentaje_Utilidad": 10.89,
           "Grupo_Personal": "Grupo Caballero"
         },
         {
           "Id": "PRIDd7Fx9Wd2Kx8Fm8Rf",
           "Descripcion": "Johanna Jaime Murcia",
-          "Valor_Mercancia": 212245223.99,
-          "Valor_Costo": 178547127.61,
-          "Valor_Utilidad": 33698096.38,
-          "Porcentaje_Utilidad": 15.88,
+          "Valor_Mercancia": 216545223.99,
+          "Valor_Costo": 182309976.73,
+          "Valor_Utilidad": 34235247.26,
+          "Porcentaje_Utilidad": 15.81,
           "Grupo_Personal": "Grupo Caballero"
         },
         {
@@ -4483,19 +4483,19 @@
         {
           "Id": "PRIEe9Kb0Bb6Kq8Vc0Lv",
           "Descripcion": "Cesar Augusto Cespedes Sabroso",
-          "Valor_Mercancia": 85284339,
-          "Valor_Costo": 73992583.15,
-          "Valor_Utilidad": 11291755.85,
-          "Porcentaje_Utilidad": 13.24,
+          "Valor_Mercancia": 88984059,
+          "Valor_Costo": 76864636.9,
+          "Valor_Utilidad": 12119422.1,
+          "Porcentaje_Utilidad": 13.62,
           "Grupo_Personal": "Grupo Caballero"
         },
         {
           "Id": "PRIEi8Cc1Ry6Iw3Um3Vj",
           "Descripcion": "Daniel Galindo Giron",
-          "Valor_Mercancia": 175498339,
-          "Valor_Costo": 149360727.87,
-          "Valor_Utilidad": 26137611.13,
-          "Porcentaje_Utilidad": 14.89,
+          "Valor_Mercancia": 200176339,
+          "Valor_Costo": 169732058.18,
+          "Valor_Utilidad": 30444280.82,
+          "Porcentaje_Utilidad": 15.21,
           "Grupo_Personal": "Grupo Caballero"
         },
         {
@@ -4555,37 +4555,37 @@
         {
           "Id": "PRIAk3Nu3Uv2Gl1Gy5Xn",
           "Descripcion": "Julieth Milena Galindo Fino",
-          "Valor_Mercancia": 120607336.04,
-          "Valor_Costo": 106828095.95,
-          "Valor_Utilidad": 13779240.09,
-          "Porcentaje_Utilidad": 11.42,
+          "Valor_Mercancia": 120750796.04,
+          "Valor_Costo": 106934367.4,
+          "Valor_Utilidad": 13816428.64,
+          "Porcentaje_Utilidad": 11.44,
           "Grupo_Personal": "Grupo Novoa"
         },
         {
           "Id": "PRIDn1Mq8Zg0Ho7Ot0Uh",
           "Descripcion": "Mariela Ramírez Castro",
-          "Valor_Mercancia": 55615516,
-          "Valor_Costo": 47188997.78,
-          "Valor_Utilidad": 8426518.22,
-          "Porcentaje_Utilidad": 15.15,
+          "Valor_Mercancia": 56821516,
+          "Valor_Costo": 48168652.78,
+          "Valor_Utilidad": 8652863.22,
+          "Porcentaje_Utilidad": 15.23,
           "Grupo_Personal": "Grupo Novoa"
         },
         {
           "Id": "PRIFx4Dm6Qn2Bc9Xn8Bb",
           "Descripcion": "Mario Reyes Gutierrez",
-          "Valor_Mercancia": 101327891,
-          "Valor_Costo": 82417388.78,
-          "Valor_Utilidad": 18910502.22,
-          "Porcentaje_Utilidad": 18.66,
+          "Valor_Mercancia": 111222891,
+          "Valor_Costo": 91437181.78,
+          "Valor_Utilidad": 19785709.22,
+          "Porcentaje_Utilidad": 17.79,
           "Grupo_Personal": "Grupo Novoa"
         },
         {
           "Id": "PRIGs4Jk3Cw1Ky5Ax7Gc",
           "Descripcion": "Rosmira Rojas Puentes",
-          "Valor_Mercancia": 120357556,
-          "Valor_Costo": 102529384.92,
-          "Valor_Utilidad": 17828171.08,
-          "Porcentaje_Utilidad": 14.81,
+          "Valor_Mercancia": 123876582,
+          "Valor_Costo": 105253175.07,
+          "Valor_Utilidad": 18623406.93,
+          "Porcentaje_Utilidad": 15.03,
           "Grupo_Personal": "Grupo Novoa"
         },
         {
@@ -4609,10 +4609,10 @@
         {
           "Id": "PRIMb5Ds5Nm0Qx0Sj4Yu",
           "Descripcion": "Adriana Cecilia Ramirez Muñoz",
-          "Valor_Mercancia": 65709146,
-          "Valor_Costo": 58620697.66,
-          "Valor_Utilidad": 7088448.34,
-          "Porcentaje_Utilidad": 10.79,
+          "Valor_Mercancia": 99613458,
+          "Valor_Costo": 85837462.35,
+          "Valor_Utilidad": 13775995.65,
+          "Porcentaje_Utilidad": 13.83,
           "Grupo_Personal": "Grupo Novoa"
         },
         {
@@ -4636,19 +4636,19 @@
         {
           "Id": "PRIUe3Up1Mt8Lp6Ui2Oy",
           "Descripcion": "Javier Antonio Cortes Murcia",
-          "Valor_Mercancia": 85919550,
-          "Valor_Costo": 68654589.38,
-          "Valor_Utilidad": 17264960.62,
-          "Porcentaje_Utilidad": 20.09,
+          "Valor_Mercancia": 86156350,
+          "Valor_Costo": 68856766.82,
+          "Valor_Utilidad": 17299583.18,
+          "Porcentaje_Utilidad": 20.08,
           "Grupo_Personal": "Grupo Novoa"
         },
         {
           "Id": "PRIWo4Qc9Hp0Gq3At2Jp",
           "Descripcion": "Wilson Fernando Sanchez Monroy",
-          "Valor_Mercancia": 83477651.5,
-          "Valor_Costo": 66304452.08,
-          "Valor_Utilidad": 17173199.42,
-          "Porcentaje_Utilidad": 20.57,
+          "Valor_Mercancia": 86893471.5,
+          "Valor_Costo": 69336025.93,
+          "Valor_Utilidad": 17557445.57,
+          "Porcentaje_Utilidad": 20.21,
           "Grupo_Personal": "Grupo Novoa"
         },
         {
@@ -4663,19 +4663,19 @@
         {
           "Id": "PRIBf4De8Hh5Nn1Ti1Pi",
           "Descripcion": "Yeison Alonso Urrego Cortes",
-          "Valor_Mercancia": 1388825899.77,
-          "Valor_Costo": 1225268814.96,
-          "Valor_Utilidad": 163557084.81,
+          "Valor_Mercancia": 1389135899.77,
+          "Valor_Costo": 1225471457.76,
+          "Valor_Utilidad": 163664442.01,
           "Porcentaje_Utilidad": 11.78,
           "Grupo_Personal": "Grupo Romero"
         },
         {
           "Id": "PRINu8Wn6Kf3En1Fs4Ip",
           "Descripcion": "Leidy Astrid Jimenez Ossa",
-          "Valor_Mercancia": 362991462.24,
-          "Valor_Costo": 318904716.99,
-          "Valor_Utilidad": 44086745.25,
-          "Porcentaje_Utilidad": 12.15,
+          "Valor_Mercancia": 365305062.24,
+          "Valor_Costo": 320824716.99,
+          "Valor_Utilidad": 44480345.25,
+          "Porcentaje_Utilidad": 12.18,
           "Grupo_Personal": "Grupo Romero"
         },
         {
@@ -4708,28 +4708,28 @@
         {
           "Id": "PRIWu6Pc6Ym2Ct6Ep8Fs",
           "Descripcion": "Diana Catalina Castro Castro",
-          "Valor_Mercancia": 236164978.12,
-          "Valor_Costo": 207744648.39,
-          "Valor_Utilidad": 28420329.73,
-          "Porcentaje_Utilidad": 12.03,
+          "Valor_Mercancia": 240171138.12,
+          "Valor_Costo": 210539220.12,
+          "Valor_Utilidad": 29631918,
+          "Porcentaje_Utilidad": 12.34,
           "Grupo_Personal": "Grupo Romero"
         },
         {
           "Id": "PRIXn6Df1Ys1Ru6Zo7Yi",
           "Descripcion": "Jessica Lorena Valencia Isaza",
-          "Valor_Mercancia": 171545030.99,
-          "Valor_Costo": 143564957.77,
-          "Valor_Utilidad": 27980073.22,
-          "Porcentaje_Utilidad": 16.31,
+          "Valor_Mercancia": 184150132.87,
+          "Valor_Costo": 147691191.35,
+          "Valor_Utilidad": 36458941.52,
+          "Porcentaje_Utilidad": 19.8,
           "Grupo_Personal": "Grupo Romero"
         },
         {
           "Id": "PRIZd9Wp9Za8Hg5Lj2Sw",
           "Descripcion": "Jhonatan Steven Acevedo Fonseca",
-          "Valor_Mercancia": 231802073,
-          "Valor_Costo": 188211669.44,
-          "Valor_Utilidad": 43590403.56,
-          "Porcentaje_Utilidad": 18.81,
+          "Valor_Mercancia": 284368073,
+          "Valor_Costo": 224843715.76,
+          "Valor_Utilidad": 59524357.24,
+          "Porcentaje_Utilidad": 20.93,
           "Grupo_Personal": "Grupo Romero"
         }
       ]
